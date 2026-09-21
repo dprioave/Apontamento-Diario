@@ -95,14 +95,6 @@
   .obra-card.obra-sugestao .meta{ color:var(--accent); }
   .obra-card .nome{ font-size:15.5px; font-weight:600; margin-bottom:6px; }
   .obra-card .meta{ font-size:12px; color:var(--text-faint); font-family:"IBM Plex Mono",monospace; }
-  .obra-new{
-    background:var(--surface-2); border:1.5px dashed var(--border-strong); border-radius:12px;
-    padding:18px; display:flex; align-items:center; gap:10px; margin-bottom:24px;
-  }
-  .obra-new input{
-    flex:1; background:var(--surface-solid); border:1px solid var(--border-strong); border-radius:7px;
-    color:var(--text); font-size:13.5px; padding:9px 11px;
-  }
 
   /* ---------- buttons ---------- */
   .btn{
@@ -252,6 +244,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Só usados na versão standalone (fora do claude.ai), como banco de dados compartilhado — ver makeFirebaseDb() -->
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.2/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.2/firebase-firestore-compat.js"></script>
 
 <div class="page">
   <div id="dbBanner" class="db-banner" hidden></div>
@@ -278,10 +273,6 @@
     <p class="access-note" id="loggedAsNote"></p>
     <div class="link-back" id="btnLogout" style="margin-bottom:18px;">Sair</div>
     <div id="obrasGrid" class="obras-grid"></div>
-    <div class="obra-new">
-      <input type="text" id="novaObraNome" placeholder="Nome da obra (ex: Edifício Empresarial Marie Curie)">
-      <button class="btn" id="btnNovaObra">+ Nova obra</button>
-    </div>
   </div>
 
   <!-- ================= APP ================= -->
@@ -459,17 +450,16 @@
   // Quem consta em qualquer papel passa da tela de entrada, e isso também sugere a lista de acesso
   // ao criar uma obra com nome de uma empresa já conhecida.
   var EMPRESAS_ACESSO = [
-    {nome:"RIO AVE INVESTIMENTOS LTDA", dp:["marilia.santos@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:["alexandre.rego@rioave.com.br"]},
-    {nome:"RIO AVE SUBHOLDING INCORPORAÇÃO LTDA", dp:["marilia.santos@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:[]},
-    {nome:"RESERVA DO PAIVA SPE 01 LTDA", dp:["gabrielle.santos@rioave.com.br","gabriele.silva@rioave.com.br"], eng:["andre.melo@rioave.com.br","hugo.pinheiro@rioave.com.br"]},
-    {nome:"RIO AVE CARNEIROS 01 SPE LTDA", dp:["gabrielle.santos@rioave.com.br","natalia.freitas@rioave.com.br"], eng:["gabriel.maia@rioave.com.br"]},
-    {nome:"RESERVA DO PAIVA SPE 03 LTDA", dp:["gabrielle.santos@rioave.com.br","gabriele.silva@rioave.com.br"], eng:["andre.melo@rioave.com.br","hugo.pinheiro@rioave.com.br"]},
-    {nome:"CONDOMÍNIO DO EDIFÍCIO EMPRESARIAL MARIE CURIE", dp:["davi.silva@rioave.com.br","alice.venancio@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:["fernando.santiago@rioave.com.br","sandro.bernardo@rioave.com.br"]},
-    {nome:"RIO AVE 200 SPE LTDA", dp:["yasmin.silva@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:["emmanuel.inacio@rioave.com.br"]},
-    {nome:"RIO AVE OASIS TORRE 1 SPE LTDA", dp:["davi.silva@rioave.com.br","alice.venancio@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:["fernando.santiago@rioave.com.br"]},
-    {nome:"RESERVA DO PAIVA SPE 02 LTDA", dp:["gabriele.silva@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:["andre.melo@rioave.com.br","hugo.pinheiro@rioave.com.br"]},
-    {nome:"RIO AVE POÇO DA PANELA SPE LTDA", dp:["davi.silva@rioave.com.br","amanda.goncalves@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:["julia.maia@rioave.com.br"]},
-    {nome:"RIO AVE EQUIPAMENTOS LTDA", dp:["marilia.santos@rioave.com.br","gabrielle.santos@rioave.com.br"], eng:["tony.carneiro@rioave.com.br"]}
+    {nome:"RIO AVE INVESTIMENTOS LTDA", dp:["marilia.santos@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:["alexandre.rego@rioave.com.br"]},
+    {nome:"RIO AVE SUBHOLDING INCORPORAÇÃO LTDA", dp:["marilia.santos@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:[]},
+    {nome:"RIO AVE CARNEIROS 01 SPE LTDA", dp:["gabrielle.santos@rioave.com.br","natalia.freitas@rioave.com.br","graziele.santos@rioave.com.br"], eng:["gabriel.maia@rioave.com.br"]},
+    {nome:"RESERVA DO PAIVA SPE 03 LTDA", dp:["gabrielle.santos@rioave.com.br","gabriele.silva@rioave.com.br","graziele.santos@rioave.com.br"], eng:["andre.melo@rioave.com.br","hugo.pinheiro@rioave.com.br"]},
+    {nome:"CONDOMÍNIO DO EDIFÍCIO EMPRESARIAL MARIE CURIE", dp:["davi.silva@rioave.com.br","alice.venancio@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:["fernando.santiago@rioave.com.br","sandro.bernardo@rioave.com.br"]},
+    {nome:"RIO AVE 200 SPE LTDA", dp:["yasmin.silva@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:["emmanuel.inacio@rioave.com.br"]},
+    {nome:"RIO AVE OASIS TORRE 1 SPE LTDA", dp:["davi.silva@rioave.com.br","alice.venancio@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:["fernando.santiago@rioave.com.br"]},
+    {nome:"RESERVA DO PAIVA SPE 02 LTDA", dp:["gabriele.silva@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:["andre.melo@rioave.com.br","hugo.pinheiro@rioave.com.br"]},
+    {nome:"RIO AVE POÇO DA PANELA SPE LTDA", dp:["davi.silva@rioave.com.br","amanda.goncalves@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:["julia.maia@rioave.com.br"]},
+    {nome:"RIO AVE EQUIPAMENTOS LTDA", dp:["marilia.santos@rioave.com.br","gabrielle.santos@rioave.com.br","graziele.santos@rioave.com.br"], eng:["tony.carneiro@rioave.com.br"]}
   ];
   function normEmail(s){ return String(s||"").trim().toLowerCase(); }
   function allEmpresaEmails(){
@@ -824,6 +814,48 @@
   // Limitação real, avisada na tela: os dados ficam só neste navegador, não são compartilhados entre
   // pessoas — pra compartilhamento de verdade (DP grava, engenharia vê) é preciso usar o link do
   // claude.ai, que tem banco de dados real por trás.
+  // ---------- Firebase (Firestore), banco compartilhado de verdade pra versão standalone. ----------
+  // Projeto do Rio Ave (apontamento-diario-rioave) — regras abertas (allow read, write: if true),
+  // mesmo nível de segurança "barreira simples" da senha de entrada, não é proteção real: quem tiver
+  // essas chaves consegue ler/escrever direto, sem passar pela tela de login. Aceito conscientemente
+  // pelo usuário (ver memória do projeto) em troca de simplicidade — não tem autenticação real do
+  // Firebase aqui, só o login próprio do painel.
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAiNWdsTeKKQhtG_bAQfLQdgFQaXHtGsuE",
+    authDomain: "apontamento-diario-rioave.firebaseapp.com",
+    projectId: "apontamento-diario-rioave",
+    storageBucket: "apontamento-diario-rioave.firebasestorage.app",
+    messagingSenderId: "374197456300",
+    appId: "1:374197456300:web:83deb90bc4f0480b57fe09"
+  };
+  function makeFirebaseDb(){
+    if(typeof firebase === "undefined" || !firebase.apps) return null;
+    var app = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+    var fs = firebase.firestore(app);
+    function wrapDoc(d){ return {id:d.id, exists:d.exists, data:function(){ return d.data(); }}; }
+    function wrapSnapshot(snap){
+      return {docs: snap.docs.map(wrapDoc), size:snap.size, empty:snap.empty};
+    }
+    return {
+      collection: function(path){
+        var ref = fs.collection(path);
+        return {
+          onSnapshot: function(next, err){ return ref.onSnapshot(function(snap){ next(wrapSnapshot(snap)); }, err); },
+          doc: function(id){
+            var dref = ref.doc(id);
+            return {
+              id:id,
+              get: function(){ return dref.get().then(wrapDoc); },
+              set: function(data){ return dref.set(data); },
+              update: function(data){ return dref.update(data); },
+              delete: function(){ return dref.delete(); }
+            };
+          }
+        };
+      }
+    };
+  }
+
   function makeLocalStorageDb(){
     var PREFIX = "apontamento-diario-db:";
     var listeners = {};
@@ -898,8 +930,14 @@
         subscribeObras(db);
       });
     } else {
-      state.db = makeLocalStorageDb();
-      showDbBanner("Versão standalone (fora do claude.ai): os dados ficam salvos só neste navegador, não são compartilhados entre DP e engenharia. Para compartilhamento de verdade, use o link do claude.ai.");
+      var fbDb = null;
+      try{ fbDb = makeFirebaseDb(); }catch(e){ fbDb = null; }
+      if(fbDb){
+        state.db = fbDb; // Firebase conectado — dados compartilhados de verdade, sem banner de aviso.
+      } else {
+        state.db = makeLocalStorageDb();
+        showDbBanner("Versão standalone (fora do claude.ai) sem Firebase disponível: os dados ficam salvos só neste navegador, não são compartilhados entre DP e engenharia.");
+      }
       subscribeObras(state.db);
     }
   }
@@ -1007,7 +1045,7 @@
     }).join("");
 
     if(!ids.length && !sugestoes.length){
-      grid.innerHTML = '<div style="color:var(--text-faint);font-size:13px;">Nenhuma obra disponível para o seu acesso — crie uma nova abaixo.</div>';
+      grid.innerHTML = '<div style="color:var(--text-faint);font-size:13px;">Nenhuma obra disponível para o seu acesso — peça pra incluírem seu e-mail em alguma empresa.</div>';
       return;
     }
     grid.innerHTML = existingHtml + sugestoesHtml;
@@ -1036,13 +1074,6 @@
     }).catch(function(err){
       alert("Erro ao criar obra: " + (err&&err.code||"erro"));
     });
-  }
-
-  function criarObra(){
-    var nome = $("novaObraNome").value.trim().toUpperCase();
-    if(!nome) return;
-    criarObraComNome(nome);
-    $("novaObraNome").value = "";
   }
 
   // ================= RENDER: LEGEND =================
@@ -1737,8 +1768,6 @@
   $("btnLogin").addEventListener("click", doLogin);
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
-  $("btnNovaObra").addEventListener("click", criarObra);
-  $("novaObraNome").addEventListener("keydown", function(e){ if(e.key==="Enter") criarObra(); });
   $("btnVoltarGate").addEventListener("click", backToGate);
   $("diaSelecionado").addEventListener("change", renderAll);
   $("mesGrade").addEventListener("change", renderGrade);
