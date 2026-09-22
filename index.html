@@ -206,11 +206,15 @@
   .grade-wrap{ overflow:auto; border:1px solid var(--border); border-radius:10px; max-height:70vh; }
   table.grade{ border-collapse:collapse; background:var(--surface-solid); font-size:11.5px; }
   table.grade th, table.grade td{ border:1px solid var(--border); padding:0; text-align:center; }
-  table.grade thead th{ position:sticky; top:0; background:var(--surface-2); z-index:2; padding:6px 3px; font-size:10px; }
-  table.grade thead th.col-nome{ left:0; z-index:3; text-align:left; padding-left:10px; }
+  table.grade thead th{ position:sticky; top:0; background:var(--surface-2); z-index:2; padding:4px 3px; font-size:10px; height:20px; }
+  table.grade thead th.weekday-row{ color:var(--text-faint); font-weight:500; font-size:9px; text-transform:uppercase; }
+  table.grade thead tr:last-child th:not(.col-nome){ top:22px; }
+  table.grade thead th.col-nome{ left:0; z-index:3; text-align:left; padding-left:10px; height:44px; }
   table.grade td.col-nome{ position:sticky; left:0; background:var(--surface-solid); text-align:left; padding:6px 10px; font-weight:500; z-index:1; white-space:nowrap; }
   table.grade td.dia-cell{ width:30px; height:30px; cursor:pointer; }
   table.grade td.dia-cell:hover{ outline:1.5px solid var(--accent); outline-offset:-1.5px; }
+  table.grade.read-only td.dia-cell{ cursor:default; }
+  table.grade.read-only td.dia-cell:hover{ outline:none; }
   table.grade td.dia-cell .code-tag{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:10.5px; }
   table.grade td.weekend{ background:rgba(255,255,255,.02); }
 
@@ -244,6 +248,11 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Exportações (Grade/Resumo Mensal em Excel, Resumo Mensal em PDF, Diário em JPG) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- Só usados na versão standalone (fora do claude.ai), como banco de dados compartilhado — ver makeFirebaseDb() -->
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.13.2/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.13.2/firebase-firestore-compat.js"></script>
@@ -296,7 +305,7 @@
 
     <!-- ---- TAB: DIÁRIO ---- -->
     <div class="tabpane active" id="tab-diario">
-      <div class="panel">
+      <div class="panel" id="importPontoPanel">
         <p class="panel-title">Importar ponto do dia</p>
         <p class="panel-hint">Envie o relatório "Ponto Diário" do Secullum (.xlsx ou .pdf). Os arquivos são lidos inteiramente no seu navegador.</p>
         <div class="dropzone" id="dzImport">
@@ -313,6 +322,7 @@
           <label for="diaSelecionado">Dia</label>
           <input type="date" id="diaSelecionado">
         </div>
+        <button class="btn-ghost" id="btnExportDiarioJpg">⬇ Exportar JPG</button>
       </div>
 
       <div class="kpis" id="diaKpis"></div>
@@ -335,6 +345,7 @@
           <label for="mesGrade">Mês</label>
           <input type="month" id="mesGrade">
         </div>
+        <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
@@ -346,6 +357,8 @@
           <label for="mesResumo">Mês</label>
           <input type="month" id="mesResumo">
         </div>
+        <button class="btn-ghost" id="btnExportMensalExcel">⬇ Exportar Excel</button>
+        <button class="btn-ghost" id="btnExportMensalPdf">⬇ Exportar PDF</button>
       </div>
       <div class="kpis" id="mensalKpis"></div>
       <div class="table-wrap">
@@ -367,7 +380,7 @@
       <div id="naoEncontradosBox"></div>
       <div id="desligamentosBox"></div>
 
-      <div class="panel">
+      <div class="panel" id="importCadastroPanel">
         <p class="panel-title">Importar cadastro inicial</p>
         <p class="panel-hint">Suba a aba "Cadastro" de uma planilha por obra (Nome / Função / Admissão), ou o arquivo único de ativos do grupo (Empresa / Nome da Empresa / Funcionário / Nome do Funcionário / Função / Admissão) — nesse caso só os funcionários desta obra são importados, o resto do arquivo é ignorado automaticamente. Funcionários que já existem no cadastro desta obra são ignorados.</p>
         <div class="dropzone" id="dzCadastro">
@@ -378,7 +391,7 @@
         <div class="status-msg" id="cadastroImportStatus"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="addFuncionarioPanel">
         <p class="panel-title">Adicionar funcionário</p>
         <div class="funcionario-form">
           <div class="field"><label>Nome</label><input type="text" id="novoFuncNome"></div>
@@ -514,6 +527,10 @@
     var d = new Date(iso+"T00:00:00");
     var w = d.getDay();
     return w===0 || w===6;
+  }
+  var WEEKDAY_LABELS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  function weekdayLabel(iso){
+    return WEEKDAY_LABELS[new Date(iso+"T00:00:00").getDay()];
   }
   function daysInMonth(ym){
     var p = ym.split("-"); var y=+p[0], m=+p[1];
@@ -968,6 +985,17 @@
     return dp.map(normEmail).indexOf(state.email)>=0 || eng.map(normEmail).indexOf(state.email)>=0;
   }
 
+  // Engenharia só visualiza: qualquer e-mail que não esteja na lista de DP da obra (mesmo estando
+  // na lista de Engenharia, ou numa obra ainda sem lista definida) não pode importar, editar
+  // ausências, mexer no cadastro nem nos acessos — só ver os painéis.
+  function isReadOnly(){
+    var obra = state.obras[state.obraId];
+    if(!obra) return true;
+    var dp = obra.dpEmails||[];
+    if(!dp.length) return false; // obra sem lista de DP definida: não restringe (mesma exceção do temAcessoObra)
+    return dp.map(normEmail).indexOf(state.email)<0;
+  }
+
   function selectObra(obraId){
     var obraCheck = state.obras[obraId];
     if(obraCheck && !temAcessoObra(obraCheck)){
@@ -1104,6 +1132,9 @@
 
   function renderDiario(){
     var iso = $("diaSelecionado").value || todayIso();
+    var readOnly = isReadOnly();
+    $("importPontoPanel").style.display = readOnly ? "none" : "block";
+    $("btnAddAusenciaManual").style.display = readOnly ? "none" : "inline-block";
     var ativos = ativosList();
     var ausentesIds = [];
     ativos.forEach(function(id){
@@ -1135,12 +1166,13 @@
         var f = state.funcionarios[r.id] || {};
         var codeHtml = codePill(r.a.codigo);
         var origemHtml = r.a.origem==="manual" ? "Manual" : "Importado";
+        var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-edit-func="'+r.id+'">Editar</button>';
         return "<tr>"+
           '<td class="nome">'+escapeHtml(r.nome)+"</td>"+
           "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
           "<td>"+codeHtml+"</td>"+
           "<td>"+origemHtml+"</td>"+
-          '<td><button class="btn-ghost btn-sm" data-edit-func="'+r.id+'">Editar</button></td>'+
+          "<td>"+acaoHtml+"</td>"+
         "</tr>";
       }).join("");
     }
@@ -1208,6 +1240,318 @@
         return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+" — "+item.dias+" dias ("+fmtDateBR(item.inicio)+" a "+fmtDateBR(item.fim)+")"+tagCurso+'</span></div>';
       }).join("") +
     '</div>';
+  }
+
+  // ================= EXPORTAÇÕES (mesmo padrão visual "pretty export" já usado no Vale-Transporte/HHT) =================
+  var EXPORT_NAVY = "FF16232E", EXPORT_TEAL = "FF5FB4AE", EXPORT_HEADER_FILL = "FFEEF1F2",
+      EXPORT_HEADER_TEXT = "FF24384A", EXPORT_SUBTITLE_TEXT = "FF6B7378", EXPORT_BODY_TEXT = "FF2A2A2A",
+      EXPORT_ZEBRA = "FFF6F7F7", EXPORT_TOTALS_FILL = "FFE7F3F1", EXPORT_FONT = "Aptos";
+
+  async function saveFile(filename, blob){
+    var downloads = null;
+    try{ if(window.claude && window.claude.use) downloads = await window.claude.use("downloads"); }catch(e){ downloads = null; }
+    if(downloads){
+      try{ await downloads.save({filename:filename, data:blob}); return; }
+      catch(e){ if(e && e.code==="declined") return; /* senão cai no fallback abaixo */ }
+    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+
+  // Monta o cabeçalho padrão (título navy, subtítulo cinza, faixa navy com a linha de info) e devolve
+  // o índice da linha onde a tabela de dados deve começar.
+  function buildExportHeader(ws, titulo, subtitulo, infoLine, lastCol){
+    ws.views = [{showGridLines:false}];
+    ws.getRow(1).height = 6;
+    ws.mergeCells(2, 2, 2, lastCol);
+    var t = ws.getCell(2,2);
+    t.value = titulo;
+    t.font = {name:EXPORT_FONT, size:16, bold:true, color:{argb:EXPORT_NAVY}};
+    ws.getRow(2).height = 24;
+
+    ws.mergeCells(3, 2, 3, lastCol);
+    var s = ws.getCell(3,2);
+    s.value = subtitulo;
+    s.font = {name:EXPORT_FONT, size:9.5, color:{argb:EXPORT_SUBTITLE_TEXT}};
+
+    ws.getRow(4).height = 6;
+    ws.getRow(5).height = 6;
+
+    ws.getRow(6).height = 22;
+    for(var c=1;c<=lastCol;c++){
+      var bc = ws.getCell(6,c);
+      bc.fill = {type:"pattern", pattern:"solid", fgColor:{argb:EXPORT_NAVY}};
+    }
+    ws.mergeCells(6, 2, 6, lastCol);
+    var band = ws.getCell(6,2);
+    band.value = infoLine;
+    band.font = {name:EXPORT_FONT, size:11, bold:true, color:{argb:"FFFFFFFF"}};
+    band.alignment = {vertical:"middle", indent:1};
+
+    return 7; // linha do cabeçalho da tabela
+  }
+
+  function styleExportHeaderRow(ws, rowIdx, firstCol, lastCol){
+    var row = ws.getRow(rowIdx);
+    row.height = 20;
+    for(var c=firstCol;c<=lastCol;c++){
+      var cell = ws.getCell(rowIdx,c);
+      cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb:EXPORT_HEADER_FILL}};
+      cell.font = {name:EXPORT_FONT, size:9.5, bold:true, color:{argb:EXPORT_HEADER_TEXT}};
+      cell.alignment = {vertical:"middle", horizontal:"center"};
+      cell.border = {bottom:{style:"thin", color:{argb:EXPORT_TEAL}}};
+    }
+  }
+
+  function styleExportDataRow(ws, rowIdx, firstCol, lastCol, zebra){
+    var row = ws.getRow(rowIdx);
+    for(var c=firstCol;c<=lastCol;c++){
+      var cell = ws.getCell(rowIdx,c);
+      cell.font = {name:EXPORT_FONT, size:10, color:{argb:EXPORT_BODY_TEXT}};
+      if(zebra) cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb:EXPORT_ZEBRA}};
+      cell.border = {top:{style:"hair", color:{argb:"FFE1E4E6"}}, bottom:{style:"hair", color:{argb:"FFE1E4E6"}}};
+    }
+  }
+
+  function styleExportTotalsRow(ws, rowIdx, firstCol, lastCol){
+    var row = ws.getRow(rowIdx);
+    for(var c=firstCol;c<=lastCol;c++){
+      var cell = ws.getCell(rowIdx,c);
+      cell.font = {name:EXPORT_FONT, size:10, bold:true, color:{argb:EXPORT_NAVY}};
+      cell.fill = {type:"pattern", pattern:"solid", fgColor:{argb:EXPORT_TOTALS_FILL}};
+      cell.border = {top:{style:"thin", color:{argb:EXPORT_TEAL}}};
+    }
+  }
+
+  function periodoLabel(){
+    var d = new Date();
+    return d.toLocaleDateString("pt-BR");
+  }
+
+  async function exportGradeExcel(){
+    var ym = $("mesGrade").value || todayIso().slice(0,7);
+    var nDias = daysInMonth(ym);
+    var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var obraNome = (state.obras[state.obraId]||{}).nome || "";
+    var mesLabel = new Date(ym+"-01T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+
+    var wb = new ExcelJS.Workbook();
+    var ws = wb.addWorksheet("Grade do Mês");
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias; // margem + nome + dias
+
+    var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, "Competência: "+mesLabel+" · Gerado em "+periodoLabel(),
+      "Funcionários ativos: "+ativos.length+"  |  Dias no mês: "+nDias, lastCol);
+
+    ws.getColumn(1).width = 1.8;
+    ws.getColumn(FIRST_COL).width = 30;
+    for(var d=1; d<=nDias; d++) ws.getColumn(FIRST_COL+1+d).width = 4;
+
+    ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
+    for(var d2=1; d2<=nDias; d2++){
+      ws.getCell(headerRow, FIRST_COL+1+d2).value = d2;
+    }
+    styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
+
+    ativos.forEach(function(fid, idx){
+      var r = headerRow+1+idx;
+      ws.getCell(r, FIRST_COL).value = funcName(fid);
+      ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
+      for(var d3=1; d3<=nDias; d3++){
+        var iso = ym+"-"+String(d3).padStart(2,"0");
+        var a = getAusenciaDoDia(iso, fid);
+        var cell = ws.getCell(r, FIRST_COL+1+d3);
+        cell.value = (a && a.codigo) ? a.codigo : "";
+        cell.alignment = {horizontal:"center"};
+      }
+      styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
+    });
+
+    ws.views.push({state:"frozen", ySplit:headerRow, xSplit:FIRST_COL});
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    await saveFile("Grade do Mes - "+obraNome+" - "+ym+".xlsx", blob);
+  }
+
+  async function exportResumoMensalExcel(){
+    var dados = computeResumoMensal();
+    var obraNome = (state.obras[state.obraId]||{}).nome || "";
+    var mesLabel = new Date(dados.ym+"-01T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+
+    var wb = new ExcelJS.Workbook();
+    var ws = wb.addWorksheet("Resumo Mensal");
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + CODES.length; // margem + nome + função + códigos
+
+    var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, "Competência: "+mesLabel+" · Gerado em "+periodoLabel(),
+      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no mês: "+dados.somaTotal, lastCol);
+
+    ws.getColumn(1).width = 1.8;
+    ws.getColumn(FIRST_COL).width = 30;
+    ws.getColumn(FIRST_COL+1).width = 22;
+    CODES.forEach(function(c,i){ ws.getColumn(FIRST_COL+2+i).width = 9; });
+
+    ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
+    ws.getCell(headerRow, FIRST_COL+1).value = "Função";
+    CODES.forEach(function(c,i){ ws.getCell(headerRow, FIRST_COL+2+i).value = CODE_META[c].label; });
+    styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
+
+    var r = headerRow;
+    dados.rows.forEach(function(row, idx){
+      r = headerRow+1+idx;
+      ws.getCell(r, FIRST_COL).value = row.nome;
+      ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
+      ws.getCell(r, FIRST_COL+1).value = row.funcao;
+      ws.getCell(r, FIRST_COL+1).alignment = {horizontal:"left"};
+      CODES.forEach(function(c,i){
+        var cell = ws.getCell(r, FIRST_COL+2+i);
+        cell.value = row.t[c];
+        cell.alignment = {horizontal:"center"};
+      });
+      styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
+    });
+
+    var totalsR = r+1;
+    ws.getCell(totalsR, FIRST_COL).value = "TOTAL";
+    ws.getCell(totalsR, FIRST_COL).alignment = {horizontal:"left"};
+    ws.getCell(totalsR, FIRST_COL+1).value = "";
+    CODES.forEach(function(c,i){
+      var cell = ws.getCell(totalsR, FIRST_COL+2+i);
+      cell.value = dados.totals[c];
+      cell.alignment = {horizontal:"center"};
+    });
+    styleExportTotalsRow(ws, totalsR, FIRST_COL, lastCol);
+
+    ws.views.push({state:"frozen", ySplit:headerRow});
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    await saveFile("Resumo Mensal - "+obraNome+" - "+dados.ym+".xlsx", blob);
+  }
+
+  function exportResumoMensalPdf(){
+    var dados = computeResumoMensal();
+    var obraNome = (state.obras[state.obraId]||{}).nome || "";
+    var mesLabel = new Date(dados.ym+"-01T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    var jsPdf = window.jspdf.jsPDF;
+    var doc = new jsPdf({orientation:"landscape", unit:"pt", format:"a4"});
+
+    doc.setFillColor(22,35,46);
+    doc.rect(0,0,doc.internal.pageSize.getWidth(),50,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold"); doc.setFontSize(15);
+    doc.text("RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, 24, 24);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    doc.text("Competência: "+mesLabel+" · Gerado em "+periodoLabel()+" · Funcionários ativos: "+dados.ativos.length, 24, 40);
+
+    var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label; }))];
+    var body = dados.rows.map(function(row){
+      return [row.nome, row.funcao].concat(CODES.map(function(c){ return String(row.t[c]); }));
+    });
+    body.push(["TOTAL",""].concat(CODES.map(function(c){ return String(dados.totals[c]); })));
+
+    doc.autoTable({
+      head: head, body: body, startY: 64,
+      styles: {font:"helvetica", fontSize:9, textColor:[42,42,42], lineColor:[225,228,230], lineWidth:0.5},
+      headStyles: {fillColor:[238,241,242], textColor:[36,56,74], fontStyle:"bold", lineWidth:{bottom:1}, lineColor:[95,180,174]},
+      alternateRowStyles: {fillColor:[246,247,247]},
+      didParseCell: function(data){
+        if(data.row.index === body.length-1 && data.section==="body"){
+          data.cell.styles.fillColor = [231,243,241];
+          data.cell.styles.textColor = [22,35,46];
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
+    });
+
+    doc.save("Resumo Mensal - "+obraNome+" - "+dados.ym+".pdf");
+  }
+
+  function computeResumoMensal(){
+    var ym = $("mesResumo").value || todayIso().slice(0,7);
+    var nDias = daysInMonth(ym);
+    var ativos = ativosList();
+    var totals = {}; CODES.forEach(function(c){ totals[c]=0; });
+    var perFunc = {};
+    ativos.forEach(function(fid){ perFunc[fid]={}; CODES.forEach(function(c){ perFunc[fid][c]=0; }); });
+    for(var d=1; d<=nDias; d++){
+      var iso = ym+"-"+String(d).padStart(2,"0");
+      var doc = state.dias[iso];
+      if(!doc || !doc.ausencias) continue;
+      Object.keys(doc.ausencias).forEach(function(fid){
+        var a = doc.ausencias[fid];
+        if(a.codigo && perFunc[fid]){ perFunc[fid][a.codigo]++; totals[a.codigo]++; }
+      });
+    }
+    var somaTotal = CODES.reduce(function(s,c){ return s+totals[c]; },0);
+    var rows = ativos.map(function(fid){
+      var f = state.funcionarios[fid] || {};
+      var t = perFunc[fid];
+      var soma = CODES.reduce(function(s,c){ return s+t[c]; },0);
+      return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, soma:soma};
+    }).filter(function(r){ return r.soma>0; }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+    return {ym:ym, ativos:ativos, totals:totals, rows:rows, somaTotal:somaTotal};
+  }
+
+  async function exportDiarioJpg(){
+    var iso = $("diaSelecionado").value || todayIso();
+    var obraNome = (state.obras[state.obraId]||{}).nome || "";
+    var ativos = ativosList();
+    var ausentes = ativos.map(function(id){ return {id:id, a:getAusenciaDoDia(iso,id), nome:funcName(id)}; })
+      .filter(function(r){ return r.a && r.a.codigo; }).sort(function(x,y){ return x.nome.localeCompare(y.nome); });
+    var presentes = ativos.length - ausentes.length;
+    var pct = ativos.length ? Math.round((presentes/ativos.length)*1000)/10 : 0;
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed; left:-9999px; top:0; width:760px; font-family:'IBM Plex Sans',sans-serif; background:#fff;";
+    var kpiHtml = [
+      ["TOTAL ATIVOS", ativos.length],
+      ["PRESENTES", presentes],
+      ["AUSENTES", ausentes.length],
+      ["% PRESENÇA", pct+"%"]
+    ].map(function(k){
+      return '<div style="flex:1;background:#F6F7F7;border-radius:8px;padding:14px 4px;text-align:center;">'+
+        '<div style="font-size:10px;letter-spacing:.06em;color:#6B7378;text-transform:uppercase;margin-bottom:6px;">'+k[0]+'</div>'+
+        '<div style="font-size:22px;font-weight:700;color:#16232E;">'+k[1]+'</div></div>';
+    }).join('<div style="width:10px;"></div>');
+
+    var rowsHtml = ausentes.length ? ausentes.map(function(r, idx){
+      var f = state.funcionarios[r.id] || {};
+      var meta = CODE_META[r.a.codigo];
+      var bg = idx%2===1 ? "#F6F7F7" : "#FFFFFF";
+      return '<tr style="background:'+bg+';">'+
+        '<td style="padding:9px 12px;font-size:12.5px;color:#2A2A2A;border-bottom:1px solid #E1E4E6;">'+escapeHtml(r.nome)+'</td>'+
+        '<td style="padding:9px 12px;font-size:12.5px;color:#2A2A2A;border-bottom:1px solid #E1E4E6;">'+escapeHtml(f.funcao||"—")+'</td>'+
+        '<td style="padding:9px 12px;font-size:12px;font-weight:700;color:#16232E;border-bottom:1px solid #E1E4E6;">'+r.a.codigo+" — "+meta.label+'</td>'+
+      "</tr>";
+    }).join("") : '<tr><td colspan="3" style="padding:20px;text-align:center;color:#6B7378;font-size:12.5px;">Nenhuma ausência registrada.</td></tr>';
+
+    wrap.innerHTML =
+      '<div style="background:#16232E;padding:18px 24px;">'+
+        '<div style="color:#fff;font-size:17px;font-weight:700;">APONTAMENTO DIÁRIO — '+escapeHtml(obraNome)+'</div>'+
+        '<div style="color:#9CA7B4;font-size:12px;margin-top:3px;">'+fmtDateBR(iso)+'</div>'+
+      '</div>'+
+      '<div style="padding:20px 24px;">'+
+        '<div style="display:flex;margin-bottom:20px;">'+kpiHtml+'</div>'+
+        '<table style="width:100%;border-collapse:collapse;border:1px solid #E1E4E6;border-radius:8px;overflow:hidden;">'+
+          '<thead><tr style="background:#EEF1F2;">'+
+            '<th style="padding:9px 12px;text-align:left;font-size:10.5px;letter-spacing:.05em;color:#24384A;text-transform:uppercase;border-bottom:2px solid #5FB4AE;">Funcionário</th>'+
+            '<th style="padding:9px 12px;text-align:left;font-size:10.5px;letter-spacing:.05em;color:#24384A;text-transform:uppercase;border-bottom:2px solid #5FB4AE;">Função</th>'+
+            '<th style="padding:9px 12px;text-align:left;font-size:10.5px;letter-spacing:.05em;color:#24384A;text-transform:uppercase;border-bottom:2px solid #5FB4AE;">Status</th>'+
+          '</tr></thead>'+
+          '<tbody>'+rowsHtml+'</tbody>'+
+        '</table>'+
+        '<div style="margin-top:16px;font-size:10.5px;color:#6B7378;">Gerado em '+periodoLabel()+' pelo Apontamento Diário</div>'+
+      '</div>';
+
+    document.body.appendChild(wrap);
+    try{
+      var canvas = await html2canvas(wrap, {scale:2, backgroundColor:"#ffffff"});
+      var blob = await new Promise(function(resolve){ canvas.toBlob(resolve, "image/jpeg", 0.92); });
+      await saveFile("Apontamento Diario - "+obraNome+" - "+iso+".jpg", blob);
+    } finally {
+      document.body.removeChild(wrap);
+    }
   }
 
   // ================= IMPORT =================
@@ -1332,7 +1676,7 @@
 
   function confirmarImport(){
     var pend = state.pendingImport;
-    if(!pend || !state.db){ return; }
+    if(!pend || !state.db || isReadOnly()){ return; }
     var iso = $("importDataConfirm").value || pend.data || todayIso();
 
     var existingDoc = state.dias[iso] || {};
@@ -1394,10 +1738,15 @@
     var nDias = daysInMonth(ym);
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
 
-    var thead = '<thead><tr><th class="col-nome">Funcionário</th>';
+    var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário</th>';
     for(var d=1; d<=nDias; d++){
       var iso = ym+"-"+String(d).padStart(2,"0");
-      thead += '<th class="'+(isWeekend(iso)?"weekend":"")+'">'+d+"</th>";
+      thead += '<th class="weekday-row '+(isWeekend(iso)?"weekend":"")+'">'+weekdayLabel(iso)+"</th>";
+    }
+    thead += "</tr><tr>";
+    for(var d2=1; d2<=nDias; d2++){
+      var iso3 = ym+"-"+String(d2).padStart(2,"0");
+      thead += '<th class="'+(isWeekend(iso3)?"weekend":"")+'">'+d2+"</th>";
     }
     thead += "</tr></thead>";
 
@@ -1421,52 +1770,30 @@
 
     var table = $("gradeTable");
     table.innerHTML = thead + tbody;
-    Array.prototype.forEach.call(table.querySelectorAll("td.dia-cell"), function(el){
-      el.addEventListener("click", function(){
-        openAusenciaModal(el.getAttribute("data-dia"), el.getAttribute("data-func"));
+    if(isReadOnly()){
+      table.classList.add("read-only");
+    } else {
+      table.classList.remove("read-only");
+      Array.prototype.forEach.call(table.querySelectorAll("td.dia-cell"), function(el){
+        el.addEventListener("click", function(){
+          openAusenciaModal(el.getAttribute("data-dia"), el.getAttribute("data-func"));
+        });
       });
-    });
+    }
   }
 
   // ================= TAB: RESUMO MENSAL =================
   function renderMensal(){
-    var ym = $("mesResumo").value || todayIso().slice(0,7);
-    var nDias = daysInMonth(ym);
-    var ativos = ativosList();
-
-    var totals = {}; CODES.forEach(function(c){ totals[c]=0; });
-    var perFunc = {};
-    ativos.forEach(function(fid){ perFunc[fid]={}; CODES.forEach(function(c){ perFunc[fid][c]=0; }); });
-
-    for(var d=1; d<=nDias; d++){
-      var iso = ym+"-"+String(d).padStart(2,"0");
-      var doc = state.dias[iso];
-      if(!doc || !doc.ausencias) continue;
-      Object.keys(doc.ausencias).forEach(function(fid){
-        var a = doc.ausencias[fid];
-        if(a.codigo && perFunc[fid]){
-          perFunc[fid][a.codigo]++;
-          totals[a.codigo]++;
-        }
-      });
-    }
-
+    var dados = computeResumoMensal();
     $("mensalKpis").innerHTML = CODES.map(function(c){
-      return kpiCard(CODE_META[c].label, totals[c], totals[c]?"bad":"");
+      return kpiCard(CODE_META[c].label, dados.totals[c], dados.totals[c]?"bad":"");
     }).join("");
 
-    var rows = ativos.map(function(fid){
-      var f = state.funcionarios[fid] || {};
-      var t = perFunc[fid];
-      var somaTotal = CODES.reduce(function(s,c){ return s+t[c]; },0);
-      return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, soma:somaTotal};
-    }).filter(function(r){ return r.soma>0; }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
-
     var tbody = $("mensalTbody");
-    if(!rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length)+'">Nenhuma ausência registrada em '+ym+'.</td></tr>';
+    if(!dados.rows.length){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length)+'">Nenhuma ausência registrada em '+dados.ym+'.</td></tr>';
     } else {
-      tbody.innerHTML = rows.map(function(r){
+      tbody.innerHTML = dados.rows.map(function(r){
         var cells = CODES.map(function(c){ return '<td class="num">'+r.t[c]+"</td>"; }).join("");
         return "<tr>"+
           '<td class="nome">'+escapeHtml(r.nome)+"</td>"+
@@ -1479,36 +1806,40 @@
 
   // ================= TAB: CADASTRO =================
   function renderAcessos(){
+    var readOnly = isReadOnly();
     var obra = state.obras[state.obraId] || {};
     var dp = obra.dpEmails || [];
     var eng = obra.engEmails || [];
     function chips(list, tipo){
       if(!list.length) return '<span style="color:var(--text-faint);font-size:12px;">nenhum</span>';
       return list.map(function(email, idx){
-        return '<span class="email-chip">'+escapeHtml(email)+' <button data-remove="'+tipo+'" data-idx="'+idx+'" title="Remover">×</button></span>';
+        var removeBtn = readOnly ? "" : ' <button data-remove="'+tipo+'" data-idx="'+idx+'" title="Remover">×</button>';
+        return '<span class="email-chip">'+escapeHtml(email)+removeBtn+'</span>';
       }).join("");
     }
     var html =
       '<div style="margin-bottom:10px;"><b style="font-size:12.5px;">DP:</b> '+chips(dp,"dp")+'</div>'+
-      '<div style="margin-bottom:14px;"><b style="font-size:12.5px;">Engenharia:</b> '+chips(eng,"eng")+'</div>'+
-      '<div class="access-emails-form">'+
+      '<div style="margin-bottom:14px;"><b style="font-size:12.5px;">Engenharia:</b> '+chips(eng,"eng")+'</div>';
+    if(!readOnly){
+      html += '<div class="access-emails-form">'+
         '<input type="email" id="novoAcessoEmail" placeholder="email@rioave.com.br">'+
         '<select id="novoAcessoTipo"><option value="dp">DP</option><option value="eng">Engenharia</option></select>'+
         '<button class="btn-ghost btn-sm" id="btnAddAcesso">Adicionar</button>'+
       '</div>';
+    }
     $("acessosBox").innerHTML = html;
     Array.prototype.forEach.call($("acessosBox").querySelectorAll("[data-remove]"), function(el){
       el.addEventListener("click", function(){
         removeAcessoEmail(el.getAttribute("data-remove"), +el.getAttribute("data-idx"));
       });
     });
-    $("btnAddAcesso").addEventListener("click", addAcessoEmail);
+    if(!readOnly) $("btnAddAcesso").addEventListener("click", addAcessoEmail);
   }
 
   function addAcessoEmail(){
     var email = normEmail($("novoAcessoEmail").value);
     var tipo = $("novoAcessoTipo").value;
-    if(!email || !state.db) return;
+    if(!email || !state.db || isReadOnly()) return;
     var obra = state.obras[state.obraId] || {};
     var field = tipo==="eng" ? "engEmails" : "dpEmails";
     var list = (obra[field]||[]).slice();
@@ -1520,7 +1851,7 @@
   }
 
   function removeAcessoEmail(tipo, idx){
-    if(!state.db) return;
+    if(!state.db || isReadOnly()) return;
     var obra = state.obras[state.obraId] || {};
     var field = tipo==="eng" ? "engEmails" : "dpEmails";
     var list = (obra[field]||[]).slice();
@@ -1530,9 +1861,12 @@
   }
 
   function renderCadastro(){
+    var readOnly = isReadOnly();
+    $("importCadastroPanel").style.display = readOnly ? "none" : "block";
+    $("addFuncionarioPanel").style.display = readOnly ? "none" : "block";
     renderAcessos();
-    renderNaoEncontrados();
-    renderDesligamentos();
+    if(!readOnly){ renderNaoEncontrados(); renderDesligamentos(); }
+    else { $("naoEncontradosBox").innerHTML = ""; $("desligamentosBox").innerHTML = ""; }
     var busca = normName($("buscaFuncionario").value);
     var ids = Object.keys(state.funcionarios).filter(function(id){
       return !busca || normName(state.funcionarios[id].nome).indexOf(busca)>=0;
@@ -1546,12 +1880,13 @@
     tbody.innerHTML = ids.map(function(id){
       var f = state.funcionarios[id];
       var statusHtml = f.inativo ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inativo</span>' : '<span class="pill pill-presente">Ativo</span>';
+      var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>";
       return "<tr>"+
         '<td class="nome">'+escapeHtml(f.nome)+"</td>"+
         "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+statusHtml+"</td>"+
-        '<td><button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button></td>"+
+        "<td>"+acaoHtml+"</td>"+
       "</tr>";
     }).join("");
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-toggle-inativo]"), function(el){
@@ -1562,7 +1897,7 @@
   }
 
   function toggleInativo(fid){
-    if(!state.db) return;
+    if(!state.db || isReadOnly()) return;
     var f = state.funcionarios[fid];
     if(!f) return;
     state.db.collection("obras/" + state.obraId + "/funcionarios").doc(fid).update({inativo: !f.inativo}).catch(function(err){
@@ -1575,7 +1910,7 @@
     var funcao = funcaoParam!=null ? funcaoParam : $("novoFuncFuncao").value.trim();
     var admissao = admissaoParam!=null ? admissaoParam : $("novoFuncAdmissao").value;
     var matricula = matriculaParam!=null ? matriculaParam : $("novoFuncMatricula").value.trim();
-    if(!nome || !state.db) return null;
+    if(!nome || !state.db || isReadOnly()) return null;
     var fid = slugify(nome);
     var data = {nome:nome, funcao:funcao||"", admissao:admissao||null, matricula:matricula||"", inativo:false, criadoEm:new Date().toISOString(), criadoPor:state.email};
     state.db.collection("obras/" + state.obraId + "/funcionarios").doc(fid).set(data).then(function(){
@@ -1586,7 +1921,7 @@
 
   function handleImportCadastroFile(){
     var file = $("fileCadastro").files[0];
-    if(!file || !state.db) return;
+    if(!file || !state.db || isReadOnly()) return;
     var statusEl = $("cadastroImportStatus");
     statusEl.className = "status-msg show info";
     statusEl.textContent = "Lendo planilha...";
@@ -1653,7 +1988,7 @@
   }
 
   function linkNaoEncontrado(iso, item, fid){
-    if(!state.db) return;
+    if(!state.db || isReadOnly()) return;
     var doc = state.dias[iso] || {ausencias:{}, naoEncontrados:[]};
     var ausencias = Object.assign({}, doc.ausencias||{});
     ausencias[fid] = {codigo:item.codigo, origem:"import", atualizadoEm:new Date().toISOString()};
@@ -1702,7 +2037,7 @@
   }
 
   function removeDesligamento(iso, lista, item){
-    if(!state.db) return;
+    if(!state.db || isReadOnly()) return;
     var restante = lista.filter(function(x){ return x.funcId!==item.funcId; });
     state.db.collection("obras/" + state.obraId + "/dias").doc(iso).update({possiveisDesligamentos:restante}).catch(function(err){
       alert("Erro: " + (err&&err.code||"erro"));
@@ -1739,7 +2074,7 @@
   function salvarModal(){
     var fid = state.modalFuncId || $("modalFuncSelect").value;
     var iso = state.modalDate;
-    if(!fid || !iso || !state.db) { closeModal(); return; }
+    if(!fid || !iso || !state.db || isReadOnly()) { closeModal(); return; }
     var codigo = $("modalCodigo").value || null;
 
     var doc = state.dias[iso] || {ausencias:{}, naoEncontrados:[]};
@@ -1772,6 +2107,22 @@
   $("diaSelecionado").addEventListener("change", renderAll);
   $("mesGrade").addEventListener("change", renderGrade);
   $("mesResumo").addEventListener("change", renderMensal);
+  function wireExportBtn(id, fn){
+    var btn = $(id);
+    var original = btn.textContent;
+    btn.addEventListener("click", function(){
+      btn.disabled = true; btn.textContent = "Gerando...";
+      Promise.resolve().then(fn).catch(function(err){
+        alert("Erro ao exportar: " + (err && err.message || err));
+      }).finally(function(){
+        btn.disabled = false; btn.textContent = original;
+      });
+    });
+  }
+  wireExportBtn("btnExportDiarioJpg", exportDiarioJpg);
+  wireExportBtn("btnExportGradeExcel", exportGradeExcel);
+  wireExportBtn("btnExportMensalExcel", exportResumoMensalExcel);
+  wireExportBtn("btnExportMensalPdf", exportResumoMensalPdf);
   $("buscaFuncionario").addEventListener("input", renderCadastro);
   $("btnAddFuncionario").addEventListener("click", function(){ addFuncionario(); });
   $("fileCadastro").addEventListener("change", handleImportCadastroFile);
