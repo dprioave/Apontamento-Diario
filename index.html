@@ -343,6 +343,8 @@
 
       <div class="kpis" id="diaKpis"></div>
 
+      <div id="naoEncontradosBox"></div>
+      <div id="desligamentosBox"></div>
       <div id="faltasConsecutivasBox"></div>
 
       <div class="table-wrap">
@@ -392,9 +394,6 @@
         <p class="panel-hint">Só e-mails desta lista conseguem abrir os dados desta obra depois de entrar no painel.</p>
         <div id="acessosBox"></div>
       </div>
-
-      <div id="naoEncontradosBox"></div>
-      <div id="desligamentosBox"></div>
 
       <div class="panel" id="importCadastroPanel">
         <p class="panel-title">Importar cadastro inicial</p>
@@ -1254,6 +1253,8 @@
         openAusenciaModal(iso, el.getAttribute("data-edit-func"));
       });
     });
+    if(!readOnly){ renderNaoEncontrados(); renderDesligamentos(); }
+    else { $("naoEncontradosBox").innerHTML = ""; $("desligamentosBox").innerHTML = ""; }
     renderFaltasConsecutivas();
   }
 
@@ -1938,8 +1939,6 @@
     $("importCadastroPanel").style.display = readOnly ? "none" : "block";
     $("addFuncionarioPanel").style.display = readOnly ? "none" : "block";
     renderAcessos();
-    if(!readOnly){ renderNaoEncontrados(); renderDesligamentos(); }
-    else { $("naoEncontradosBox").innerHTML = ""; $("desligamentosBox").innerHTML = ""; }
     var busca = normName($("buscaFuncionario").value);
     var ids = Object.keys(state.funcionarios).filter(function(id){
       return !busca || normName(state.funcionarios[id].nome).indexOf(busca)>=0;
