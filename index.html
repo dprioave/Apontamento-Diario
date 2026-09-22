@@ -821,7 +821,6 @@
     modalFuncId: null,
     modalDate: null
   };
-  state.dbReady = connectDb();
 
   function funcName(id){ return (state.funcionarios[id] && state.funcionarios[id].nome) || id; }
   function ativosList(){
@@ -2326,6 +2325,13 @@
   wireExportBtn("btnExportGradeExcel", exportGradeExcel);
   wireExportBtn("btnExportMensalExcel", exportResumoMensalExcel);
   wireExportBtn("btnExportMensalPdf", exportResumoMensalPdf);
+
+  // Só agora, com o script inteiro já executado (FIREBASE_CONFIG e todo o resto já com seus valores
+  // reais definidos), é seguro conectar ao banco. Chamar isso mais cedo (ex.: logo após declarar
+  // `state`) fazia makeFirebaseDb() rodar antes da linha `var FIREBASE_CONFIG = {...}` ser alcançada
+  // — a variável só existia hoisted como undefined nesse ponto — e o Firebase falhava sempre com
+  // "Need to provide options" (app/no-options), caindo silenciosamente pro localStorage.
+  state.dbReady = connectDb();
   $("buscaFuncionario").addEventListener("input", renderCadastro);
   $("btnAddFuncionario").addEventListener("click", function(){ addFuncionario(); });
   $("fileCadastro").addEventListener("change", handleImportCadastroFile);
