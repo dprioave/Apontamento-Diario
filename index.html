@@ -240,6 +240,18 @@
   .modal-box .modal-sub{ font-size:12.5px; color:var(--text-faint); margin:0 0 16px; }
   .modal-box .field{ margin-bottom:12px; }
   .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .modal-box.wide{ max-width:520px; }
+  .admin-list{ max-height:52vh; overflow-y:auto; margin:-2px 0 4px; }
+  .admin-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:12.5px; }
+  .admin-row:last-child{ border-bottom:none; }
+  .admin-row .email{ font-weight:500; }
+  .admin-row .status{ color:var(--text-faint); font-size:11px; margin-top:2px; }
+  .admin-row .status.custom{ color:var(--accent); }
+  .admin-row-editing{ flex-direction:column; align-items:stretch; padding:10px 0 14px; }
+  .admin-row-editing .field{ margin:8px 0; }
+  .link-inline{ font-size:12.5px; color:var(--text-faint); cursor:pointer; text-decoration:underline; text-underline-offset:2px; margin-bottom:16px; }
+  .link-inline:hover{ color:var(--text); }
+  .gate-links{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
 
   .db-banner{ background:var(--warn-soft); color:var(--warn); border:1px solid rgba(224,174,95,.3); border-radius:9px; padding:10px 14px; font-size:12.5px; margin-bottom:20px; }
 
@@ -280,7 +292,11 @@
     <h1>Apontamento Diário de Obras</h1>
     <p class="subtitle">Registro diário de presença por obra. A equipe de DP mantém as ausências atualizadas conforme a legenda, e todos com acesso ao painel acompanham presença, faltas e atestados em tempo real.</p>
     <p class="access-note" id="loggedAsNote"></p>
-    <div class="link-back" id="btnLogout" style="margin-bottom:18px;">Sair</div>
+    <div class="gate-links" style="margin-bottom:18px;">
+      <div class="link-back" id="btnLogout" style="margin-bottom:0;">Sair</div>
+      <div class="link-inline" id="btnTrocarSenha" style="margin-bottom:0;">Trocar minha senha</div>
+      <div class="link-inline" id="btnAdminSenhas" style="margin-bottom:0;display:none;">⚙ Administração de senhas</div>
+    </div>
     <div id="obrasGrid" class="obras-grid"></div>
   </div>
 
@@ -446,6 +462,34 @@
   </div>
 </div>
 
+<!-- ================= MODAL: TROCAR MINHA SENHA (self-service) ================= -->
+<div class="modal-backdrop" id="modalTrocarSenha">
+  <div class="modal-box">
+    <h3>Trocar minha senha</h3>
+    <p class="modal-sub">Vale só para o seu login (<span id="trocarSenhaEmail"></span>).</p>
+    <div class="field"><input type="password" id="tsSenhaAtual" placeholder="Senha atual" autocomplete="off"></div>
+    <div class="field"><input type="password" id="tsSenhaNova" placeholder="Nova senha (mín. 6 caracteres)" autocomplete="off"></div>
+    <div class="field"><input type="password" id="tsSenhaNova2" placeholder="Confirmar nova senha" autocomplete="off"></div>
+    <div class="login-error" id="tsError"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="tsCancelar">Cancelar</button>
+      <button class="btn" id="tsSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADMINISTRAÇÃO DE SENHAS (dpclaude@rioave.com.br apenas) ================= -->
+<div class="modal-backdrop" id="modalAdminSenhas">
+  <div class="modal-box wide">
+    <h3>Administração de senhas</h3>
+    <p class="modal-sub">Redefina a senha de qualquer e-mail cadastrado, caso alguém esqueça a sua.</p>
+    <div class="admin-list" id="adminSenhasList"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="adminSenhasFechar">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -458,6 +502,10 @@
   // To change it: hash the new password (e.g. in a browser console) and replace the hex string below.
   var GATE_PASSWORD_HASH = "952dc2d36c52ec57a021941595ad98dc7bdceae62d92e9850aad8e926b7daaf3";
   var LOGIN_STORAGE_KEY = "apontamento-diario:login-email";
+  // E-mails com acesso à "Administração de senhas" (resetar a senha de qualquer pessoa). Só quem está
+  // nesta lista vê o link no gate — não é uma permissão por empresa, é global ao app inteiro.
+  var ADMIN_EMAILS = ["gabrielle.santos@rioave.com.br"];
+  function isAdmin(){ return ADMIN_EMAILS.indexOf(state.email)>=0; }
   // Source of truth: Empresas.xlsx — DP tem 2 papéis (Analista/Assistente) e Engenharia tem 2 papéis
   // (Gerente/Auxiliares); ambos os papéis de cada área viram uma lista única dp[]/eng[] por empresa.
   // Quem consta em qualquer papel passa da tela de entrada, e isso também sugere a lista de acesso
@@ -760,6 +808,7 @@
   // ================= STATE =================
   var state = {
     db: null,
+    dbReady: null,         // Promise<db>, resolvido por connectDb() — conecta antes do login (ver abaixo)
     email: null,
     obras: {},            // id -> {nome, ativo, criadoEm, dpEmails, engEmails}
     obraId: null,
@@ -772,6 +821,7 @@
     modalFuncId: null,
     modalDate: null
   };
+  state.dbReady = connectDb();
 
   function funcName(id){ return (state.funcionarios[id] && state.funcionarios[id].nome) || id; }
   function ativosList(){
@@ -789,9 +839,22 @@
   function enterApp(email){
     state.email = normEmail(email);
     $("loggedAsNote").textContent = "Conectado como " + state.email;
+    $("btnAdminSenhas").style.display = isAdmin() ? "block" : "none";
     $("loginGate").style.display = "none";
     $("gate").style.display = "block";
     startBoot();
+  }
+
+  // Senha por pessoa (opcional): guardada em db.collection("usuarios").doc(email) = {senhaHash,...}.
+  // Enquanto ninguém redefine a senha de um e-mail (painel de Administração ou "Trocar minha senha"),
+  // ele continua caindo na senha global compartilhada de sempre (GATE_PASSWORD_HASH) — não precisa
+  // migrar ninguém manualmente, o fallback é automático e por pessoa.
+  async function senhaEsperada(db, email){
+    try{
+      var udoc = await db.collection("usuarios").doc(email).get();
+      if(udoc.exists && udoc.data() && udoc.data().senhaHash) return udoc.data().senhaHash;
+    }catch(e){}
+    return GATE_PASSWORD_HASH;
   }
 
   async function doLogin(){
@@ -804,14 +867,16 @@
       errEl.classList.add("show");
       return;
     }
-    var hash = await sha256Hex(senha);
-    if(hash !== GATE_PASSWORD_HASH){
-      errEl.textContent = "Senha incorreta.";
+    if(allEmpresaEmails().indexOf(email)<0){
+      errEl.textContent = "Esse e-mail não está na lista de DP/Engenharia de nenhuma empresa (Empresas.xlsx). Peça para te incluírem na planilha.";
       errEl.classList.add("show");
       return;
     }
-    if(allEmpresaEmails().indexOf(email)<0){
-      errEl.textContent = "Esse e-mail não está na lista de DP/Engenharia de nenhuma empresa (Empresas.xlsx). Peça para te incluírem na planilha.";
+    var hash = await sha256Hex(senha);
+    var db = await state.dbReady;
+    var expected = await senhaEsperada(db, email);
+    if(hash !== expected){
+      errEl.textContent = "Senha incorreta.";
       errEl.classList.add("show");
       return;
     }
@@ -933,30 +998,39 @@
     };
   }
 
+  // Conecta ao banco assim que o script carrega (não espera o login) — precisa estar pronto ANTES do
+  // login para poder consultar a senha individual de cada e-mail em doLogin()/senhaEsperada(). Antes
+  // dessa mudança (senhas por pessoa), a conexão só começava depois de logar; agora startBoot() só
+  // aguarda esse mesmo state.dbReady em vez de repetir a lógica de conexão.
+  function connectDb(){
+    return new Promise(function(resolve){
+      if(window.claude && window.claude.use){
+        window.claude.use("db").then(function(db){
+          if(!db){
+            state.db = makeLocalStorageDb();
+            showDbBanner("Este ambiente não está salvando dados compartilhados — os dados ficam só neste navegador, não são vistos por outras pessoas.");
+          } else {
+            state.db = db;
+          }
+          resolve(state.db);
+        });
+      } else {
+        var fbDb = null;
+        try{ fbDb = makeFirebaseDb(); }catch(e){ fbDb = null; }
+        if(fbDb){
+          state.db = fbDb; // Firebase conectado — dados compartilhados de verdade, sem banner de aviso.
+        } else {
+          state.db = makeLocalStorageDb();
+          showDbBanner("Versão standalone (fora do claude.ai) sem Firebase disponível: os dados ficam salvos só neste navegador, não são compartilhados entre DP e engenharia.");
+        }
+        resolve(state.db);
+      }
+    });
+  }
+
   function startBoot(){
     renderObrasGrid();
-    if(window.claude && window.claude.use){
-      window.claude.use("db").then(function(db){
-        if(!db){
-          state.db = makeLocalStorageDb();
-          showDbBanner("Este ambiente não está salvando dados compartilhados — os dados ficam só neste navegador, não são vistos por outras pessoas.");
-          subscribeObras(state.db);
-          return;
-        }
-        state.db = db;
-        subscribeObras(db);
-      });
-    } else {
-      var fbDb = null;
-      try{ fbDb = makeFirebaseDb(); }catch(e){ fbDb = null; }
-      if(fbDb){
-        state.db = fbDb; // Firebase conectado — dados compartilhados de verdade, sem banner de aviso.
-      } else {
-        state.db = makeLocalStorageDb();
-        showDbBanner("Versão standalone (fora do claude.ai) sem Firebase disponível: os dados ficam salvos só neste navegador, não são compartilhados entre DP e engenharia.");
-      }
-      subscribeObras(state.db);
-    }
+    state.dbReady.then(function(db){ subscribeObras(db); });
   }
   function showDbBanner(msg){
     var b = $("dbBanner"); b.hidden=false; b.textContent = msg;
@@ -2099,10 +2173,139 @@
     });
   }
 
+  // ================= TROCAR MINHA SENHA (self-service) =================
+  function openTrocarSenha(){
+    $("trocarSenhaEmail").textContent = state.email;
+    $("tsSenhaAtual").value = ""; $("tsSenhaNova").value = ""; $("tsSenhaNova2").value = "";
+    $("tsError").classList.remove("show");
+    $("modalTrocarSenha").classList.add("show");
+  }
+  function closeTrocarSenha(){ $("modalTrocarSenha").classList.remove("show"); }
+  async function salvarTrocarSenha(){
+    var atual = $("tsSenhaAtual").value;
+    var nova = $("tsSenhaNova").value;
+    var nova2 = $("tsSenhaNova2").value;
+    var errEl = $("tsError");
+    errEl.classList.remove("show");
+    if(!atual || !nova || !nova2){
+      errEl.textContent = "Preencha todos os campos."; errEl.classList.add("show"); return;
+    }
+    if(nova.length < 6){
+      errEl.textContent = "A nova senha precisa ter pelo menos 6 caracteres."; errEl.classList.add("show"); return;
+    }
+    if(nova !== nova2){
+      errEl.textContent = "As duas senhas novas não conferem."; errEl.classList.add("show"); return;
+    }
+    if(!state.db) return;
+    var atualHash = await sha256Hex(atual);
+    var expected = await senhaEsperada(state.db, state.email);
+    if(atualHash !== expected){
+      errEl.textContent = "Senha atual incorreta."; errEl.classList.add("show"); return;
+    }
+    var novaHash = await sha256Hex(nova);
+    try{
+      await state.db.collection("usuarios").doc(state.email).set({
+        senhaHash: novaHash, atualizadoEm: new Date().toISOString(), atualizadoPor: state.email
+      });
+      closeTrocarSenha();
+      alert("Senha alterada com sucesso. Use a nova senha no próximo login.");
+    }catch(e){
+      errEl.textContent = "Erro ao salvar: " + (e && e.message || "tente de novo.");
+      errEl.classList.add("show");
+    }
+  }
+
+  // ================= ADMINISTRAÇÃO DE SENHAS (dpclaude@rioave.com.br) =================
+  var adminUnsub = null;
+  var adminUsuarios = {};   // email -> {senhaHash, atualizadoEm, atualizadoPor}
+  var adminEditingEmail = null;
+  function renderAdminSenhas(){
+    var emails = allEmpresaEmails().filter(function(e,i,arr){ return arr.indexOf(e)===i; }).sort();
+    $("adminSenhasList").innerHTML = emails.map(function(email){
+      if(email === adminEditingEmail){
+        return '<div class="admin-row admin-row-editing">' +
+          '<div class="email">'+escapeHtml(email)+' — nova senha</div>' +
+          '<div class="field"><input type="password" id="adminNovaSenha" placeholder="Nova senha (mín. 6 caracteres)" autocomplete="off"></div>' +
+          '<div class="login-error" id="adminSenhaErr"></div>' +
+          '<div style="display:flex;gap:6px;justify-content:flex-end;">' +
+            '<button class="btn-ghost btn-sm" data-cancel-edit="1">Cancelar</button>' +
+            '<button class="btn-ghost btn-sm" data-confirm-reset="'+escapeHtml(email)+'">Salvar nova senha</button>' +
+          '</div>' +
+        '</div>';
+      }
+      var custom = adminUsuarios[email];
+      var statusTxt = custom ? ("senha personalizada" + (custom.atualizadoEm ? (" · desde " + fmtDateBR(custom.atualizadoEm.slice(0,10))) : "")) : "senha padrão (compartilhada)";
+      var backBtn = custom ? ' <button class="btn-ghost btn-sm" data-voltar="'+escapeHtml(email)+'">Padrão</button>' : "";
+      return '<div class="admin-row">' +
+        '<div><div class="email">'+escapeHtml(email)+'</div><div class="status'+(custom?" custom":"")+'">'+statusTxt+'</div></div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0;"><button class="btn-ghost btn-sm" data-reset="'+escapeHtml(email)+'">Redefinir</button>'+backBtn+'</div>' +
+      '</div>';
+    }).join("");
+    Array.prototype.forEach.call($("adminSenhasList").querySelectorAll("[data-reset]"), function(el){
+      el.addEventListener("click", function(){ adminEditingEmail = el.getAttribute("data-reset"); renderAdminSenhas(); });
+    });
+    Array.prototype.forEach.call($("adminSenhasList").querySelectorAll("[data-cancel-edit]"), function(el){
+      el.addEventListener("click", function(){ adminEditingEmail = null; renderAdminSenhas(); });
+    });
+    Array.prototype.forEach.call($("adminSenhasList").querySelectorAll("[data-confirm-reset]"), function(el){
+      el.addEventListener("click", function(){ confirmarResetSenhaAdmin(el.getAttribute("data-confirm-reset")); });
+    });
+    Array.prototype.forEach.call($("adminSenhasList").querySelectorAll("[data-voltar]"), function(el){
+      el.addEventListener("click", function(){ voltarSenhaPadraoAdmin(el.getAttribute("data-voltar")); });
+    });
+  }
+  async function confirmarResetSenhaAdmin(email){
+    var nova = ($("adminNovaSenha").value || "").trim();
+    var errEl = $("adminSenhaErr");
+    if(nova.length < 6){
+      errEl.textContent = "A nova senha precisa ter pelo menos 6 caracteres.";
+      errEl.classList.add("show");
+      return;
+    }
+    var hash = await sha256Hex(nova);
+    try{
+      await state.db.collection("usuarios").doc(email).set({
+        senhaHash: hash, atualizadoEm: new Date().toISOString(), atualizadoPor: state.email
+      });
+      adminEditingEmail = null;
+      // Alguns backends (ex.: localStorage) notificam o onSnapshot de forma síncrona dentro do próprio
+      // set(), ou seja, ANTES desta linha rodar — nesse caso o re-render automático já aconteceu com
+      // adminEditingEmail ainda preenchido e não repete sozinho. Forçar aqui garante a linha fechar
+      // mesmo nesse caso, e é inofensivo se o onSnapshot ainda for disparar de novo depois.
+      renderAdminSenhas();
+    }catch(e){
+      errEl.textContent = "Erro ao salvar: " + (e && e.message || "tente de novo.");
+      errEl.classList.add("show");
+    }
+  }
+  function voltarSenhaPadraoAdmin(email){
+    if(!state.db) return;
+    state.db.collection("usuarios").doc(email).delete().catch(function(err){ alert("Erro: " + (err && err.message || "erro")); });
+  }
+  function openAdminSenhas(){
+    if(!isAdmin() || !state.db) return;
+    adminEditingEmail = null;
+    $("modalAdminSenhas").classList.add("show");
+    adminUnsub = state.db.collection("usuarios").onSnapshot(function(snap){
+      adminUsuarios = {};
+      snap.docs.forEach(function(d){ adminUsuarios[d.id] = d.data(); });
+      renderAdminSenhas();
+    });
+  }
+  function closeAdminSenhas(){
+    $("modalAdminSenhas").classList.remove("show");
+    if(adminUnsub){ adminUnsub(); adminUnsub = null; }
+  }
+
   // ================= EVENTS =================
   $("btnLogin").addEventListener("click", doLogin);
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
+  $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
+  $("tsCancelar").addEventListener("click", closeTrocarSenha);
+  $("tsSalvar").addEventListener("click", salvarTrocarSenha);
+  $("btnAdminSenhas").addEventListener("click", openAdminSenhas);
+  $("adminSenhasFechar").addEventListener("click", closeAdminSenhas);
   $("btnVoltarGate").addEventListener("click", backToGate);
   $("diaSelecionado").addEventListener("change", renderAll);
   $("mesGrade").addEventListener("change", renderGrade);
