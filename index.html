@@ -1732,8 +1732,11 @@
     if(deslig.length){
       desligWarning = '<div class="status-msg show warn" style="margin-top:10px;">'+
         deslig.length+' funcionário(s) ativo(s) no cadastro que não aparecem neste relatório (nem presente, nem ausente) — possível desligamento não registrado: '+
-        deslig.map(function(fid){ return escapeHtml(funcName(fid)); }).join(", ")+
-        '. Confira na aba Cadastro depois de salvar.</div>';
+        deslig.map(function(fid){
+          var f = state.funcionarios[fid] || {};
+          return escapeHtml(funcName(fid)) + (f.funcao ? " ("+escapeHtml(f.funcao)+")" : "");
+        }).join(", ")+
+        '. Confira na aba Diário depois de salvar.</div>';
     }
 
     var box = $("importPreview");
@@ -1774,7 +1777,8 @@
     });
 
     var possiveisDesligamentos = (pend._possiveisDesligamentos || []).map(function(fid){
-      return {funcId:fid, nome:funcName(fid)};
+      var f = state.funcionarios[fid] || {};
+      return {funcId:fid, nome:funcName(fid), funcao:f.funcao||""};
     });
 
     var payload = {
@@ -2081,7 +2085,8 @@
       '<div style="font-size:13px;font-weight:600;margin-bottom:2px;">Ativos que sumiram do ponto ('+fmtDateBR(iso)+')</div>'+
       '<div style="font-size:12px;color:var(--text-faint);margin-bottom:8px;">Estão ativos no cadastro mas não aparecem neste relatório nem como presente nem como ausente — pode ser um desligamento ainda não registrado.</div>'+
       lista.map(function(item, idx){
-        return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+'</span>'+
+        var funcao = item.funcao || (state.funcionarios[item.funcId] && state.funcionarios[item.funcId].funcao) || "";
+        return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+(funcao?' <span style="color:var(--text-faint);">— '+escapeHtml(funcao)+'</span>':'')+'</span>'+
           '<span class="naoenc-actions">'+
             '<button class="btn-ghost btn-sm" data-desligar-idx="'+idx+'">Marcar inativo</button>'+
             '<button class="btn-ghost btn-sm" data-ignorar-idx="'+idx+'">Ignorar</button>'+
