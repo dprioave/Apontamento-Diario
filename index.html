@@ -228,6 +228,9 @@
   .naoenc-item:last-child{ border-bottom:none; }
   .naoenc-actions{ display:flex; gap:6px; flex-shrink:0; }
   .naoenc-actions select{ background:var(--surface-solid); border:1px solid var(--border-strong); border-radius:6px; color:var(--text); font-size:12px; padding:5px 7px; }
+  .naoenc-item.editing{ flex-direction:column; align-items:stretch; gap:8px; padding-bottom:12px; }
+  .naoenc-item.editing .field-row{ margin:0; gap:8px; }
+  .naoenc-item.editing .field{ flex:1; min-width:120px; }
 
   /* ---------- modal ---------- */
   .modal-backdrop{ position:fixed; inset:0; background:rgba(5,7,10,.62); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
@@ -2028,12 +2031,18 @@
     });
   }
 
+  // Índice (dentro da lista naoEncontrados do dia selecionado) do item que está com o formulário de
+  // "Cadastrar novo" aberto, ou null se nenhum. Módulo-level (não local à função) pelo mesmo motivo de
+  // adminEditingEmail: o box é redesenhado a cada snapshot do db, e o formulário aberto precisa
+  // sobreviver a esses redesenhos enquanto a DP ainda está preenchendo função/admissão.
+  var naoEncCadastrandoIdx = null;
+
   function renderNaoEncontrados(){
     var box = $("naoEncontradosBox");
     var iso = $("diaSelecionado").value || todayIso();
     var doc = state.dias[iso];
     var lista = (doc && doc.naoEncontrados) || [];
-    if(!lista.length){ box.innerHTML = ""; return; }
+    if(!lista.length){ naoEncCadastrandoIdx = null; box.innerHTML = ""; return; }
 
     var funcOptions = Object.keys(state.funcionarios).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); })
       .map(function(id){ return '<option value="'+id+'">'+escapeHtml(funcName(id))+'</option>'; }).join("");
@@ -2042,6 +2051,19 @@
       '<div style="font-size:13px;font-weight:600;margin-bottom:2px;">Não encontrados na última importação ('+fmtDateBR(iso)+')</div>'+
       '<div style="font-size:12px;color:var(--text-faint);margin-bottom:8px;">Apareceram no ponto mas não estão no cadastro — pode ser uma admissão nova ainda não registrada.</div>'+
       lista.map(function(item, idx){
+        if(idx === naoEncCadastrandoIdx){
+          return '<div class="naoenc-item editing">'+
+            '<div>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+CODE_META[item.codigo].label+' · novo cadastro</span></div>'+
+            '<div class="field-row">'+
+              '<div class="field"><label>Função</label><input type="text" data-cad-funcao placeholder="Ex: Pedreiro"></div>'+
+              '<div class="field"><label>Admissão</label><input type="date" data-cad-admissao></div>'+
+            '</div>'+
+            '<div style="display:flex;gap:6px;justify-content:flex-end;">'+
+              '<button class="btn-ghost btn-sm" data-cancel-cad-idx="'+idx+'">Cancelar</button>'+
+              '<button class="btn-ghost btn-sm" data-confirm-cad-idx="'+idx+'">Salvar cadastro</button>'+
+            '</div>'+
+          '</div>';
+        }
         return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+CODE_META[item.codigo].label+'</span></span>'+
           '<span class="naoenc-actions">'+
             '<select data-link-idx="'+idx+'"><option value="">Vincular a...</option>'+funcOptions+'</select>'+
@@ -2059,8 +2081,24 @@
     });
     Array.prototype.forEach.call(box.querySelectorAll("[data-new-idx]"), function(el){
       el.addEventListener("click", function(){
-        var item = lista[+el.getAttribute("data-new-idx")];
-        var fid = addFuncionario(item.nome, "", null, item.matricula||"");
+        naoEncCadastrandoIdx = +el.getAttribute("data-new-idx");
+        renderNaoEncontrados();
+      });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-cancel-cad-idx]"), function(el){
+      el.addEventListener("click", function(){
+        naoEncCadastrandoIdx = null;
+        renderNaoEncontrados();
+      });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-confirm-cad-idx]"), function(el){
+      el.addEventListener("click", function(){
+        var idx = +el.getAttribute("data-confirm-cad-idx");
+        var item = lista[idx];
+        var funcao = (box.querySelector("[data-cad-funcao]").value || "").trim();
+        var admissao = box.querySelector("[data-cad-admissao]").value || null;
+        var fid = addFuncionario(item.nome, funcao, admissao, item.matricula||"");
+        naoEncCadastrandoIdx = null;
         if(fid) linkNaoEncontrado(iso, item, fid);
       });
     });
