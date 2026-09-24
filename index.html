@@ -29,6 +29,7 @@
     --code-j:#5CB8B2;   --code-j-soft:rgba(92,184,178,.16);
     --code-ab:#D6A24A;  --code-ab-soft:rgba(214,162,74,.16);
     --code-ap:#D68C54;  --code-ap-soft:rgba(214,140,84,.16);
+    --code-ep:#D97FA8;  --code-ep-soft:rgba(217,127,168,.16);
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; }
@@ -384,7 +385,7 @@
       <div class="kpis" id="mensalKpis"></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Funcionário</th><th>Função</th><th>Faltas</th><th>Atest.</th><th>Férias</th><th>Folgas</th><th>Susp.</th><th>Lic.</th><th>Just.</th><th>Abon.</th><th>Av. Pr.</th></tr></thead>
+          <thead><tr><th>Funcionário</th><th>Função</th><th>Faltas</th><th>Atest.</th><th>Férias</th><th>Folgas</th><th>Susp.</th><th>Lic.</th><th>Just.</th><th>Abon.</th><th>Av. Pr.</th><th>Ex. Per.</th></tr></thead>
           <tbody id="mensalTbody"></tbody>
         </table>
       </div>
@@ -455,6 +456,7 @@
         <option value="J">J — Justiça</option>
         <option value="AB">AB — Abonado</option>
         <option value="AP">AP — Aviso Prévio</option>
+        <option value="EP">EP — Exame Periódico</option>
       </select>
     </div>
     <div class="modal-actions">
@@ -542,7 +544,7 @@
     }) || null;
   }
 
-  var CODES = ["F","A","FE","FO","S","L","J","AB","AP"];
+  var CODES = ["F","A","FE","FO","S","L","J","AB","AP","EP"];
   var CODE_META = {
     F:  {label:"Falta",         cls:"code-f"},
     A:  {label:"Atestado",      cls:"code-a"},
@@ -552,7 +554,8 @@
     L:  {label:"Licença",       cls:"code-l"},
     J:  {label:"Justiça",       cls:"code-j"},
     AB: {label:"Abonado",       cls:"code-ab"},
-    AP: {label:"Aviso Prévio",  cls:"code-ap"}
+    AP: {label:"Aviso Prévio",  cls:"code-ap"},
+    EP: {label:"Exame Periódico", cls:"code-ep"}
   };
 
   var DIACRITICS_RE = new RegExp("[" + String.fromCharCode(0x0300) + "-" + String.fromCharCode(0x036f) + "]", "g");
@@ -597,15 +600,16 @@
   // Cada motivo é a forma truncada como o Secullum grava (a coluna do relatório é estreita).
   var STATUS_PREFIX_MAP = [
     ["FALTA","F"], ["CHUVA","F"],
-    ["ATESTAD","A"], ["DECLARA","A"], ["EXAME M","A"], ["EXAME P","A"], ["PERIODI","A"], ["PRIODIC","A"], ["MEDICO","A"],
+    ["ATESTAD","A"], ["DECLARA","A"], ["EXAME M","A"], ["MEDICO","A"],
     ["FERIAS","FE"],
     ["FOLGA","FO"], ["BANCO","FO"], ["COMPENS","FO"], ["COMP","FO"], ["DAY OFF","FO"], ["A COMPE","FO"], ["LIBERAD","FO"],
     ["SUSPENS","S"],
     ["AFASTAD","L"], ["INSS","L"], ["SUS CON","L"], ["CASAMEN","L"], ["FALECIM","L"], ["OBITO","L"],
     ["LIC PAT","L"], ["DOAR SA","L"], ["LIC OBT","L"], ["DETRAN","L"], ["DC. OBT","L"],
     ["JUSTICA","J"], ["CARTORI","J"],
-    ["ABONADO","AB"], ["TAREFA","AB"],
-    ["AVISO P","AP"]
+    ["ABONADO","AB"], ["TAREFA","AB"], ["JOGO","AB"],
+    ["AVISO P","AP"],
+    ["EXAME P","EP"], ["PERIODI","EP"], ["PRIODIC","EP"]
   ];
   // Motivos confirmados que NÃO contam como ausência do funcionário (feriados, eventos coletivos,
   // problemas técnicos do ponto, marcadores de admissão/demissão) — reconhecidos e ignorados de propósito,
@@ -759,12 +763,20 @@
 
   // Construído a partir de STATUS_PREFIX_MAP + STATUS_PREFIX_IGNORE (não duplica a lista à mão) —
   // só reconhece motivos conhecidos, na ordem do mais longo pro mais curto (evita um prefixo curto
-  // "vazar" e casar por engano com o final do nome do funcionário).
+  // "vazar" e casar por engano com o final do nome do funcionário). Os prefixos aqui são todos SEM
+  // acento (mesma forma usada em mapSecullumStatus, que já faz stripAccents no motivo recebido) — por
+  // isso quem usa este regex tem que rodar contra uma versão SEM ACENTO da linha (ver parseSecullumPdf),
+  // senão um motivo como "FÉRIAS"/"JUSTIÇA"/"CARTÓRIO" no PDF real nunca bate contra o prefixo
+  // "FERIAS"/"JUSTICA"/"CARTORI" sem acento — bug real encontrado com um PDF de produção, corrigido
+  // aqui em vez de remover o acento dos prefixos (o resto do código já assume prefixo sem acento).
+  // Tem a flag "d" pra devolver match.indices — assim dá pra recortar nome/motivo do texto ORIGINAL
+  // (com acento) depois de casar contra a versão sem acento, sem perder os acentos do nome do
+  // funcionário (stripAccents preserva o comprimento da string, então os índices continuam válidos).
   var ROW_RE = (function(){
     var all = STATUS_PREFIX_MAP.map(function(p){ return p[0]; }).concat(STATUS_PREFIX_IGNORE);
     all.sort(function(a,b){ return b.length-a.length; });
     var esc = all.map(function(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); });
-    return new RegExp("^(\\S{6,})\\s+([A-ZÀ-Ú][A-ZÀ-Ú '.\\-]*?)\\s+(" + esc.join("|") + ")\\w*\\b");
+    return new RegExp("^(\\S{6,})\\s+([A-Z][A-Z '.\\-]*?)\\s+(" + esc.join("|") + ")\\w*\\b", "d");
   })();
   // Mesma âncora do nome, mas aceita um horário real (presente) OU qualquer motivo conhecido —
   // usado só para saber quem apareceu no relatório (presente ou ausente), não pra classificar motivo.
@@ -772,7 +784,7 @@
     var all = STATUS_PREFIX_MAP.map(function(p){ return p[0]; }).concat(STATUS_PREFIX_IGNORE);
     all.sort(function(a,b){ return b.length-a.length; });
     var esc = all.map(function(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); });
-    return new RegExp("^(\\S{6,})\\s+([A-ZÀ-Ú][A-ZÀ-Ú '.\\-]*?)\\s+(?:\\d{2}:\\d{2}|" + esc.join("|") + ")\\w*\\b");
+    return new RegExp("^(\\S{6,})\\s+([A-Z][A-Z '.\\-]*?)\\s+(?:\\d{2}:\\d{2}|" + esc.join("|") + ")\\w*\\b", "d");
   })();
 
   async function parseSecullumPdf(file){
@@ -793,13 +805,17 @@
         if(me) empresaNome = me[1].trim();
       }
       for(var i=0;i<lines.length;i++){
-        var mAny = lines[i].match(ROW_ANY_RE);
-        if(mAny) todosNomes.push(mAny[2].trim());
-        var m = lines[i].match(ROW_RE);
+        var linha = lines[i];
+        var linhaSemAcento = stripAccents(linha).toUpperCase();
+        var mAny = linhaSemAcento.match(ROW_ANY_RE);
+        if(mAny) todosNomes.push(linha.slice(mAny.indices[2][0], mAny.indices[2][1]).trim());
+        var m = linhaSemAcento.match(ROW_RE);
         if(m){
-          var codigo = mapSecullumStatus(m[3]);
+          var motivoOriginal = linha.slice(m.indices[3][0], m.indices[3][1]);
+          var codigo = mapSecullumStatus(motivoOriginal);
           if(codigo){
-            ausencias.push({matricula:m[1].replace(/O/g,"0"), nome:m[2].trim(), codigo:codigo});
+            var nomeOriginal = linha.slice(m.indices[2][0], m.indices[2][1]).trim();
+            ausencias.push({matricula:m[1].replace(/O/g,"0"), nome:nomeOriginal, codigo:codigo});
           }
         }
       }
