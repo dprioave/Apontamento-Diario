@@ -1756,12 +1756,18 @@
     var vistos = {}, out = [];
     var fonte = pend.pessoas && pend.pessoas.length ? pend.pessoas : pend.ausencias;
     fonte.forEach(function(p){
-      if(matchFuncionario(p.nome)) return;
+      // Quem existe no cadastro mas está INATIVO e apareceu no ponto também entra (ex.: estagiário que
+      // foi promovido e voltou com novo vínculo): o cadastro acha a pessoa pelo nome, mas ela não conta
+      // como ativa — sem este caso ela ficava invisível, nem apontada como nova nem contada.
+      var fidExistente = matchFuncionario(p.nome);
+      if(fidExistente && !state.funcionarios[fidExistente].inativo) return;
       var chave = normName(p.nome);
       if(vistos[chave]) return;
       vistos[chave] = true;
       var aus = porNomeAusencia[chave];
-      out.push({nome:p.nome, matricula:p.matricula||"", codigo:(aus && aus.codigo) || p.codigo || null, admissao:!!p.admissao});
+      var item = {nome:p.nome, matricula:p.matricula||"", codigo:(aus && aus.codigo) || p.codigo || null, admissao:!!p.admissao};
+      if(fidExistente) item.inativoId = fidExistente;
+      out.push(item);
     });
     return out;
   }
@@ -1786,7 +1792,7 @@
     var lines = CODES.map(function(c){
       return '<div class="row-line"><span>'+CODE_META[c].label+'</span><b>'+(counts[c]||0)+'</b></div>';
     }).join("");
-    lines += '<div class="row-line"><span>Não encontrados no cadastro</span><b>'+naoEnc.length+'</b></div>';
+    lines += '<div class="row-line"><span>Não encontrados (ou inativos) no cadastro</span><b>'+naoEnc.length+'</b></div>';
 
     var naoMap = pend.naoMapeados || [];
     var naoMapWarning = "";
@@ -2144,7 +2150,9 @@
     if(!f) return;
     var o = computeOcorrencias(fid);
     $("ocorrNome").textContent = f.nome;
-    $("ocorrSub").textContent = (f.funcao||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo");
+    var anteriores = (f.vinculosAnteriores||[]).map(function(v){ return (v.funcao||"sem função") + (v.admissao ? " desde " + fmtDateBR(v.admissao) : ""); });
+    $("ocorrSub").textContent = (f.funcao||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo") +
+      (anteriores.length ? " · Vínculo anterior: " + anteriores.join("; ") : "");
 
     var ordem = CODES.concat(Object.keys(o.counts).filter(function(c){ return CODES.indexOf(c)<0; }));
     $("ocorrResumo").innerHTML = ordem.filter(function(c){ return o.counts[c]; }).map(function(c){
@@ -2244,18 +2252,26 @@
       '<div style="font-size:12px;color:var(--text-faint);margin-bottom:8px;">Apareceram no ponto mas não estão no cadastro — pode ser uma admissão nova ainda não registrada.</div>'+
       lista.map(function(item, idx){
         var rotulo = item.codigo && CODE_META[item.codigo] ? CODE_META[item.codigo].label : (item.admissao ? "Admissão" : "Presente");
+        var ant = item.inativoId ? (state.funcionarios[item.inativoId] || {}) : null;
         if(idx === naoEncCadastrandoIdx){
           return '<div class="naoenc-item editing">'+
-            '<div>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+rotulo+' · novo cadastro</span></div>'+
+            '<div>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+rotulo+' · '+(ant?'reativar com novos dados':'novo cadastro')+'</span></div>'+
             '<div class="field-row">'+
-              '<div class="field"><label>Função</label><input type="text" data-cad-funcao placeholder="Ex: Pedreiro"></div>'+
+              '<div class="field"><label>Função</label><input type="text" data-cad-funcao placeholder="'+(ant && ant.funcao ? 'Era: '+escapeHtml(ant.funcao) : 'Ex: Pedreiro')+'"></div>'+
               '<div class="field"><label>Admissão</label><input type="date" data-cad-admissao value="'+(item.admissao?iso:"")+'"></div>'+
             '</div>'+
             '<div style="display:flex;gap:6px;justify-content:flex-end;">'+
               '<button class="btn-ghost btn-sm" data-cancel-cad-idx="'+idx+'">Cancelar</button>'+
-              '<button class="btn-ghost btn-sm" data-confirm-cad-idx="'+idx+'">Salvar cadastro</button>'+
+              '<button class="btn-ghost btn-sm" data-confirm-cad-idx="'+idx+'">'+(ant?'Reativar':'Salvar cadastro')+'</button>'+
             '</div>'+
           '</div>';
+        }
+        if(ant){
+          return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+rotulo+' · inativo no cadastro'+(ant.funcao?' ('+escapeHtml(ant.funcao)+')':'')+'</span></span>'+
+            '<span class="naoenc-actions">'+
+              '<button class="btn-ghost btn-sm" data-new-idx="'+idx+'">Reativar com novos dados</button>'+
+              '<button class="btn-ghost btn-sm" data-ignore-ni-idx="'+idx+'">Ignorar</button>'+
+            '</span></div>';
         }
         return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+rotulo+'</span></span>'+
           '<span class="naoenc-actions">'+
@@ -2290,10 +2306,50 @@
         var item = lista[idx];
         var funcao = (box.querySelector("[data-cad-funcao]").value || "").trim();
         var admissao = box.querySelector("[data-cad-admissao]").value || null;
-        var fid = addFuncionario(item.nome, funcao, admissao, item.matricula||"");
         naoEncCadastrandoIdx = null;
+        if(item.inativoId){
+          reativarFuncionario(iso, item, funcao, admissao);
+          return;
+        }
+        var fid = addFuncionario(item.nome, funcao, admissao, item.matricula||"");
         if(fid) linkNaoEncontrado(iso, item, fid);
       });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-ignore-ni-idx]"), function(el){
+      el.addEventListener("click", function(){
+        removerNaoEncontrado(iso, lista[+el.getAttribute("data-ignore-ni-idx")]);
+      });
+    });
+  }
+
+  // Pessoa que já existia no cadastro, foi inativada e voltou ao ponto (promoção de estagiário para
+  // auxiliar, recontratação...). O id do cadastro é o nome, então um "novo cadastro" sobrescreveria o
+  // registro antigo — por isso reativa o MESMO registro com os dados novos e guarda o vínculo anterior.
+  function reativarFuncionario(iso, item, funcao, admissao){
+    if(!state.db || isReadOnly()) return;
+    var fid = item.inativoId, f = state.funcionarios[fid];
+    if(!f) return;
+    var anteriores = (f.vinculosAnteriores || []).concat([{funcao:f.funcao||"", admissao:f.admissao||null, matricula:f.matricula||"", reativadoEm:todayIso()}]);
+    var patch = {
+      inativo:false,
+      funcao:funcao || f.funcao || "",
+      admissao:admissao || f.admissao || null,
+      matricula:f.matricula || item.matricula || "",
+      vinculosAnteriores:anteriores,
+      reativadoEm:new Date().toISOString(),
+      reativadoPor:state.email
+    };
+    state.db.collection("obras/" + state.obraId + "/funcionarios").doc(fid).update(patch).then(function(){
+      linkNaoEncontrado(iso, item, fid);
+    }).catch(function(err){ alert("Erro: " + (err&&err.code||"erro")); });
+  }
+
+  function removerNaoEncontrado(iso, item){
+    if(!state.db || isReadOnly()) return;
+    var doc = state.dias[iso]; if(!doc) return;
+    var restante = (doc.naoEncontrados||[]).filter(function(x){ return x.nome!==item.nome || (x.codigo||null)!==(item.codigo||null); });
+    state.db.collection("obras/" + state.obraId + "/dias").doc(iso).update({naoEncontrados:restante}).catch(function(err){
+      alert("Erro: " + (err&&err.code||"erro"));
     });
   }
 
