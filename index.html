@@ -201,6 +201,14 @@
   tbody tr:hover td{ background:rgba(255,255,255,.015); }
   td.num{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap; }
   td.nome{ font-weight:500; min-width:170px; }
+  .diff-box{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:10px; padding:12px 14px; margin-top:12px; }
+  .diff-title{ font-size:12.5px; font-weight:600; margin-bottom:6px; }
+  .diff-sub{ font-size:12px; color:var(--text-faint); margin:8px 0 2px; }
+  .diff-ok{ font-size:12.5px; color:var(--good); }
+  .diff-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:12.5px; }
+  .diff-row:last-child{ border-bottom:none; }
+  .diff-change{ display:flex; align-items:center; gap:6px; flex-shrink:0; color:var(--text-faint); font-size:11.5px; }
+  .diff-arrow{ color:var(--text-faint); }
   a.nome-link{ color:var(--text); text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
   a.nome-link:hover{ color:var(--accent); text-decoration-color:var(--accent); }
   .ocorr-summary{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 12px; }
@@ -677,28 +685,37 @@
       }
     }
     if(headerRowIdx<0) headerRowIdx = 3;
-    var ausencias = [], naoMapeados = [], todosNomes = [];
+    var ausencias = [], naoMapeados = [], todosNomes = [], pessoas = [];
     for(var r=headerRowIdx+1;r<rows.length;r++){
       var dr = rows[r];
       if(!dr || dr[1]==null) continue;
       var nome = String(dr[1]).trim();
       if(!nome || nome.toUpperCase().indexOf("TOTAL GERAL")>=0) continue;
       todosNomes.push(nome);
-      var codigo = null, motivoDesconhecido = null;
+      var codigo = null, motivoDesconhecido = null, sawAdmissao = false;
       for(var ci=2; ci<=7; ci++){
         if(typeof dr[ci] === "string" && dr[ci].trim()){
+          if(isAdmissaoWord(dr[ci])) sawAdmissao = true;
           codigo = mapSecullumStatus(dr[ci]);
           if(codigo) break;
           if(!isIgnoredStatus(dr[ci])) motivoDesconhecido = dr[ci].trim();
         }
       }
+      var matriculaLinha = String(dr[0]||"").trim();
+      pessoas.push({nome:nome, matricula:matriculaLinha, codigo:codigo, admissao:sawAdmissao});
       if(codigo){
-        ausencias.push({matricula:String(dr[0]||"").trim(), nome:nome, codigo:codigo});
+        ausencias.push({matricula:matriculaLinha, nome:nome, codigo:codigo});
       } else if(motivoDesconhecido){
         naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
       }
     }
-    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:naoMapeados, todosNomes:todosNomes};
+    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:naoMapeados, todosNomes:todosNomes, pessoas:pessoas};
+  }
+
+  // "ADMISSÃO" no ponto = funcionário começando hoje. Fica fora das ausências (não é falta), mas
+  // precisa ser conferido contra o cadastro, como qualquer pessoa que aparece no relatório.
+  function isAdmissaoWord(word){
+    return stripAccents(String(word||"")).toUpperCase().indexOf("ADMISSA")===0;
   }
 
   // ---------- Cadastro XLSX parser ----------
@@ -808,13 +825,13 @@
     var all = STATUS_PREFIX_MAP.map(function(p){ return p[0]; }).concat(STATUS_PREFIX_IGNORE);
     all.sort(function(a,b){ return b.length-a.length; });
     var esc = all.map(function(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); });
-    return new RegExp("^(\\S{6,})\\s+([A-Z][A-Z '.\\-]*?)\\s+(?:\\d{2}:\\d{2}|" + esc.join("|") + ")\\w*\\b", "d");
+    return new RegExp("^(\\S{6,})\\s+([A-Z][A-Z '.\\-]*?)\\s+(\\d{2}:\\d{2}|" + esc.join("|") + ")\\w*\\b", "d");
   })();
 
   async function parseSecullumPdf(file){
     var buf = await file.arrayBuffer();
     var pdf = await pdfjsLib.getDocument({data:buf}).promise;
-    var empresaNome=null, dataDetectada=null, ausencias=[], todosNomes=[];
+    var empresaNome=null, dataDetectada=null, ausencias=[], todosNomes=[], pessoas=[];
     for(var p=1;p<=pdf.numPages;p++){
       var page = await pdf.getPage(p);
       var content = await page.getTextContent();
@@ -832,7 +849,12 @@
         var linha = lines[i];
         var linhaSemAcento = stripAccents(linha).toUpperCase();
         var mAny = linhaSemAcento.match(ROW_ANY_RE);
-        if(mAny) todosNomes.push(linha.slice(mAny.indices[2][0], mAny.indices[2][1]).trim());
+        if(mAny){
+          var nomeAny = linha.slice(mAny.indices[2][0], mAny.indices[2][1]).trim();
+          var primeiraCelula = linha.slice(mAny.indices[3][0], mAny.indices[3][1]);
+          todosNomes.push(nomeAny);
+          pessoas.push({nome:nomeAny, matricula:mAny[1].replace(/O/g,"0"), codigo:mapSecullumStatus(primeiraCelula), admissao:isAdmissaoWord(primeiraCelula)});
+        }
         var m = linhaSemAcento.match(ROW_RE);
         if(m){
           var motivoOriginal = linha.slice(m.indices[3][0], m.indices[3][1]);
@@ -844,7 +866,7 @@
         }
       }
     }
-    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:[], todosNomes:todosNomes};
+    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:[], todosNomes:todosNomes, pessoas:pessoas};
   }
 
   // ================= STATE =================
@@ -1725,16 +1747,31 @@
     return null;
   }
 
+  // Todo mundo que aparece no relatório e não existe no cadastro — presente, com ausência ou com
+  // "ADMISSÃO". Antes só entrava quem tinha ausência, então um funcionário novo que já batia ponto
+  // normalmente (ou vinha marcado como ADMISSÃO) nunca era apontado como possível nova admissão.
+  function calcNaoEncontrados(pend){
+    var porNomeAusencia = {};
+    pend.ausencias.forEach(function(a){ porNomeAusencia[normName(a.nome)] = a; });
+    var vistos = {}, out = [];
+    var fonte = pend.pessoas && pend.pessoas.length ? pend.pessoas : pend.ausencias;
+    fonte.forEach(function(p){
+      if(matchFuncionario(p.nome)) return;
+      var chave = normName(p.nome);
+      if(vistos[chave]) return;
+      vistos[chave] = true;
+      var aus = porNomeAusencia[chave];
+      out.push({nome:p.nome, matricula:p.matricula||"", codigo:(aus && aus.codigo) || p.codigo || null, admissao:!!p.admissao});
+    });
+    return out;
+  }
+
   function renderImportPreview(){
     var pend = state.pendingImport;
     if(!pend) return;
     var counts = {}; CODES.forEach(function(c){ counts[c]=0; });
-    var matched = 0, naoEnc = [];
-    pend.ausencias.forEach(function(a){
-      counts[a.codigo] = (counts[a.codigo]||0)+1;
-      var fid = matchFuncionario(a.nome);
-      if(fid) matched++; else naoEnc.push(a);
-    });
+    pend.ausencias.forEach(function(a){ counts[a.codigo] = (counts[a.codigo]||0)+1; });
+    var naoEnc = calcNaoEncontrados(pend);
     pend._naoEncontrados = naoEnc;
 
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
@@ -1791,10 +1828,68 @@
       '<div class="field-row" style="margin-top:0;">'+
         '<div class="field"><label>Data detectada</label><input type="date" id="importDataConfirm" value="'+(pend.data||todayIso())+'"></div>'+
       '</div>'+
-      lines + empresaWarning + naoMapWarning + desligWarning +
+      lines + '<div id="importDiff"></div>' + empresaWarning + naoMapWarning + desligWarning +
       '<div style="margin-top:14px;"><button class="btn" id="btnConfirmarImport">Salvar importação</button></div>';
 
     $("btnConfirmarImport").addEventListener("click", confirmarImport);
+    $("importDataConfirm").addEventListener("change", renderImportDiff);
+    renderImportDiff();
+  }
+
+  // Reimportação de um dia que já tem importação salva (ex.: o ponto foi corrigido depois — atestado
+  // entregue, funcionário chegou atrasado): mostra o que muda em relação ao que está salvo ANTES de
+  // gravar, pra DP só conferir em vez de refazer o dia à mão. Reflete exatamente o que
+  // confirmarImport() vai fazer: entradas manuais são sempre mantidas, o resto é substituído.
+  function renderImportDiff(){
+    var pend = state.pendingImport, box = $("importDiff");
+    if(!pend || !box) return;
+    var iso = $("importDataConfirm").value || pend.data || todayIso();
+    var doc = state.dias[iso];
+    if(!doc || !doc.ausencias){ box.innerHTML = ""; return; }
+
+    var novo = {};
+    pend.ausencias.forEach(function(a){
+      var fid = matchFuncionario(a.nome);
+      if(fid && !novo[fid]) novo[fid] = a.codigo;
+    });
+    var ids = {};
+    Object.keys(doc.ausencias).concat(Object.keys(novo)).forEach(function(id){ ids[id] = 1; });
+    var mudancas = [], manuais = [];
+    Object.keys(ids).forEach(function(fid){
+      var o = doc.ausencias[fid] && doc.ausencias[fid].codigo ? doc.ausencias[fid] : null;
+      var n = novo[fid] || null;
+      if(o && o.origem==="manual"){
+        if(n && n!==o.codigo) manuais.push({fid:fid, manual:o.codigo, ponto:n});
+        return;
+      }
+      var de = o ? o.codigo : null;
+      if(de===n) return;
+      mudancas.push({fid:fid, de:de, para:n});
+    });
+    var porNome = function(a,b){ return funcName(a.fid).localeCompare(funcName(b.fid)); };
+    mudancas.sort(porNome); manuais.sort(porNome);
+
+    var estado = function(c){ return c ? codePill(c) : '<span class="pill pill-presente">Presente</span>'; };
+    var quando = doc.importadoEm ? new Date(doc.importadoEm).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
+    var html = '<div class="diff-box"><div class="diff-title">Já existe importação salva para '+fmtDateBR(iso)+
+      (doc.arquivoNome ? ' ('+escapeHtml(doc.arquivoNome)+(quando?', '+quando:'')+')' : '')+'</div>';
+    if(!mudancas.length && !manuais.length){
+      html += '<div class="diff-ok">Nenhuma mudança em relação ao que já está salvo.</div>';
+    } else {
+      if(mudancas.length){
+        html += '<div class="diff-sub">'+mudancas.length+' mudança(s) que serão aplicadas ao salvar:</div>'+
+          mudancas.map(function(m){
+            return '<div class="diff-row"><span>'+escapeHtml(funcName(m.fid))+'</span><span class="diff-change">'+estado(m.de)+'<span class="diff-arrow">→</span>'+estado(m.para)+'</span></div>';
+          }).join("");
+      }
+      if(manuais.length){
+        html += '<div class="diff-sub">'+manuais.length+' lançamento(s) manual(is) serão mantidos, mesmo o ponto dizendo outra coisa:</div>'+
+          manuais.map(function(m){
+            return '<div class="diff-row"><span>'+escapeHtml(funcName(m.fid))+'</span><span class="diff-change">manual '+codePill(m.manual)+'<span class="diff-arrow">·</span>ponto '+codePill(m.ponto)+'</span></div>';
+          }).join("");
+      }
+    }
+    box.innerHTML = html + '</div>';
   }
 
   function confirmarImport(){
@@ -1810,17 +1905,13 @@
         if(existingDoc.ausencias[fid].origem === "manual") ausencias[fid] = existingDoc.ausencias[fid];
       });
     }
-    var naoEncontrados = [];
     pend.ausencias.forEach(function(a){
       var fid = matchFuncionario(a.nome);
-      if(fid){
-        if(!ausencias[fid]){
-          ausencias[fid] = {codigo:a.codigo, origem:"import", atualizadoEm:new Date().toISOString(), atualizadoPor:state.email};
-        }
-      } else {
-        naoEncontrados.push({nome:a.nome, matricula:a.matricula||"", codigo:a.codigo});
+      if(fid && !ausencias[fid]){
+        ausencias[fid] = {codigo:a.codigo, origem:"import", atualizadoEm:new Date().toISOString(), atualizadoPor:state.email};
       }
     });
+    var naoEncontrados = calcNaoEncontrados(pend);
 
     var possiveisDesligamentos = (pend._possiveisDesligamentos || []).map(function(fid){
       var f = state.funcionarios[fid] || {};
@@ -2152,12 +2243,13 @@
       '<div style="font-size:13px;font-weight:600;margin-bottom:2px;">Não encontrados na última importação ('+fmtDateBR(iso)+')</div>'+
       '<div style="font-size:12px;color:var(--text-faint);margin-bottom:8px;">Apareceram no ponto mas não estão no cadastro — pode ser uma admissão nova ainda não registrada.</div>'+
       lista.map(function(item, idx){
+        var rotulo = item.codigo && CODE_META[item.codigo] ? CODE_META[item.codigo].label : (item.admissao ? "Admissão" : "Presente");
         if(idx === naoEncCadastrandoIdx){
           return '<div class="naoenc-item editing">'+
-            '<div>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+CODE_META[item.codigo].label+' · novo cadastro</span></div>'+
+            '<div>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+rotulo+' · novo cadastro</span></div>'+
             '<div class="field-row">'+
               '<div class="field"><label>Função</label><input type="text" data-cad-funcao placeholder="Ex: Pedreiro"></div>'+
-              '<div class="field"><label>Admissão</label><input type="date" data-cad-admissao></div>'+
+              '<div class="field"><label>Admissão</label><input type="date" data-cad-admissao value="'+(item.admissao?iso:"")+'"></div>'+
             '</div>'+
             '<div style="display:flex;gap:6px;justify-content:flex-end;">'+
               '<button class="btn-ghost btn-sm" data-cancel-cad-idx="'+idx+'">Cancelar</button>'+
@@ -2165,7 +2257,7 @@
             '</div>'+
           '</div>';
         }
-        return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+CODE_META[item.codigo].label+'</span></span>'+
+        return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+rotulo+'</span></span>'+
           '<span class="naoenc-actions">'+
             '<select data-link-idx="'+idx+'"><option value="">Vincular a...</option>'+funcOptions+'</select>'+
             '<button class="btn-ghost btn-sm" data-new-idx="'+idx+'">Cadastrar novo</button>'+
@@ -2209,9 +2301,12 @@
     if(!state.db || isReadOnly()) return;
     var doc = state.dias[iso] || {ausencias:{}, naoEncontrados:[]};
     var ausencias = Object.assign({}, doc.ausencias||{});
-    ausencias[fid] = {codigo:item.codigo, origem:"import", atualizadoEm:new Date().toISOString()};
-    var naoEncontrados = (doc.naoEncontrados||[]).filter(function(x){ return x.nome!==item.nome || x.codigo!==item.codigo; });
-    state.db.collection("obras/" + state.obraId + "/dias").doc(iso).update({ausencias:ausencias, naoEncontrados:naoEncontrados}).catch(function(err){
+    // Quem estava só presente/admitido (sem código) não vira ausência — só sai da lista.
+    if(item.codigo) ausencias[fid] = {codigo:item.codigo, origem:"import", atualizadoEm:new Date().toISOString()};
+    var naoEncontrados = (doc.naoEncontrados||[]).filter(function(x){ return x.nome!==item.nome || (x.codigo||null)!==(item.codigo||null); });
+    // Se a pessoa estava em "Ativos que sumiram do ponto", ela apareceu no relatório com outro nome — resolvido.
+    var deslig = (doc.possiveisDesligamentos||[]).filter(function(x){ return x.funcId!==fid; });
+    state.db.collection("obras/" + state.obraId + "/dias").doc(iso).update({ausencias:ausencias, naoEncontrados:naoEncontrados, possiveisDesligamentos:deslig}).catch(function(err){
       alert("Erro: " + (err&&err.code||"erro"));
     });
   }
