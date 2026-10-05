@@ -385,8 +385,17 @@
           <label for="mesGrade">Mês</label>
           <input type="month" id="mesGrade">
         </div>
+        <div class="field">
+          <label for="iniGrade">De</label>
+          <input type="date" id="iniGrade">
+        </div>
+        <div class="field">
+          <label for="fimGrade">Até</label>
+          <input type="date" id="fimGrade">
+        </div>
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
+      <p class="panel-hint" id="avisoGrade" style="display:none;"></p>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
 
@@ -397,9 +406,18 @@
           <label for="mesResumo">Mês</label>
           <input type="month" id="mesResumo">
         </div>
+        <div class="field">
+          <label for="iniResumo">De</label>
+          <input type="date" id="iniResumo">
+        </div>
+        <div class="field">
+          <label for="fimResumo">Até</label>
+          <input type="date" id="fimResumo">
+        </div>
         <button class="btn-ghost" id="btnExportMensalExcel">⬇ Exportar Excel</button>
         <button class="btn-ghost" id="btnExportMensalPdf">⬇ Exportar PDF</button>
       </div>
+      <p class="panel-hint" id="avisoResumo" style="display:none;"></p>
       <div class="kpis" id="mensalKpis"></div>
       <div class="table-wrap">
         <table>
@@ -415,6 +433,12 @@
         <p class="panel-title">Quem tem acesso a esta obra</p>
         <p class="panel-hint">Só e-mails desta lista conseguem abrir os dados desta obra depois de entrar no painel.</p>
         <div id="acessosBox"></div>
+      </div>
+
+      <div class="panel">
+        <p class="panel-title">Nomes ignorados na conferência</p>
+        <p class="panel-hint">Pessoas que aparecem no ponto mas não são funcionários desta obra (ex.: usuário de TI). Não são apontadas como "não encontradas". Para incluir um nome, use "Ignorar sempre" na caixa da aba Diário.</p>
+        <div id="ignoradosBox"></div>
       </div>
 
       <div class="panel" id="importCadastroPanel">
@@ -621,6 +645,54 @@
     var p = ym.split("-"); var y=+p[0], m=+p[1];
     return new Date(y, m, 0).getDate();
   }
+
+  // ---------- Período (Grade do Mês / Resumo Mensal) ----------
+  // Cada aba tem "Mês" (atalho: preenche De/Até com o mês inteiro) + "De"/"Até" livres, que podem
+  // cruzar meses (ex.: 28/09 a 02/10). prefix = "Grade" | "Resumo".
+  var MAX_DIAS_PERIODO = 93;
+  function addDaysIso(iso, n){
+    var d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function mesBounds(ym){ return {ini: ym+"-01", fim: ym+"-"+String(daysInMonth(ym)).padStart(2,"0")}; }
+  function periodo(prefix){
+    var ini = $("ini"+prefix).value, fim = $("fim"+prefix).value;
+    if(!ini && !fim){
+      var b = mesBounds($("mes"+prefix).value || todayIso().slice(0,7));
+      ini = b.ini; fim = b.fim;
+    }
+    if(!ini) ini = fim;
+    if(!fim) fim = ini;
+    if(ini > fim){ var t = ini; ini = fim; fim = t; }
+    var dias = [], cur = ini, truncado = false;
+    while(cur <= fim){
+      if(dias.length >= MAX_DIAS_PERIODO){ truncado = true; break; }
+      dias.push(cur); cur = addDaysIso(cur, 1);
+    }
+    var ultimo = dias[dias.length-1];
+    var ehMes = ini.slice(8)==="01" && ultimo===mesBounds(ini.slice(0,7)).fim && ini.slice(0,7)===ultimo.slice(0,7);
+    return {
+      ini: ini, fim: ultimo, dias: dias, ehMes: ehMes, truncado: truncado,
+      multiMes: ini.slice(0,7) !== ultimo.slice(0,7),
+      label: ehMes ? new Date(ini+"T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"}) : fmtDateBR(ini)+" a "+fmtDateBR(ultimo),
+      key: ehMes ? ini.slice(0,7) : ini+"_a_"+ultimo
+    };
+  }
+  function aplicarMes(prefix){
+    var ym = $("mes"+prefix).value;
+    if(!ym) return;
+    var b = mesBounds(ym);
+    $("ini"+prefix).value = b.ini; $("fim"+prefix).value = b.fim;
+  }
+  function sincronizarMes(prefix){
+    var p = periodo(prefix);
+    $("mes"+prefix).value = p.ehMes ? p.ini.slice(0,7) : "";
+  }
+  function avisoPeriodo(prefix, p){
+    var el = $("aviso"+prefix);
+    el.style.display = p.truncado ? "block" : "none";
+    el.textContent = p.truncado ? "Período limitado a "+MAX_DIAS_PERIODO+" dias — mostrando de "+fmtDateBR(p.ini)+" a "+fmtDateBR(p.fim)+"." : "";
+  }
   function escapeHtml(s){
     return String(s==null?"":s).replace(/[&<>"']/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
@@ -691,6 +763,10 @@
       if(!dr || dr[1]==null) continue;
       var nome = String(dr[1]).trim();
       if(!nome || nome.toUpperCase().indexOf("TOTAL GERAL")>=0) continue;
+      // Última linha do relatório = total de funcionários (número na coluna do nome, "TOTAL GERAL" na
+      // coluna da folha). Qualquer linha cujo "nome" não tem uma letra não é pessoa.
+      if(typeof dr[1] === "number" || !/[A-Za-zÀ-ÿ]/.test(nome)) continue;
+      if(String(dr[0]||"").toUpperCase().indexOf("TOTAL")>=0) continue;
       todosNomes.push(nome);
       var codigo = null, motivoDesconhecido = null, sawAdmissao = false;
       for(var ci=2; ci<=7; ci++){
@@ -1112,6 +1188,8 @@
         $("obraNomeTitulo").textContent = (state.obras[state.obraId]||{}).nome || state.obraId;
         var tabCadastroActive = $("tab-cadastro").classList.contains("active");
         if(tabCadastroActive) renderAcessos();
+        // A lista de nomes ignorados vive no doc da obra: mudou aqui, a caixa da aba Diário precisa refazer.
+        if(!isReadOnly()) renderNaoEncontrados();
       }
     }, function(err){
       showDbBanner("Lista de obras indisponível no momento (" + err.code + ").");
@@ -1154,6 +1232,7 @@
     $("diaSelecionado").value = todayIso();
     $("mesGrade").value = todayIso().slice(0,7);
     $("mesResumo").value = todayIso().slice(0,7);
+    aplicarMes("Grade"); aplicarMes("Resumo");
     renderLegend();
 
     if(state.db){
@@ -1474,60 +1553,56 @@
   }
 
   async function exportGradeExcel(){
-    var ym = $("mesGrade").value || todayIso().slice(0,7);
-    var nDias = daysInMonth(ym);
+    var p = periodo("Grade");
+    var nDias = p.dias.length;
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
-    var mesLabel = new Date(ym+"-01T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
 
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Grade do Mês");
     var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias; // margem + nome + dias
 
-    var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, "Competência: "+mesLabel+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+ativos.length+"  |  Dias no mês: "+nDias, lastCol);
+    var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
+      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias, lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
-    for(var d=1; d<=nDias; d++) ws.getColumn(FIRST_COL+1+d).width = 4;
+    p.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = p.multiMes ? 5.5 : 4; });
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
-    for(var d2=1; d2<=nDias; d2++){
-      ws.getCell(headerRow, FIRST_COL+1+d2).value = d2;
-    }
+    p.dias.forEach(function(iso, i){
+      ws.getCell(headerRow, FIRST_COL+2+i).value = p.multiMes ? rotuloDia(iso, true) : +iso.slice(8);
+    });
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
 
     ativos.forEach(function(fid, idx){
       var r = headerRow+1+idx;
       ws.getCell(r, FIRST_COL).value = funcName(fid);
       ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
-      for(var d3=1; d3<=nDias; d3++){
-        var iso = ym+"-"+String(d3).padStart(2,"0");
+      p.dias.forEach(function(iso, i){
         var a = getAusenciaDoDia(iso, fid);
-        var cell = ws.getCell(r, FIRST_COL+1+d3);
+        var cell = ws.getCell(r, FIRST_COL+2+i);
         cell.value = (a && a.codigo) ? a.codigo : "";
         cell.alignment = {horizontal:"center"};
-      }
+      });
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
     });
 
     ws.views.push({state:"frozen", ySplit:headerRow, xSplit:FIRST_COL});
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-    await saveFile("Grade do Mes - "+obraNome+" - "+ym+".xlsx", blob);
+    await saveFile("Grade do Mes - "+obraNome+" - "+p.key+".xlsx", blob);
   }
 
   async function exportResumoMensalExcel(){
     var dados = computeResumoMensal();
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
-    var mesLabel = new Date(dados.ym+"-01T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
-
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Resumo Mensal");
     var FIRST_COL = 2, lastCol = FIRST_COL + 1 + CODES.length; // margem + nome + função + códigos
 
-    var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, "Competência: "+mesLabel+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no mês: "+dados.somaTotal, lastCol);
+    var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, (dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel(),
+      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no "+(dados.ehMes?"mês":"período")+": "+dados.somaTotal, lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -1574,7 +1649,6 @@
   function exportResumoMensalPdf(){
     var dados = computeResumoMensal();
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
-    var mesLabel = new Date(dados.ym+"-01T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
     var jsPdf = window.jspdf.jsPDF;
     var doc = new jsPdf({orientation:"landscape", unit:"pt", format:"a4"});
 
@@ -1584,7 +1658,7 @@
     doc.setFont("helvetica","bold"); doc.setFontSize(15);
     doc.text("RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, 24, 24);
     doc.setFont("helvetica","normal"); doc.setFontSize(10);
-    doc.text("Competência: "+mesLabel+" · Gerado em "+periodoLabel()+" · Funcionários ativos: "+dados.ativos.length, 24, 40);
+    doc.text((dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel()+" · Funcionários ativos: "+dados.ativos.length, 24, 40);
 
     var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label; }))];
     var body = dados.rows.map(function(row){
@@ -1610,21 +1684,20 @@
   }
 
   function computeResumoMensal(){
-    var ym = $("mesResumo").value || todayIso().slice(0,7);
-    var nDias = daysInMonth(ym);
+    var p = periodo("Resumo");
+    avisoPeriodo("Resumo", p);
     var ativos = ativosList();
     var totals = {}; CODES.forEach(function(c){ totals[c]=0; });
     var perFunc = {};
     ativos.forEach(function(fid){ perFunc[fid]={}; CODES.forEach(function(c){ perFunc[fid][c]=0; }); });
-    for(var d=1; d<=nDias; d++){
-      var iso = ym+"-"+String(d).padStart(2,"0");
+    p.dias.forEach(function(iso){
       var doc = state.dias[iso];
-      if(!doc || !doc.ausencias) continue;
+      if(!doc || !doc.ausencias) return;
       Object.keys(doc.ausencias).forEach(function(fid){
         var a = doc.ausencias[fid];
         if(a.codigo && perFunc[fid]){ perFunc[fid][a.codigo]++; totals[a.codigo]++; }
       });
-    }
+    });
     var somaTotal = CODES.reduce(function(s,c){ return s+totals[c]; },0);
     var rows = ativos.map(function(fid){
       var f = state.funcionarios[fid] || {};
@@ -1632,7 +1705,7 @@
       var soma = CODES.reduce(function(s,c){ return s+t[c]; },0);
       return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, soma:soma};
     }).filter(function(r){ return r.soma>0; }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
-    return {ym:ym, ativos:ativos, totals:totals, rows:rows, somaTotal:somaTotal};
+    return {ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, rows:rows, somaTotal:somaTotal};
   }
 
   async function exportDiarioJpg(){
@@ -1750,7 +1823,16 @@
   // Todo mundo que aparece no relatório e não existe no cadastro — presente, com ausência ou com
   // "ADMISSÃO". Antes só entrava quem tinha ausência, então um funcionário novo que já batia ponto
   // normalmente (ou vinha marcado como ADMISSÃO) nunca era apontado como possível nova admissão.
+  // Nomes que o DP marcou como "ignorar sempre" nesta obra (ex.: usuário de TI que bate ponto mas não é
+  // funcionário da obra). Ficam no doc da obra (nomesIgnorados) e valem pra conferência de todos os dias.
+  function nomesIgnoradosMap(){
+    var m = {};
+    ((state.obras[state.obraId]||{}).nomesIgnorados || []).forEach(function(n){ m[normName(n)] = true; });
+    return m;
+  }
+
   function calcNaoEncontrados(pend){
+    var ignorados = nomesIgnoradosMap();
     var porNomeAusencia = {};
     pend.ausencias.forEach(function(a){ porNomeAusencia[normName(a.nome)] = a; });
     var vistos = {}, out = [];
@@ -1762,7 +1844,7 @@
       var fidExistente = matchFuncionario(p.nome);
       if(fidExistente && !state.funcionarios[fidExistente].inativo) return;
       var chave = normName(p.nome);
-      if(vistos[chave]) return;
+      if(vistos[chave] || ignorados[chave]) return;
       vistos[chave] = true;
       var aus = porNomeAusencia[chave];
       var item = {nome:p.nome, matricula:p.matricula||"", codigo:(aus && aus.codigo) || p.codigo || null, admissao:!!p.admissao};
@@ -1954,28 +2036,32 @@
   }
 
   // ================= TAB: GRADE DO MÊS =================
+  // Rótulo do dia no cabeçalho: só o número dentro de um mês; "28/9" quando o período cruza meses
+  // (senão 28 e 1 ficam ambíguos).
+  function rotuloDia(iso, multiMes){
+    var d = +iso.slice(8);
+    return multiMes ? d+"/"+(+iso.slice(5,7)) : String(d);
+  }
+
   function renderGrade(){
-    var ym = $("mesGrade").value || todayIso().slice(0,7);
-    var nDias = daysInMonth(ym);
+    var p = periodo("Grade");
+    avisoPeriodo("Grade", p);
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
 
     var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário</th>';
-    for(var d=1; d<=nDias; d++){
-      var iso = ym+"-"+String(d).padStart(2,"0");
+    p.dias.forEach(function(iso){
       thead += '<th class="weekday-row '+(isWeekend(iso)?"weekend":"")+'">'+weekdayLabel(iso)+"</th>";
-    }
+    });
     thead += "</tr><tr>";
-    for(var d2=1; d2<=nDias; d2++){
-      var iso3 = ym+"-"+String(d2).padStart(2,"0");
-      thead += '<th class="'+(isWeekend(iso3)?"weekend":"")+'">'+d2+"</th>";
-    }
+    p.dias.forEach(function(iso3){
+      thead += '<th class="'+(isWeekend(iso3)?"weekend":"")+'">'+rotuloDia(iso3, p.multiMes)+"</th>";
+    });
     thead += "</tr></thead>";
 
     var tbody = "<tbody>";
     ativos.forEach(function(fid){
       tbody += '<tr><td class="col-nome">'+escapeHtml(funcName(fid))+"</td>";
-      for(var d=1; d<=nDias; d++){
-        var iso2 = ym+"-"+String(d).padStart(2,"0");
+      p.dias.forEach(function(iso2){
         var a = getAusenciaDoDia(iso2, fid);
         var cellCls = "dia-cell" + (isWeekend(iso2)?" weekend":"");
         var content = "";
@@ -1984,7 +2070,7 @@
           content = '<span class="code-tag" style="color:var(--'+meta.cls+')">'+a.codigo+"</span>";
         }
         tbody += '<td class="'+cellCls+'" data-dia="'+iso2+'" data-func="'+fid+'">'+content+"</td>";
-      }
+      });
       tbody += "</tr>";
     });
     tbody += "</tbody>";
@@ -2012,7 +2098,7 @@
 
     var tbody = $("mensalTbody");
     if(!dados.rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length)+'">Nenhuma ausência registrada em '+dados.ym+'.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length)+'">Nenhuma ausência registrada em '+dados.label+'.</td></tr>';
     } else {
       tbody.innerHTML = dados.rows.map(function(r){
         var cells = CODES.map(function(c){ return '<td class="num">'+r.t[c]+"</td>"; }).join("");
@@ -2049,6 +2135,7 @@
       '</div>';
     }
     $("acessosBox").innerHTML = html;
+    renderIgnorados();
     Array.prototype.forEach.call($("acessosBox").querySelectorAll("[data-remove]"), function(el){
       el.addEventListener("click", function(){
         removeAcessoEmail(el.getAttribute("data-remove"), +el.getAttribute("data-idx"));
@@ -2241,7 +2328,8 @@
     var box = $("naoEncontradosBox");
     var iso = $("diaSelecionado").value || todayIso();
     var doc = state.dias[iso];
-    var lista = (doc && doc.naoEncontrados) || [];
+    var ignorados = nomesIgnoradosMap();
+    var lista = ((doc && doc.naoEncontrados) || []).filter(function(it){ return !ignorados[normName(it.nome)]; });
     if(!lista.length){ naoEncCadastrandoIdx = null; box.innerHTML = ""; return; }
 
     var funcOptions = Object.keys(state.funcionarios).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); })
@@ -2271,12 +2359,14 @@
             '<span class="naoenc-actions">'+
               '<button class="btn-ghost btn-sm" data-new-idx="'+idx+'">Reativar com novos dados</button>'+
               '<button class="btn-ghost btn-sm" data-ignore-ni-idx="'+idx+'">Ignorar</button>'+
+              '<button class="btn-ghost btn-sm" data-ignore-always-idx="'+idx+'" title="Nunca mais apontar este nome nesta obra">Ignorar sempre</button>'+
             '</span></div>';
         }
         return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+' <span style="color:var(--text-faint);">— '+rotulo+'</span></span>'+
           '<span class="naoenc-actions">'+
             '<select data-link-idx="'+idx+'"><option value="">Vincular a...</option>'+funcOptions+'</select>'+
             '<button class="btn-ghost btn-sm" data-new-idx="'+idx+'">Cadastrar novo</button>'+
+            '<button class="btn-ghost btn-sm" data-ignore-always-idx="'+idx+'" title="Nunca mais apontar este nome nesta obra">Ignorar sempre</button>'+
           '</span></div>';
       }).join("") +
     '</div>';
@@ -2319,6 +2409,40 @@
       el.addEventListener("click", function(){
         removerNaoEncontrado(iso, lista[+el.getAttribute("data-ignore-ni-idx")]);
       });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-ignore-always-idx]"), function(el){
+      el.addEventListener("click", function(){
+        ignorarSempre(lista[+el.getAttribute("data-ignore-always-idx")]);
+      });
+    });
+  }
+
+  function ignorarSempre(item){
+    if(!state.db || isReadOnly()) return;
+    var lista = ((state.obras[state.obraId]||{}).nomesIgnorados || []).slice();
+    if(lista.map(normName).indexOf(normName(item.nome))<0) lista.push(item.nome);
+    state.db.collection("obras").doc(state.obraId).update({nomesIgnorados:lista}).catch(function(err){
+      alert("Erro: " + (err&&err.code||"erro"));
+    });
+  }
+  function removerIgnorado(idx){
+    if(!state.db || isReadOnly()) return;
+    var lista = ((state.obras[state.obraId]||{}).nomesIgnorados || []).slice();
+    lista.splice(idx,1);
+    state.db.collection("obras").doc(state.obraId).update({nomesIgnorados:lista}).catch(function(err){
+      alert("Erro: " + (err&&err.code||"erro"));
+    });
+  }
+  function renderIgnorados(){
+    var readOnly = isReadOnly();
+    var lista = (state.obras[state.obraId]||{}).nomesIgnorados || [];
+    $("ignoradosBox").innerHTML = lista.length
+      ? lista.map(function(n, idx){
+          return '<span class="email-chip">'+escapeHtml(n)+(readOnly?"":' <button data-rm-ign="'+idx+'" title="Voltar a apontar este nome">×</button>')+'</span>';
+        }).join("")
+      : '<span style="color:var(--text-faint);font-size:12px;">nenhum</span>';
+    Array.prototype.forEach.call($("ignoradosBox").querySelectorAll("[data-rm-ign]"), function(el){
+      el.addEventListener("click", function(){ removerIgnorado(+el.getAttribute("data-rm-ign")); });
     });
   }
 
@@ -2606,8 +2730,12 @@
   $("adminSenhasFechar").addEventListener("click", closeAdminSenhas);
   $("btnVoltarGate").addEventListener("click", backToGate);
   $("diaSelecionado").addEventListener("change", renderAll);
-  $("mesGrade").addEventListener("change", renderGrade);
-  $("mesResumo").addEventListener("change", renderMensal);
+  $("mesGrade").addEventListener("change", function(){ aplicarMes("Grade"); renderGrade(); });
+  $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
+  ["ini","fim"].forEach(function(k){
+    $(k+"Grade").addEventListener("change", function(){ sincronizarMes("Grade"); renderGrade(); });
+    $(k+"Resumo").addEventListener("change", function(){ sincronizarMes("Resumo"); renderMensal(); });
+  });
   function wireExportBtn(id, fn){
     var btn = $(id);
     var original = btn.textContent;
