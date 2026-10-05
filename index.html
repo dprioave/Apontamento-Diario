@@ -201,6 +201,16 @@
   tbody tr:hover td{ background:rgba(255,255,255,.015); }
   td.num{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap; }
   td.nome{ font-weight:500; min-width:170px; }
+  a.nome-link{ color:var(--text); text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
+  a.nome-link:hover{ color:var(--accent); text-decoration-color:var(--accent); }
+  .ocorr-summary{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 12px; }
+  .ocorr-list{ max-height:48vh; overflow-y:auto; }
+  .ocorr-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:12.5px; }
+  .ocorr-row:last-child{ border-bottom:none; }
+  .ocorr-when{ font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--text-dim); }
+  .ocorr-meta{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .ocorr-n{ color:var(--text-faint); font-size:11.5px; }
+  .ocorr-foot{ margin-top:10px; font-size:11.5px; color:var(--text-faint); }
   .empty-row td{ text-align:center; color:var(--text-faint); padding:26px; }
 
   /* ---------- grade mensal ---------- */
@@ -431,6 +441,20 @@
     </div>
 
     <footer id="footerNote"></footer>
+  </div>
+</div>
+
+<!-- ---- MODAL: ocorrências do funcionário ---- -->
+<div class="modal-backdrop" id="modalOcorrencias">
+  <div class="modal-box wide">
+    <h3 id="ocorrNome">Ocorrências</h3>
+    <p class="modal-sub" id="ocorrSub"></p>
+    <div class="ocorr-summary" id="ocorrResumo"></div>
+    <div class="ocorr-list" id="ocorrLista"></div>
+    <div class="ocorr-foot" id="ocorrRodape"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="ocorrFechar">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -1980,7 +2004,7 @@
       var statusHtml = f.inativo ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inativo</span>' : '<span class="pill pill-presente">Ativo</span>';
       var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>";
       return "<tr>"+
-        '<td class="nome">'+escapeHtml(f.nome)+"</td>"+
+        '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(f.nome)+"</a></td>"+
         "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+statusHtml+"</td>"+
@@ -1992,7 +2016,68 @@
         toggleInativo(el.getAttribute("data-toggle-inativo"));
       });
     });
+    Array.prototype.forEach.call(tbody.querySelectorAll("[data-ocorr]"), function(el){
+      el.addEventListener("click", function(ev){
+        ev.preventDefault();
+        openOcorrencias(el.getAttribute("data-ocorr"));
+      });
+    });
   }
+
+  // Todas as ausências registradas pra um funcionário em todos os dias já importados da obra (não só o
+  // mês selecionado). Dias consecutivos com o mesmo código viram uma faixa só, senão um INSS de 200 dias
+  // viraria 200 linhas.
+  function computeOcorrencias(fid){
+    var datas = Object.keys(state.dias).sort();
+    var dias = [];
+    datas.forEach(function(iso){
+      var a = getAusenciaDoDia(iso, fid);
+      if(a && a.codigo) dias.push({iso:iso, codigo:a.codigo, origem:a.origem});
+    });
+    var faixas = [], counts = {};
+    dias.forEach(function(d){
+      counts[d.codigo] = (counts[d.codigo]||0) + 1;
+      var last = faixas[faixas.length-1];
+      if(last && last.codigo===d.codigo && isNextCalendarDay(last.fim, d.iso)){
+        last.fim = d.iso; last.n++;
+        if(d.origem==="manual") last.manual = true;
+      } else {
+        faixas.push({codigo:d.codigo, ini:d.iso, fim:d.iso, n:1, manual:d.origem==="manual"});
+      }
+    });
+    return {faixas:faixas.reverse(), counts:counts, totalDias:dias.length, datas:datas};
+  }
+
+  function openOcorrencias(fid){
+    var f = state.funcionarios[fid];
+    if(!f) return;
+    var o = computeOcorrencias(fid);
+    $("ocorrNome").textContent = f.nome;
+    $("ocorrSub").textContent = (f.funcao||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo");
+
+    var ordem = CODES.concat(Object.keys(o.counts).filter(function(c){ return CODES.indexOf(c)<0; }));
+    $("ocorrResumo").innerHTML = ordem.filter(function(c){ return o.counts[c]; }).map(function(c){
+      var meta = CODE_META[c] || {label:c, cls:"code-fo"};
+      return '<span class="pill" style="background:var(--'+meta.cls+'-soft);color:var(--'+meta.cls+')">'+escapeHtml(meta.label)+": "+o.counts[c]+(o.counts[c]===1?" dia":" dias")+"</span>";
+    }).join("");
+
+    if(!o.faixas.length){
+      $("ocorrLista").innerHTML = '<div class="ocorr-row" style="color:var(--text-faint);">Nenhuma ocorrência registrada para este funcionário nos dias importados.</div>';
+    } else {
+      $("ocorrLista").innerHTML = o.faixas.map(function(r){
+        var quando = r.ini===r.fim ? weekdayLabel(r.ini)+" "+fmtDateBR(r.ini) : fmtDateBR(r.ini)+" → "+fmtDateBR(r.fim);
+        return '<div class="ocorr-row"><span class="ocorr-when">'+quando+"</span>"+
+          '<span class="ocorr-meta">'+(r.n>1?'<span class="ocorr-n">'+r.n+" dias</span>":"")+
+          (r.manual?'<span class="ocorr-n">manual</span>':"")+codePill(r.codigo)+"</span></div>";
+      }).join("");
+    }
+
+    $("ocorrRodape").textContent = o.datas.length
+      ? "Baseado em "+o.datas.length+" dia(s) importado(s) nesta obra, de "+fmtDateBR(o.datas[0])+" a "+fmtDateBR(o.datas[o.datas.length-1])+". Dias sem importação não aparecem."
+      : "Nenhum dia importado nesta obra ainda.";
+    $("modalOcorrencias").classList.add("show");
+  }
+  function closeOcorrencias(){ $("modalOcorrencias").classList.remove("show"); }
 
   function toggleInativo(fid){
     if(!state.db || isReadOnly()) return;
@@ -2361,6 +2446,8 @@
   $("btnLogin").addEventListener("click", doLogin);
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
+  $("ocorrFechar").addEventListener("click", closeOcorrencias);
+  $("modalOcorrencias").addEventListener("click", function(ev){ if(ev.target===this) closeOcorrencias(); });
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
   $("tsCancelar").addEventListener("click", closeTrocarSenha);
   $("tsSalvar").addEventListener("click", salvarTrocarSenha);
