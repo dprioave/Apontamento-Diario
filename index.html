@@ -758,6 +758,11 @@
     STATE_PE_HOLIDAYS.forEach(function(md){ set[isoDeData(new Date(year, md[0]-1, md[1]))] = "estadual (PE)"; });
     var muni = MUNICIPAL_HOLIDAYS[normName(cidade||"")] || [];
     muni.forEach(function(md){ set[isoDeData(new Date(year, md[0]-1, md[1]))] = "municipal ("+cidade+")"; });
+    // Convenção coletiva (informado pelo DP em 2026-10-08): a 3ª segunda-feira de outubro é feriado pra
+    // todas as obras. Só entra se a data ainda não for outro feriado (nesse caso mantém o rótulo original).
+    var primeiraSegOut = 1 + ((1 - new Date(year, 9, 1).getDay() + 7) % 7);
+    var segConvencao = isoDeData(new Date(year, 9, primeiraSegOut + 14));
+    if(!set[segConvencao]) set[segConvencao] = "da convenção coletiva (3ª segunda de outubro)";
     feriadoCache[key] = set;
     return set;
   }
@@ -796,12 +801,20 @@
   function renderCargaKpis(prefix, p){
     var horas = p.dias.map(horasDoDia);
     var diasUteis = horas.filter(function(h){ return h > 0; }).length;
-    var total = horas.reduce(function(s,h){ return s+h; }, 0);
-    var feriados = p.dias.filter(function(iso){ return feriadoDoDia(iso); }).length;
+    // Somado sobre TODOS os funcionários ativos: carga de cada um (a partir da admissão) e horas de
+    // ausência de cada um no período.
+    var ativos = ativosList();
+    var cargaTotal = 0, ausTotal = 0;
+    ativos.forEach(function(fid){
+      cargaTotal += cargaFuncionario(fid, p.dias, horas);
+      ausTotal += totaisAusenciaDias(fid, p.dias).horas;
+    });
+    var per = p.ehMes ? "mês" : "período";
     $("cargaKpis"+prefix).innerHTML =
-      kpiCard("Dias úteis no "+(p.ehMes?"mês":"período"), diasUteis, "") +
-      kpiCard("Horas úteis totais", total+"h", "") +
-      kpiCard("Feriados no "+(p.ehMes?"mês":"período"), feriados, "");
+      kpiCard("Dias úteis no "+per, diasUteis, "") +
+      kpiCard("Horas úteis · "+ativos.length+" func.", cargaTotal+"h", "") +
+      kpiCard("Horas ausentes · "+ativos.length+" func.", ausTotal+"h", ausTotal?"bad":"") +
+      kpiCard("% de horas ausentes", fmtPct(ausTotal, cargaTotal), ausTotal?"bad":"");
   }
 
   function fmtPct(aus, carga){
@@ -812,7 +825,7 @@
     var cidade = cidadeDaObra();
     var feriados = p.dias.filter(function(iso){ return feriadoDoDia(iso); }).map(function(iso){ return fmtDateBR(iso).slice(0,5); });
     return "Horas: cada dia de ausência vale 9h de segunda a quinta e 8h na sexta; sábado, domingo e feriados não contam horas. "+
-      "Feriados considerados: nacionais, estadual (PE)"+(cidade ? " e municipais de "+cidade : " — cidade desta empresa não mapeada, só nacionais e estadual")+". "+
+      "Feriados considerados: nacionais, estadual (PE)"+(cidade ? ", municipais de "+cidade : " (cidade desta empresa não mapeada: sem municipais)")+" e o da convenção coletiva (3ª segunda-feira de outubro). "+
       (feriados.length ? "Feriados neste período: "+feriados.join(", ")+". " : "Nenhum feriado neste período. ")+
       "A carga do período soma essas mesmas horas a partir da admissão de cada funcionário; % = horas de ausência ÷ carga. O total soma todos os códigos.";
   }
@@ -1704,7 +1717,7 @@
     var horasPorDia = p.dias.map(horasDoDia);
 
     var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas úteis: "+horasPorDia.reduce(function(s,h){ return s+h; },0)+"h  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
+      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas úteis (soma de todos os funcionários): "+ativos.reduce(function(s,fid){ return s+cargaFuncionario(fid, p.dias, horasPorDia); },0)+"h  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -1760,7 +1773,7 @@
     var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nCod + 4; // margem + nome + função + códigos + total dias + total horas + carga + %
 
     var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, (dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+dados.ativos.length+"  |  Horas úteis no "+(dados.ehMes?"mês":"período")+": "+dados.periodo.dias.reduce(function(s,i){ return s+horasDoDia(i); },0)+"h  |  Total de ausências: "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  |  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
+      "Funcionários ativos: "+dados.ativos.length+"  |  Horas úteis (soma de todos os funcionários): "+dados.cargaGeral+"h  |  Total de ausências: "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  |  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -1846,7 +1859,7 @@
 
     var emHoras = $("modoResumo").value === "horas";
     doc.setTextColor(107,115,120); doc.setFontSize(9);
-    doc.text("Horas úteis no "+(dados.ehMes?"mês":"período")+": "+dados.periodo.dias.reduce(function(s,i){ return s+horasDoDia(i); },0)+"h  ·  Total: "+dados.somaTotal+" dia(s) de ausência = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  ·  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), 24, 64);
+    doc.text("Horas úteis (todos os funcionários): "+dados.cargaGeral+"h  ·  Total: "+dados.somaTotal+" dia(s) de ausência = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  ·  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), 24, 64);
     var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label + (emHoras ? " (h)" : ""); })).concat(["Total dias","Total horas","Carga (h)","% da carga"])];
     var body = dados.rows.map(function(row){
       return [row.nome, row.funcao].concat(CODES.map(function(c){ return String(emHoras ? row.h[c] : row.t[c]); })).concat([String(row.soma), String(row.somaH), String(row.carga), fmtPct(row.somaH, row.carga)]);
