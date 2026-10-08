@@ -240,6 +240,7 @@
   table.grade.read-only td.dia-cell:hover{ outline:none; }
   table.grade td.dia-cell .code-tag{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:10.5px; }
   table.grade td.weekend{ background:rgba(255,255,255,.02); }
+  table.grade th.feriado, table.grade td.feriado{ background:rgba(224,174,95,.14); }
 
   /* ---------- cadastro ---------- */
   .funcionario-form{ display:grid; grid-template-columns:2fr 2fr 1fr 1fr auto; gap:10px; align-items:flex-end; margin-bottom:16px; }
@@ -400,7 +401,7 @@
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
       <p class="panel-hint" id="avisoGrade" style="display:none;"></p>
-      <p class="panel-hint">As colunas "Dias" e "Horas" somam as ausências do período (todos os códigos): 9h de segunda a quinta, 8h na sexta, sábado e domingo sem horas.</p>
+      <p class="panel-hint" id="hintHorasGrade"></p>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
 
@@ -430,11 +431,11 @@
         <button class="btn-ghost" id="btnExportMensalPdf">⬇ Exportar PDF</button>
       </div>
       <p class="panel-hint" id="avisoResumo" style="display:none;"></p>
-      <p class="panel-hint">Horas: cada dia de ausência vale 9h de segunda a quinta e 8h na sexta; sábado e domingo não contam horas. O total soma todos os códigos.</p>
+      <p class="panel-hint" id="hintHorasResumo"></p>
       <div class="kpis" id="mensalKpis"></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Funcionário</th><th>Função</th><th>Faltas</th><th>Atest.</th><th>Férias</th><th>Folgas</th><th>Susp.</th><th>Lic.</th><th>Just.</th><th>Abon.</th><th>Av. Pr.</th><th>Ex. Per.</th><th>Total dias</th><th>Total horas</th></tr></thead>
+          <thead><tr><th>Funcionário</th><th>Função</th><th>Faltas</th><th>Atest.</th><th>Férias</th><th>Folgas</th><th>Susp.</th><th>Lic.</th><th>Just.</th><th>Abon.</th><th>Av. Pr.</th><th>Ex. Per.</th><th>Total dias</th><th>Total horas</th><th>Carga (h)</th><th>% da carga</th></tr></thead>
           <tbody id="mensalTbody"></tbody>
         </table>
       </div>
@@ -704,7 +705,73 @@
   // Jornada usada pra converter cada dia de ausência em horas: seg–qui 9h, sex 8h. Sábado e domingo
   // contam 0h (a jornada informada não cobre fim de semana) — ajustar aqui se mudar. Índice = getDay().
   var HORAS_POR_DIA_SEMANA = [0,9,9,9,9,8,0];
-  function horasDoDia(iso){ return HORAS_POR_DIA_SEMANA[new Date(iso+"T00:00:00").getDay()]; }
+
+  // ---------- Feriados por cidade da obra ----------
+  // Mesmos dados já confirmados (com fonte oficial) no Hora Homem Trabalhada: nacionais + estadual de PE
+  // (Data Magna, Lei 16.059/2017) + municipais fixos de cada cidade (Recife: Lei 9.777/1967; Cabo de Santo
+  // Agostinho: Decreto 2.759/2026; Tamandaré: Leis 013/1997 e 663/2023). "Ponto facultativo" fica de fora —
+  // não vale pra empresa privada. Se um feriado municipal mudar, ajustar aqui E no HHT.
+  var STATE_PE_HOLIDAYS = [[3,6]];
+  var MUNICIPAL_HOLIDAYS = {
+    "recife": [[6,24],[7,16],[12,8]],
+    "cabo de santo agostinho": [[6,13],[7,9],[10,31]],
+    "tamandare": [[6,29],[7,19],[7,31],[9,28]]
+  };
+  var OBRA_CIDADE = {};
+  (function(){
+    var raw = {
+      "AFC HOTELARIA LTDA":"Recife", "ALVARO JOSE FERREIRA DA COSTA":"Recife",
+      "CONDOMINIO DO EDIFICIO EMPRESARIAL MARIE CURIE":"Recife", "CONDOMINIO EMPRESARIAL HOTELEIRO":"Recife",
+      "EMPRESARIAL 2316":"Recife",
+      "RESERVA DO PAIVA SPE 01 LTDA":"Cabo de Santo Agostinho", "RESERVA DO PAIVA SPE 02 LTDA":"Cabo de Santo Agostinho",
+      "RESERVA DO PAIVA SPE 03 LTDA":"Cabo de Santo Agostinho",
+      "RIO AVE 130 SPE LTDA":"Recife", "RIO AVE 200 SPE LTDA":"Recife",
+      "RIO AVE CARNEIROS 01 SPE LTDA":"Tamandaré", "RIO AVE CIDADE JARDIM SPE LTDA":"Recife",
+      "RIO AVE EQUIPAMENTOS LTDA":"Recife", "RIO AVE INVESTIMENTOS LTDA":"Recife",
+      "RIO AVE OASIS TORRE 1 SPE LTDA":"Recife", "RIO AVE POCO DA PANELA SPE LTDA":"Recife",
+      "RIO AVE PRAIA HOTEL SPE LTDA":"Recife", "RIO AVE SUBHOLDING INCORPORACAO LTDA":"Recife"
+    };
+    Object.keys(raw).forEach(function(k){ OBRA_CIDADE[normName(k).replace(/\.+$/,"")] = raw[k]; });
+  })();
+
+  function easterDate(year){
+    var a=year%19, b=Math.floor(year/100), c=year%100, d=Math.floor(b/4), e=b%4,
+        f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30,
+        i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451),
+        month=Math.floor((h+l-7*m+114)/31), day=((h+l-7*m+114)%31)+1;
+    return new Date(year, month-1, day);
+  }
+  function isoDeData(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  var feriadoCache = {};
+  function feriadosDoAno(year, cidade){
+    var key = year+":"+(cidade||"");
+    if(feriadoCache[key]) return feriadoCache[key];
+    var easter = easterDate(year);
+    var set = {};
+    [new Date(year,0,1), new Date(year,3,21), new Date(year,4,1), new Date(year,8,7), new Date(year,9,12),
+     new Date(year,10,2), new Date(year,10,15), new Date(year,10,20), new Date(year,11,25),
+     new Date(easter.getFullYear(), easter.getMonth(), easter.getDate()-2),
+     new Date(easter.getFullYear(), easter.getMonth(), easter.getDate()+60)
+    ].forEach(function(d){ set[isoDeData(d)] = "nacional"; });
+    STATE_PE_HOLIDAYS.forEach(function(md){ set[isoDeData(new Date(year, md[0]-1, md[1]))] = "estadual (PE)"; });
+    var muni = MUNICIPAL_HOLIDAYS[normName(cidade||"")] || [];
+    muni.forEach(function(md){ set[isoDeData(new Date(year, md[0]-1, md[1]))] = "municipal ("+cidade+")"; });
+    feriadoCache[key] = set;
+    return set;
+  }
+  // Cidade da obra aberta (pelo nome da empresa); null se a empresa não estiver no mapa — aí valem só os
+  // feriados nacionais e o estadual.
+  function cidadeDaObra(){
+    var nome = (state.obras[state.obraId]||{}).nome || "";
+    return OBRA_CIDADE[normName(nome).replace(/\.+$/,"")] || null;
+  }
+  function feriadoDoDia(iso){ return feriadosDoAno(+iso.slice(0,4), cidadeDaObra())[iso] || null; }
+
+  // Horas de um dia: seg–qui 9h, sex 8h; fim de semana e feriado (da cidade da obra) = 0h.
+  function horasDoDia(iso){
+    if(feriadoDoDia(iso)) return 0;
+    return HORAS_POR_DIA_SEMANA[new Date(iso+"T00:00:00").getDay()];
+  }
   // Dias e horas de ausência (qualquer código) de um funcionário dentro de uma lista de datas.
   function totaisAusenciaDias(fid, dias){
     var t = {dias:0, horas:0};
@@ -713,6 +780,26 @@
       if(a && a.codigo){ t.dias++; t.horas += horasDoDia(iso); }
     });
     return t;
+  }
+  // Carga horária esperada do funcionário no período: soma das horas de cada dia, só a partir da admissão
+  // (quem entrou no meio do período não deve ter carga dos dias anteriores). `horas` = horasDoDia de cada dia.
+  function cargaFuncionario(fid, dias, horas){
+    var adm = (state.funcionarios[fid]||{}).admissao || "";
+    var total = 0;
+    dias.forEach(function(iso, i){ if(!adm || iso >= adm) total += horas[i]; });
+    return total;
+  }
+  function fmtPct(aus, carga){
+    if(!(carga > 0)) return "—";
+    return (aus/carga*100).toLocaleString("pt-BR",{minimumFractionDigits:1, maximumFractionDigits:1})+"%";
+  }
+  function textoRegraHoras(p){
+    var cidade = cidadeDaObra();
+    var feriados = p.dias.filter(function(iso){ return feriadoDoDia(iso); }).map(function(iso){ return fmtDateBR(iso).slice(0,5); });
+    return "Horas: cada dia de ausência vale 9h de segunda a quinta e 8h na sexta; sábado, domingo e feriados não contam horas. "+
+      "Feriados considerados: nacionais, estadual (PE)"+(cidade ? " e municipais de "+cidade : " — cidade desta empresa não mapeada, só nacionais e estadual")+". "+
+      (feriados.length ? "Feriados neste período: "+feriados.join(", ")+". " : "Nenhum feriado neste período. ")+
+      "A carga do período soma essas mesmas horas a partir da admissão de cada funcionário; % = horas de ausência ÷ carga. O total soma todos os códigos.";
   }
 
   function avisoPeriodo(prefix, p){
@@ -1597,17 +1684,19 @@
 
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Grade do Mês");
-    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias + 2; // margem + nome + dias + total dias + total horas
-    var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1;
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias + 3; // margem + nome + dias + total dias + total horas + %
+    var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1, colPct = colDias + 2;
+    var horasPorDia = p.dias.map(horasDoDia);
 
     var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom 0h", lastCol);
+      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
     p.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = p.multiMes ? 5.5 : 4; });
     ws.getColumn(colDias).width = 8;
     ws.getColumn(colHoras).width = 9;
+    ws.getColumn(colPct).width = 9;
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
     p.dias.forEach(function(iso, i){
@@ -1615,6 +1704,7 @@
     });
     ws.getCell(headerRow, colDias).value = "Dias";
     ws.getCell(headerRow, colHoras).value = "Horas";
+    ws.getCell(headerRow, colPct).value = "% carga";
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
 
     ativos.forEach(function(fid, idx){
@@ -1630,8 +1720,12 @@
       var tot = totaisAusenciaDias(fid, p.dias);
       ws.getCell(r, colDias).value = tot.dias || "";
       ws.getCell(r, colHoras).value = tot.horas || "";
+      var cargaX = cargaFuncionario(fid, p.dias, horasPorDia);
+      ws.getCell(r, colPct).value = (tot.dias && cargaX > 0) ? tot.horas/cargaX : "";
+      ws.getCell(r, colPct).numFmt = "0.0%";
       ws.getCell(r, colDias).alignment = {horizontal:"center"};
       ws.getCell(r, colHoras).alignment = {horizontal:"center"};
+      ws.getCell(r, colPct).alignment = {horizontal:"center"};
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
     });
 
@@ -1648,10 +1742,10 @@
     var ws = wb.addWorksheet("Resumo Mensal");
     var emHoras = $("modoResumo").value === "horas";
     var nCod = CODES.length;
-    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nCod + 2; // margem + nome + função + códigos + total dias + total horas
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nCod + 4; // margem + nome + função + códigos + total dias + total horas + carga + %
 
     var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, (dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no "+(dados.ehMes?"mês":"período")+": "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h  |  Horas: seg–qui 9h, sex 8h, sáb/dom 0h", lastCol);
+      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no "+(dados.ehMes?"mês":"período")+": "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  |  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -1659,12 +1753,16 @@
     CODES.forEach(function(c,i){ ws.getColumn(FIRST_COL+2+i).width = emHoras ? 11 : 9; });
     ws.getColumn(FIRST_COL+2+nCod).width = 11;
     ws.getColumn(FIRST_COL+3+nCod).width = 12;
+    ws.getColumn(FIRST_COL+4+nCod).width = 11;
+    ws.getColumn(FIRST_COL+5+nCod).width = 12;
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
     ws.getCell(headerRow, FIRST_COL+1).value = "Função";
     CODES.forEach(function(c,i){ ws.getCell(headerRow, FIRST_COL+2+i).value = CODE_META[c].label + (emHoras ? " (h)" : ""); });
     ws.getCell(headerRow, FIRST_COL+2+nCod).value = "Total dias";
     ws.getCell(headerRow, FIRST_COL+3+nCod).value = "Total horas";
+    ws.getCell(headerRow, FIRST_COL+4+nCod).value = "Carga (h)";
+    ws.getCell(headerRow, FIRST_COL+5+nCod).value = "% da carga";
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
 
     var r = headerRow;
@@ -1683,6 +1781,11 @@
       ws.getCell(r, FIRST_COL+3+nCod).value = row.somaH;
       ws.getCell(r, FIRST_COL+2+nCod).alignment = {horizontal:"center"};
       ws.getCell(r, FIRST_COL+3+nCod).alignment = {horizontal:"center"};
+      ws.getCell(r, FIRST_COL+4+nCod).value = row.carga;
+      ws.getCell(r, FIRST_COL+5+nCod).value = row.carga > 0 ? row.somaH/row.carga : "";
+      ws.getCell(r, FIRST_COL+5+nCod).numFmt = "0.0%";
+      ws.getCell(r, FIRST_COL+4+nCod).alignment = {horizontal:"center"};
+      ws.getCell(r, FIRST_COL+5+nCod).alignment = {horizontal:"center"};
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
     });
 
@@ -1699,6 +1802,11 @@
     ws.getCell(totalsR, FIRST_COL+3+nCod).value = dados.somaTotalH;
     ws.getCell(totalsR, FIRST_COL+2+nCod).alignment = {horizontal:"center"};
     ws.getCell(totalsR, FIRST_COL+3+nCod).alignment = {horizontal:"center"};
+    ws.getCell(totalsR, FIRST_COL+4+nCod).value = dados.cargaGeral;
+    ws.getCell(totalsR, FIRST_COL+5+nCod).value = dados.cargaGeral > 0 ? dados.somaTotalH/dados.cargaGeral : "";
+    ws.getCell(totalsR, FIRST_COL+5+nCod).numFmt = "0.0%";
+    ws.getCell(totalsR, FIRST_COL+4+nCod).alignment = {horizontal:"center"};
+    ws.getCell(totalsR, FIRST_COL+5+nCod).alignment = {horizontal:"center"};
     styleExportTotalsRow(ws, totalsR, FIRST_COL, lastCol);
 
     ws.views.push({state:"frozen", ySplit:headerRow});
@@ -1723,16 +1831,17 @@
 
     var emHoras = $("modoResumo").value === "horas";
     doc.setTextColor(107,115,120); doc.setFontSize(9);
-    doc.text("Total: "+dados.somaTotal+" dia(s) de ausência = "+dados.somaTotalH+"h  ·  Horas: seg–qui 9h, sex 8h, sáb/dom 0h", 24, 64);
-    var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label + (emHoras ? " (h)" : ""); })).concat(["Total dias","Total horas"])];
+    doc.text("Total: "+dados.somaTotal+" dia(s) de ausência = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  ·  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), 24, 64);
+    var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label + (emHoras ? " (h)" : ""); })).concat(["Total dias","Total horas","Carga (h)","% da carga"])];
     var body = dados.rows.map(function(row){
-      return [row.nome, row.funcao].concat(CODES.map(function(c){ return String(emHoras ? row.h[c] : row.t[c]); })).concat([String(row.soma), String(row.somaH)]);
+      return [row.nome, row.funcao].concat(CODES.map(function(c){ return String(emHoras ? row.h[c] : row.t[c]); })).concat([String(row.soma), String(row.somaH), String(row.carga), fmtPct(row.somaH, row.carga)]);
     });
-    body.push(["TOTAL",""].concat(CODES.map(function(c){ return String(emHoras ? dados.totalsH[c] : dados.totals[c]); })).concat([String(dados.somaTotal), String(dados.somaTotalH)]));
+    body.push(["TOTAL",""].concat(CODES.map(function(c){ return String(emHoras ? dados.totalsH[c] : dados.totals[c]); })).concat([String(dados.somaTotal), String(dados.somaTotalH), String(dados.cargaGeral), fmtPct(dados.somaTotalH, dados.cargaGeral)]));
 
     doc.autoTable({
       head: head, body: body, startY: 74,
-      styles: {font:"helvetica", fontSize:9, textColor:[42,42,42], lineColor:[225,228,230], lineWidth:0.5},
+      styles: {font:"helvetica", fontSize:8, cellPadding:3, textColor:[42,42,42], lineColor:[225,228,230], lineWidth:0.5},
+      margin: {left:24, right:24},
       headStyles: {fillColor:[238,241,242], textColor:[36,56,74], fontStyle:"bold", lineWidth:{bottom:1}, lineColor:[95,180,174]},
       alternateRowStyles: {fillColor:[246,247,247]},
       didParseCell: function(data){
@@ -1771,14 +1880,18 @@
     });
     var somaTotal = CODES.reduce(function(s,c){ return s+totals[c]; },0);
     var somaTotalH = CODES.reduce(function(s,c){ return s+totalsH[c]; },0);
+    var horasPorDia = p.dias.map(horasDoDia);
+    var cargaGeral = 0;
     var rows = ativos.map(function(fid){
       var f = state.funcionarios[fid] || {};
       var t = perFunc[fid], th = perFuncH[fid];
       var soma = CODES.reduce(function(s,c){ return s+t[c]; },0);
       var somaH = CODES.reduce(function(s,c){ return s+th[c]; },0);
-      return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, h:th, soma:soma, somaH:somaH};
+      var carga = cargaFuncionario(fid, p.dias, horasPorDia);
+      cargaGeral += carga;
+      return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, h:th, soma:soma, somaH:somaH, carga:carga};
     }).filter(function(r){ return r.soma>0; }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
-    return {ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, totalsH:totalsH, rows:rows, somaTotal:somaTotal, somaTotalH:somaTotalH};
+    return {ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, totalsH:totalsH, rows:rows, somaTotal:somaTotal, somaTotalH:somaTotalH, cargaGeral:cargaGeral, periodo:p};
   }
 
   async function exportDiarioJpg(){
@@ -2120,15 +2233,19 @@
     var p = periodo("Grade");
     avisoPeriodo("Grade", p);
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var horasPorDia = p.dias.map(horasDoDia);
+    $("hintHorasGrade").textContent = textoRegraHoras(p) + ' As colunas "Dias", "Horas" e "%" somam as ausências do período; dias em destaque amarelo são feriados.';
+    var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":""); };
+    var tituloDia = function(iso){ var f = feriadoDoDia(iso); return f ? ' title="Feriado '+f+'"' : ""; };
 
     var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário</th>';
     p.dias.forEach(function(iso){
-      thead += '<th class="weekday-row '+(isWeekend(iso)?"weekend":"")+'">'+weekdayLabel(iso)+"</th>";
+      thead += '<th class="weekday-row '+clsDia(iso)+'"'+tituloDia(iso)+'>'+weekdayLabel(iso)+"</th>";
     });
-    thead += '<th class="col-total" rowspan="2" title="Dias de ausência no período">Dias</th><th class="col-total" rowspan="2" title="Horas de ausência no período (seg–qui 9h, sex 8h)">Horas</th>';
+    thead += '<th class="col-total" rowspan="2" title="Dias de ausência no período">Dias</th><th class="col-total" rowspan="2" title="Horas de ausência no período (seg–qui 9h, sex 8h; sem fins de semana e feriados)">Horas</th><th class="col-total" rowspan="2" title="Horas de ausência ÷ carga horária do período">%</th>';
     thead += "</tr><tr>";
     p.dias.forEach(function(iso3){
-      thead += '<th class="'+(isWeekend(iso3)?"weekend":"")+'">'+rotuloDia(iso3, p.multiMes)+"</th>";
+      thead += '<th class="'+clsDia(iso3)+'"'+tituloDia(iso3)+'>'+rotuloDia(iso3, p.multiMes)+"</th>";
     });
     thead += "</tr></thead>";
 
@@ -2137,7 +2254,7 @@
       tbody += '<tr><td class="col-nome">'+escapeHtml(funcName(fid))+"</td>";
       p.dias.forEach(function(iso2){
         var a = getAusenciaDoDia(iso2, fid);
-        var cellCls = "dia-cell" + (isWeekend(iso2)?" weekend":"");
+        var cellCls = "dia-cell " + clsDia(iso2);
         var content = "";
         if(a && a.codigo){
           var meta = CODE_META[a.codigo];
@@ -2146,7 +2263,8 @@
         tbody += '<td class="'+cellCls+'" data-dia="'+iso2+'" data-func="'+fid+'">'+content+"</td>";
       });
       var tot = totaisAusenciaDias(fid, p.dias);
-      tbody += '<td class="col-total-cell">'+(tot.dias||"")+'</td><td class="col-total-cell">'+(tot.horas ? tot.horas+"h" : "")+"</td>";
+      var carga = cargaFuncionario(fid, p.dias, horasPorDia);
+      tbody += '<td class="col-total-cell">'+(tot.dias||"")+'</td><td class="col-total-cell">'+(tot.horas ? tot.horas+"h" : "")+'</td><td class="col-total-cell" title="Carga do período: '+carga+'h">'+(tot.dias ? fmtPct(tot.horas, carga) : "")+"</td>";
       tbody += "</tr>";
     });
     tbody += "</tbody>";
@@ -2172,11 +2290,13 @@
     $("mensalKpis").innerHTML = CODES.map(function(c){
       var v = emHoras ? dados.totalsH[c] : dados.totals[c];
       return kpiCard(CODE_META[c].label, emHoras ? v+"h" : v, v?"bad":"");
-    }).join("") + kpiCard("Total de horas", dados.somaTotalH+"h", dados.somaTotalH?"bad":"");
+    }).join("") + kpiCard("Total de horas", dados.somaTotalH+"h", dados.somaTotalH?"bad":"")
+      + kpiCard("% de horas ausentes", fmtPct(dados.somaTotalH, dados.cargaGeral), dados.somaTotalH?"bad":"");
+    $("hintHorasResumo").textContent = textoRegraHoras(dados.periodo) + " O cartão \"% de horas ausentes\" divide o total de horas pela carga de TODOS os funcionários ativos.";
 
     var tbody = $("mensalTbody");
     if(!dados.rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length+2)+'">Nenhuma ausência registrada em '+dados.label+'.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length+4)+'">Nenhuma ausência registrada em '+dados.label+'.</td></tr>';
     } else {
       tbody.innerHTML = dados.rows.map(function(r){
         var cells = CODES.map(function(c){ return '<td class="num">'+(emHoras ? r.h[c] : r.t[c])+"</td>"; }).join("");
@@ -2186,6 +2306,8 @@
           cells +
           '<td class="num"><b>'+r.soma+"</b></td>"+
           '<td class="num"><b>'+r.somaH+"h</b></td>"+
+          '<td class="num">'+r.carga+"h</td>"+
+          '<td class="num"><b>'+fmtPct(r.somaH, r.carga)+"</b></td>"+
         "</tr>";
       }).join("");
     }
