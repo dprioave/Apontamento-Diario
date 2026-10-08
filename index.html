@@ -209,6 +209,8 @@
   .diff-row:last-child{ border-bottom:none; }
   .diff-change{ display:flex; align-items:center; gap:6px; flex-shrink:0; color:var(--text-faint); font-size:11.5px; }
   .diff-arrow{ color:var(--text-faint); }
+  table.grade thead th.col-total{ height:44px; padding:4px 10px; min-width:48px; }
+  table.grade td.col-total-cell{ text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; padding:0 10px; white-space:nowrap; }
   a.nome-link{ color:var(--text); text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
   a.nome-link:hover{ color:var(--accent); text-decoration-color:var(--accent); }
   .ocorr-summary{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 12px; }
@@ -396,6 +398,7 @@
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
       <p class="panel-hint" id="avisoGrade" style="display:none;"></p>
+      <p class="panel-hint">As colunas "Dias" e "Horas" somam as ausências do período (todos os códigos): 9h de segunda a quinta, 8h na sexta, sábado e domingo sem horas.</p>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
 
@@ -414,14 +417,22 @@
           <label for="fimResumo">Até</label>
           <input type="date" id="fimResumo">
         </div>
+        <div class="field">
+          <label for="modoResumo">Colunas por código</label>
+          <select id="modoResumo">
+            <option value="dias">Em dias</option>
+            <option value="horas">Em horas</option>
+          </select>
+        </div>
         <button class="btn-ghost" id="btnExportMensalExcel">⬇ Exportar Excel</button>
         <button class="btn-ghost" id="btnExportMensalPdf">⬇ Exportar PDF</button>
       </div>
       <p class="panel-hint" id="avisoResumo" style="display:none;"></p>
+      <p class="panel-hint">Horas: cada dia de ausência vale 9h de segunda a quinta e 8h na sexta; sábado e domingo não contam horas. O total soma todos os códigos.</p>
       <div class="kpis" id="mensalKpis"></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Funcionário</th><th>Função</th><th>Faltas</th><th>Atest.</th><th>Férias</th><th>Folgas</th><th>Susp.</th><th>Lic.</th><th>Just.</th><th>Abon.</th><th>Av. Pr.</th><th>Ex. Per.</th></tr></thead>
+          <thead><tr><th>Funcionário</th><th>Função</th><th>Faltas</th><th>Atest.</th><th>Férias</th><th>Folgas</th><th>Susp.</th><th>Lic.</th><th>Just.</th><th>Abon.</th><th>Av. Pr.</th><th>Ex. Per.</th><th>Total dias</th><th>Total horas</th></tr></thead>
           <tbody id="mensalTbody"></tbody>
         </table>
       </div>
@@ -688,6 +699,20 @@
     var p = periodo(prefix);
     $("mes"+prefix).value = p.ehMes ? p.ini.slice(0,7) : "";
   }
+  // Jornada usada pra converter cada dia de ausência em horas: seg–qui 9h, sex 8h. Sábado e domingo
+  // contam 0h (a jornada informada não cobre fim de semana) — ajustar aqui se mudar. Índice = getDay().
+  var HORAS_POR_DIA_SEMANA = [0,9,9,9,9,8,0];
+  function horasDoDia(iso){ return HORAS_POR_DIA_SEMANA[new Date(iso+"T00:00:00").getDay()]; }
+  // Dias e horas de ausência (qualquer código) de um funcionário dentro de uma lista de datas.
+  function totaisAusenciaDias(fid, dias){
+    var t = {dias:0, horas:0};
+    dias.forEach(function(iso){
+      var a = getAusenciaDoDia(iso, fid);
+      if(a && a.codigo){ t.dias++; t.horas += horasDoDia(iso); }
+    });
+    return t;
+  }
+
   function avisoPeriodo(prefix, p){
     var el = $("aviso"+prefix);
     el.style.display = p.truncado ? "block" : "none";
@@ -1560,19 +1585,24 @@
 
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Grade do Mês");
-    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias; // margem + nome + dias
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias + 2; // margem + nome + dias + total dias + total horas
+    var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1;
 
     var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias, lastCol);
+      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom 0h", lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
     p.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = p.multiMes ? 5.5 : 4; });
+    ws.getColumn(colDias).width = 8;
+    ws.getColumn(colHoras).width = 9;
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
     p.dias.forEach(function(iso, i){
       ws.getCell(headerRow, FIRST_COL+2+i).value = p.multiMes ? rotuloDia(iso, true) : +iso.slice(8);
     });
+    ws.getCell(headerRow, colDias).value = "Dias";
+    ws.getCell(headerRow, colHoras).value = "Horas";
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
 
     ativos.forEach(function(fid, idx){
@@ -1585,6 +1615,11 @@
         cell.value = (a && a.codigo) ? a.codigo : "";
         cell.alignment = {horizontal:"center"};
       });
+      var tot = totaisAusenciaDias(fid, p.dias);
+      ws.getCell(r, colDias).value = tot.dias || "";
+      ws.getCell(r, colHoras).value = tot.horas || "";
+      ws.getCell(r, colDias).alignment = {horizontal:"center"};
+      ws.getCell(r, colHoras).alignment = {horizontal:"center"};
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
     });
 
@@ -1599,19 +1634,25 @@
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Resumo Mensal");
-    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + CODES.length; // margem + nome + função + códigos
+    var emHoras = $("modoResumo").value === "horas";
+    var nCod = CODES.length;
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nCod + 2; // margem + nome + função + códigos + total dias + total horas
 
     var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, (dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no "+(dados.ehMes?"mês":"período")+": "+dados.somaTotal, lastCol);
+      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no "+(dados.ehMes?"mês":"período")+": "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h  |  Horas: seg–qui 9h, sex 8h, sáb/dom 0h", lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
     ws.getColumn(FIRST_COL+1).width = 22;
-    CODES.forEach(function(c,i){ ws.getColumn(FIRST_COL+2+i).width = 9; });
+    CODES.forEach(function(c,i){ ws.getColumn(FIRST_COL+2+i).width = emHoras ? 11 : 9; });
+    ws.getColumn(FIRST_COL+2+nCod).width = 11;
+    ws.getColumn(FIRST_COL+3+nCod).width = 12;
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
     ws.getCell(headerRow, FIRST_COL+1).value = "Função";
-    CODES.forEach(function(c,i){ ws.getCell(headerRow, FIRST_COL+2+i).value = CODE_META[c].label; });
+    CODES.forEach(function(c,i){ ws.getCell(headerRow, FIRST_COL+2+i).value = CODE_META[c].label + (emHoras ? " (h)" : ""); });
+    ws.getCell(headerRow, FIRST_COL+2+nCod).value = "Total dias";
+    ws.getCell(headerRow, FIRST_COL+3+nCod).value = "Total horas";
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
 
     var r = headerRow;
@@ -1623,9 +1664,13 @@
       ws.getCell(r, FIRST_COL+1).alignment = {horizontal:"left"};
       CODES.forEach(function(c,i){
         var cell = ws.getCell(r, FIRST_COL+2+i);
-        cell.value = row.t[c];
+        cell.value = emHoras ? row.h[c] : row.t[c];
         cell.alignment = {horizontal:"center"};
       });
+      ws.getCell(r, FIRST_COL+2+nCod).value = row.soma;
+      ws.getCell(r, FIRST_COL+3+nCod).value = row.somaH;
+      ws.getCell(r, FIRST_COL+2+nCod).alignment = {horizontal:"center"};
+      ws.getCell(r, FIRST_COL+3+nCod).alignment = {horizontal:"center"};
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
     });
 
@@ -1635,9 +1680,13 @@
     ws.getCell(totalsR, FIRST_COL+1).value = "";
     CODES.forEach(function(c,i){
       var cell = ws.getCell(totalsR, FIRST_COL+2+i);
-      cell.value = dados.totals[c];
+      cell.value = emHoras ? dados.totalsH[c] : dados.totals[c];
       cell.alignment = {horizontal:"center"};
     });
+    ws.getCell(totalsR, FIRST_COL+2+nCod).value = dados.somaTotal;
+    ws.getCell(totalsR, FIRST_COL+3+nCod).value = dados.somaTotalH;
+    ws.getCell(totalsR, FIRST_COL+2+nCod).alignment = {horizontal:"center"};
+    ws.getCell(totalsR, FIRST_COL+3+nCod).alignment = {horizontal:"center"};
     styleExportTotalsRow(ws, totalsR, FIRST_COL, lastCol);
 
     ws.views.push({state:"frozen", ySplit:headerRow});
@@ -1660,14 +1709,17 @@
     doc.setFont("helvetica","normal"); doc.setFontSize(10);
     doc.text((dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel()+" · Funcionários ativos: "+dados.ativos.length, 24, 40);
 
-    var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label; }))];
+    var emHoras = $("modoResumo").value === "horas";
+    doc.setTextColor(107,115,120); doc.setFontSize(9);
+    doc.text("Total: "+dados.somaTotal+" dia(s) de ausência = "+dados.somaTotalH+"h  ·  Horas: seg–qui 9h, sex 8h, sáb/dom 0h", 24, 64);
+    var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label + (emHoras ? " (h)" : ""); })).concat(["Total dias","Total horas"])];
     var body = dados.rows.map(function(row){
-      return [row.nome, row.funcao].concat(CODES.map(function(c){ return String(row.t[c]); }));
+      return [row.nome, row.funcao].concat(CODES.map(function(c){ return String(emHoras ? row.h[c] : row.t[c]); })).concat([String(row.soma), String(row.somaH)]);
     });
-    body.push(["TOTAL",""].concat(CODES.map(function(c){ return String(dados.totals[c]); })));
+    body.push(["TOTAL",""].concat(CODES.map(function(c){ return String(emHoras ? dados.totalsH[c] : dados.totals[c]); })).concat([String(dados.somaTotal), String(dados.somaTotalH)]));
 
     doc.autoTable({
-      head: head, body: body, startY: 64,
+      head: head, body: body, startY: 74,
       styles: {font:"helvetica", fontSize:9, textColor:[42,42,42], lineColor:[225,228,230], lineWidth:0.5},
       headStyles: {fillColor:[238,241,242], textColor:[36,56,74], fontStyle:"bold", lineWidth:{bottom:1}, lineColor:[95,180,174]},
       alternateRowStyles: {fillColor:[246,247,247]},
@@ -1687,25 +1739,34 @@
     var p = periodo("Resumo");
     avisoPeriodo("Resumo", p);
     var ativos = ativosList();
-    var totals = {}; CODES.forEach(function(c){ totals[c]=0; });
-    var perFunc = {};
-    ativos.forEach(function(fid){ perFunc[fid]={}; CODES.forEach(function(c){ perFunc[fid][c]=0; }); });
+    var totals = {}, totalsH = {}; CODES.forEach(function(c){ totals[c]=0; totalsH[c]=0; });
+    var perFunc = {}, perFuncH = {};
+    ativos.forEach(function(fid){
+      perFunc[fid]={}; perFuncH[fid]={};
+      CODES.forEach(function(c){ perFunc[fid][c]=0; perFuncH[fid][c]=0; });
+    });
     p.dias.forEach(function(iso){
       var doc = state.dias[iso];
       if(!doc || !doc.ausencias) return;
+      var h = horasDoDia(iso);
       Object.keys(doc.ausencias).forEach(function(fid){
         var a = doc.ausencias[fid];
-        if(a.codigo && perFunc[fid]){ perFunc[fid][a.codigo]++; totals[a.codigo]++; }
+        if(a.codigo && perFunc[fid]){
+          perFunc[fid][a.codigo]++; totals[a.codigo]++;
+          perFuncH[fid][a.codigo] += h; totalsH[a.codigo] += h;
+        }
       });
     });
     var somaTotal = CODES.reduce(function(s,c){ return s+totals[c]; },0);
+    var somaTotalH = CODES.reduce(function(s,c){ return s+totalsH[c]; },0);
     var rows = ativos.map(function(fid){
       var f = state.funcionarios[fid] || {};
-      var t = perFunc[fid];
+      var t = perFunc[fid], th = perFuncH[fid];
       var soma = CODES.reduce(function(s,c){ return s+t[c]; },0);
-      return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, soma:soma};
+      var somaH = CODES.reduce(function(s,c){ return s+th[c]; },0);
+      return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, h:th, soma:soma, somaH:somaH};
     }).filter(function(r){ return r.soma>0; }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
-    return {ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, rows:rows, somaTotal:somaTotal};
+    return {ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, totalsH:totalsH, rows:rows, somaTotal:somaTotal, somaTotalH:somaTotalH};
   }
 
   async function exportDiarioJpg(){
@@ -2052,6 +2113,7 @@
     p.dias.forEach(function(iso){
       thead += '<th class="weekday-row '+(isWeekend(iso)?"weekend":"")+'">'+weekdayLabel(iso)+"</th>";
     });
+    thead += '<th class="col-total" rowspan="2" title="Dias de ausência no período">Dias</th><th class="col-total" rowspan="2" title="Horas de ausência no período (seg–qui 9h, sex 8h)">Horas</th>';
     thead += "</tr><tr>";
     p.dias.forEach(function(iso3){
       thead += '<th class="'+(isWeekend(iso3)?"weekend":"")+'">'+rotuloDia(iso3, p.multiMes)+"</th>";
@@ -2071,6 +2133,8 @@
         }
         tbody += '<td class="'+cellCls+'" data-dia="'+iso2+'" data-func="'+fid+'">'+content+"</td>";
       });
+      var tot = totaisAusenciaDias(fid, p.dias);
+      tbody += '<td class="col-total-cell">'+(tot.dias||"")+'</td><td class="col-total-cell">'+(tot.horas ? tot.horas+"h" : "")+"</td>";
       tbody += "</tr>";
     });
     tbody += "</tbody>";
@@ -2092,20 +2156,24 @@
   // ================= TAB: RESUMO MENSAL =================
   function renderMensal(){
     var dados = computeResumoMensal();
+    var emHoras = $("modoResumo").value === "horas";
     $("mensalKpis").innerHTML = CODES.map(function(c){
-      return kpiCard(CODE_META[c].label, dados.totals[c], dados.totals[c]?"bad":"");
-    }).join("");
+      var v = emHoras ? dados.totalsH[c] : dados.totals[c];
+      return kpiCard(CODE_META[c].label, emHoras ? v+"h" : v, v?"bad":"");
+    }).join("") + kpiCard("Total de horas", dados.somaTotalH+"h", dados.somaTotalH?"bad":"");
 
     var tbody = $("mensalTbody");
     if(!dados.rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length)+'">Nenhuma ausência registrada em '+dados.label+'.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(2+CODES.length+2)+'">Nenhuma ausência registrada em '+dados.label+'.</td></tr>';
     } else {
       tbody.innerHTML = dados.rows.map(function(r){
-        var cells = CODES.map(function(c){ return '<td class="num">'+r.t[c]+"</td>"; }).join("");
+        var cells = CODES.map(function(c){ return '<td class="num">'+(emHoras ? r.h[c] : r.t[c])+"</td>"; }).join("");
         return "<tr>"+
           '<td class="nome">'+escapeHtml(r.nome)+"</td>"+
           "<td>"+escapeHtml(r.funcao)+"</td>"+
           cells +
+          '<td class="num"><b>'+r.soma+"</b></td>"+
+          '<td class="num"><b>'+r.somaH+"h</b></td>"+
         "</tr>";
       }).join("");
     }
@@ -2732,6 +2800,7 @@
   $("diaSelecionado").addEventListener("change", renderAll);
   $("mesGrade").addEventListener("change", function(){ aplicarMes("Grade"); renderGrade(); });
   $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
+  $("modoResumo").addEventListener("change", renderMensal);
   ["ini","fim"].forEach(function(k){
     $(k+"Grade").addEventListener("change", function(){ sincronizarMes("Grade"); renderGrade(); });
     $(k+"Resumo").addEventListener("change", function(){ sincronizarMes("Resumo"); renderMensal(); });
