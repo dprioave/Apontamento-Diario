@@ -401,6 +401,7 @@
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
       <p class="panel-hint" id="avisoGrade" style="display:none;"></p>
+      <div class="kpis" id="cargaKpisGrade"></div>
       <p class="panel-hint" id="hintHorasGrade"></p>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
@@ -431,6 +432,7 @@
         <button class="btn-ghost" id="btnExportMensalPdf">⬇ Exportar PDF</button>
       </div>
       <p class="panel-hint" id="avisoResumo" style="display:none;"></p>
+      <div class="kpis" id="cargaKpisResumo"></div>
       <p class="panel-hint" id="hintHorasResumo"></p>
       <div class="kpis" id="mensalKpis"></div>
       <div class="table-wrap">
@@ -789,6 +791,19 @@
     dias.forEach(function(iso, i){ if(!adm || iso >= adm) total += horas[i]; });
     return total;
   }
+  // Cartões no topo da Grade e do Resumo: dias úteis e horas úteis totais do período (fins de semana e
+  // feriados da cidade da obra já descontados) — a carga de quem está no período inteiro.
+  function renderCargaKpis(prefix, p){
+    var horas = p.dias.map(horasDoDia);
+    var diasUteis = horas.filter(function(h){ return h > 0; }).length;
+    var total = horas.reduce(function(s,h){ return s+h; }, 0);
+    var feriados = p.dias.filter(function(iso){ return feriadoDoDia(iso); }).length;
+    $("cargaKpis"+prefix).innerHTML =
+      kpiCard("Dias úteis no "+(p.ehMes?"mês":"período"), diasUteis, "") +
+      kpiCard("Horas úteis totais", total+"h", "") +
+      kpiCard("Feriados no "+(p.ehMes?"mês":"período"), feriados, "");
+  }
+
   function fmtPct(aus, carga){
     if(!(carga > 0)) return "—";
     return (aus/carga*100).toLocaleString("pt-BR",{minimumFractionDigits:1, maximumFractionDigits:1})+"%";
@@ -1689,7 +1704,7 @@
     var horasPorDia = p.dias.map(horasDoDia);
 
     var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
+      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas úteis: "+horasPorDia.reduce(function(s,h){ return s+h; },0)+"h  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -1745,7 +1760,7 @@
     var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nCod + 4; // margem + nome + função + códigos + total dias + total horas + carga + %
 
     var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, (dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+dados.ativos.length+"  |  Total de ausências no "+(dados.ehMes?"mês":"período")+": "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  |  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
+      "Funcionários ativos: "+dados.ativos.length+"  |  Horas úteis no "+(dados.ehMes?"mês":"período")+": "+dados.periodo.dias.reduce(function(s,i){ return s+horasDoDia(i); },0)+"h  |  Total de ausências: "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  |  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -1831,7 +1846,7 @@
 
     var emHoras = $("modoResumo").value === "horas";
     doc.setTextColor(107,115,120); doc.setFontSize(9);
-    doc.text("Total: "+dados.somaTotal+" dia(s) de ausência = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  ·  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), 24, 64);
+    doc.text("Horas úteis no "+(dados.ehMes?"mês":"período")+": "+dados.periodo.dias.reduce(function(s,i){ return s+horasDoDia(i); },0)+"h  ·  Total: "+dados.somaTotal+" dia(s) de ausência = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  ·  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), 24, 64);
     var head = [["Funcionário","Função"].concat(CODES.map(function(c){ return CODE_META[c].label + (emHoras ? " (h)" : ""); })).concat(["Total dias","Total horas","Carga (h)","% da carga"])];
     var body = dados.rows.map(function(row){
       return [row.nome, row.funcao].concat(CODES.map(function(c){ return String(emHoras ? row.h[c] : row.t[c]); })).concat([String(row.soma), String(row.somaH), String(row.carga), fmtPct(row.somaH, row.carga)]);
@@ -2234,6 +2249,7 @@
     avisoPeriodo("Grade", p);
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var horasPorDia = p.dias.map(horasDoDia);
+    renderCargaKpis("Grade", p);
     $("hintHorasGrade").textContent = textoRegraHoras(p) + ' As colunas "Dias", "Horas" e "%" somam as ausências do período; dias em destaque amarelo são feriados.';
     var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":""); };
     var tituloDia = function(iso){ var f = feriadoDoDia(iso); return f ? ' title="Feriado '+f+'"' : ""; };
@@ -2292,6 +2308,7 @@
       return kpiCard(CODE_META[c].label, emHoras ? v+"h" : v, v?"bad":"");
     }).join("") + kpiCard("Total de horas", dados.somaTotalH+"h", dados.somaTotalH?"bad":"")
       + kpiCard("% de horas ausentes", fmtPct(dados.somaTotalH, dados.cargaGeral), dados.somaTotalH?"bad":"");
+    renderCargaKpis("Resumo", dados.periodo);
     $("hintHorasResumo").textContent = textoRegraHoras(dados.periodo) + " O cartão \"% de horas ausentes\" divide o total de horas pela carga de TODOS os funcionários ativos.";
 
     var tbody = $("mensalTbody");
