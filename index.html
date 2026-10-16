@@ -389,6 +389,7 @@
         <div class="foot-links">
           <div class="link-inline" id="btnTrocarSenha">Trocar minha senha</div>
           <div class="link-inline" id="btnAdminSenhas" style="display:none;">⚙ Administração de senhas</div>
+          <div class="link-inline" id="btnBaseGeral" style="display:none;">⚙ Atualizar cadastros (base geral)</div>
           <div class="link-back" id="btnLogout">Sair</div>
         </div>
       </div>
@@ -623,6 +624,21 @@
 </div>
 
 <!-- ================= MODAL: ADMINISTRAÇÃO DE SENHAS (dpclaude@rioave.com.br apenas) ================= -->
+<div class="modal-backdrop" id="modalBaseGeral">
+  <div class="modal-box wide" style="max-width:1040px;max-height:92vh;overflow:auto;">
+    <h3>Atualizar cadastros (base geral)</h3>
+    <p class="modal-sub">Envie a base de funcionários do grupo (Empresa / Nome da Empresa / Funcionário / Nome do Funcionário / Função / Admissão / Demissão). Nada é gravado antes de você conferir e confirmar.</p>
+    <div class="dropzone" id="dzBase">
+      <input type="file" id="fileBase" accept=".xls,.xlsx">
+      <div class="dropzone-label">📇 Base geral de funcionários</div>
+      <div class="dropzone-sub">.xls ou .xlsx — arraste ou clique</div>
+    </div>
+    <div class="status-msg" id="baseStatus"></div>
+    <div id="basePlano"></div>
+    <div class="modal-actions"><button class="btn-ghost" id="baseFechar">Fechar</button></div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modalAdminSenhas">
   <div class="modal-box wide">
     <h3>Administração de senhas</h3>
@@ -1340,11 +1356,12 @@
   function matriculaCurta(m){ var d = String(m==null?"":m).replace(/\D/g,""); return d ? d.slice(-6) : ""; }
   // Matrículas de formatos diferentes (ex.: "2996" no cadastro e "0900…002996" no relatório) se
   // reconhecem quando uma termina com a outra (mínimo 3 dígitos).
-  function matriculasCompativeis(a, b){
+  function digitosMatricula(m){ return String(m==null?"":m).replace(/O/g,"0").replace(/\D/g,""); }
+  function matriculasCompativeis(a, b){          // a, b = dígitos crus (com zeros à esquerda)
     if(!a || !b) return false;
     if(a === b) return true;
     var curta = a.length <= b.length ? a : b, longa = a.length <= b.length ? b : a;
-    return curta.length >= 3 && longa.slice(-curta.length) === curta;
+    return curta.length >= 4 && longa.slice(-curta.length) === curta;
   }
   // Índice dos funcionários (nome normalizado + chave de matrícula), refeito só quando o cadastro muda.
   var _idxF = {src:null, byId:{}, byName:{}, list:[]};
@@ -1353,7 +1370,7 @@
     var byId = {}, byName = {}, list = [];
     Object.keys(state.funcionarios).forEach(function(id){
       var f = state.funcionarios[id];
-      var e = {id:id, n:normName(f.nome), k:chaveMatricula(f.matricula)};
+      var e = {id:id, n:normName(f.nome), k:chaveMatricula(f.matricula), d:digitosMatricula(f.matricula)};
       byId[id] = e; list.push(e); (byName[e.n] = byName[e.n] || []).push(e);
     });
     _idxF = {src:state.funcionarios, byId:byId, byName:byName, list:list};
@@ -1414,6 +1431,7 @@
     state.email = normEmail(email);
     $("loggedAsNote").textContent = "Conectado como " + state.email;
     $("btnAdminSenhas").style.display = isAdmin() ? "block" : "none";
+    $("btnBaseGeral").style.display = isAdmin() ? "block" : "none";
     $("loginGate").style.display = "none";
     document.body.classList.add("logged");
     try{ $("sideLogo").src = document.querySelector(".login-logo").src; }catch(e){}
@@ -2341,7 +2359,7 @@
   // formato que termina igual E mesmo nome; 3) só o nome — mas se o relatório tem dois funcionários com o
   // mesmo nome (homonimo) e o cadastro já tem OUTRA matrícula para esse nome, não é a mesma pessoa.
   function matchFuncionario(nomeRaw, matricula, homonimo){
-    var ix = indiceFuncionarios(), n = normName(nomeRaw), k = chaveMatricula(matricula);
+    var ix = indiceFuncionarios(), n = normName(nomeRaw), k = chaveMatricula(matricula), dq = digitosMatricula(matricula);
     var porNome = ix.byName[n] || [];
     if(k){
       var exato = null, compat = null;
@@ -2349,7 +2367,7 @@
         var e = ix.list[i];
         if(!e.k) continue;
         if(e.k === k){ if(!exato || e.n === n) exato = e; }
-        else if(e.n === n && !compat && matriculasCompativeis(e.k, k)) compat = e;
+        else if(e.n === n && !compat && matriculasCompativeis(e.d, dq)) compat = e;
       }
       if(exato) return exato.id;
       if(compat) return compat.id;
@@ -2386,7 +2404,13 @@
       // foi promovido e voltou com novo vínculo): o cadastro acha a pessoa pelo nome, mas ela não conta
       // como ativa — sem este caso ela ficava invisível, nem apontada como nova nem contada.
       var fidExistente = matchFuncionario(p.nome, p.matricula, p.homonimo);
-      if(fidExistente && (!state.funcionarios[fidExistente].inativo || (opts && opts.semInativos))) return;
+      if(fidExistente){
+        var dEx = state.funcionarios[fidExistente];
+        if(!dEx.inativo) return;
+        // Com data de demissão registrada (base geral): só é "reapareceu" quem aparece DEPOIS dela.
+        if(dEx.demissao && opts && opts.iso){ if(opts.iso <= dEx.demissao) return; }
+        else if(opts && opts.semInativos) return;
+      }
       var chave = chavePessoa(p);
       if(vistos[chave] || ignorados[normName(p.nome)]) return;
       vistos[chave] = true;
@@ -2403,7 +2427,7 @@
     if(!pend) return;
     var counts = {}; CODES.forEach(function(c){ counts[c]=0; });
     pend.ausencias.forEach(function(a){ counts[a.codigo] = (counts[a.codigo]||0)+1; });
-    var naoEnc = calcNaoEncontrados(pend);
+    var naoEnc = calcNaoEncontrados(pend, {iso:pend.data});
     pend._naoEncontrados = naoEnc;
 
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
@@ -2571,7 +2595,7 @@
       importadoEm: new Date().toISOString(),
       importadoPor: state.email,
       ausencias: ausencias,
-      naoEncontrados: calcNaoEncontrados(pend, opts),
+      naoEncontrados: calcNaoEncontrados(pend, Object.assign({iso:iso}, opts||{})),
       possiveisDesligamentos: possiveisDesligamentos
     };
   }
@@ -2664,7 +2688,7 @@
         if(ea.indexOf(eb)<0 && eb.indexOf(ea)<0) aviso = '<div class="lote-aviso">Arquivo de outra empresa: "'+escapeHtml(it.pend.empresa)+'"</div>';
       }
       var detalhe = (d && d.existe && (d.mudancas.length || d.manuais.length)) ? '<details><summary>ver mudanças</summary>'+diffHtmlDia(it.pend, iso)+'</details>' : "";
-      var naoEnc = calcNaoEncontrados(it.pend, {semInativos:true}).length;
+      var naoEnc = calcNaoEncontrados(it.pend, {semInativos:true, iso:it.iso}).length;
       var nPess = (it.pend.pessoas || it.pend.ausencias || []).length;
       if(it.incluir && nPess && naoEnc >= nPess*0.5) cadastroVazio = true;
       return '<tr class="'+(it.incluir?'':'off')+'">'+
@@ -2984,6 +3008,261 @@
     $("modalOcorrencias").classList.add("show");
   }
   function closeOcorrencias(){ $("modalOcorrencias").classList.remove("show"); }
+
+  // ================= BASE GERAL (atualização geral dos cadastros; só administração) =================
+  // Lê a base do grupo (todas as empresas), compara com o cadastro de cada obra e mostra o que vai mudar:
+  // novos, dados a atualizar, demissões, reativações e ativos que não estão na base. Só grava após conferir.
+  function comFuncionarios(mapa, fn){
+    var ant = state.funcionarios; state.funcionarios = mapa;
+    try{ return fn(); } finally { state.funcionarios = ant; }
+  }
+  function lerColecaoUmaVez(path){
+    return new Promise(function(resolve, reject){
+      var feito = false, unsub = null;
+      unsub = state.db.collection(path).onSnapshot(function(snap){
+        if(feito) return;
+        feito = true;
+        var out = {}; snap.docs.forEach(function(d){ out[d.id] = d.data(); });
+        if(unsub){ try{ unsub(); }catch(e){} }
+        resolve(out);
+      }, function(err){ if(!feito){ feito = true; reject(err); } });
+      if(feito && unsub){ try{ unsub(); }catch(e){} }
+    });
+  }
+
+  function parseBaseGeral(buf){
+    var wb = XLSX.read(buf, {type:"array", raw:true});
+    var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:null});
+    var h = -1, col = {};
+    for(var i=0;i<Math.min(rows.length,15) && h<0;i++){
+      var c = {};
+      (rows[i]||[]).forEach(function(v, j){
+        if(typeof v !== "string") return;
+        var u = stripAccents(v).toLowerCase().trim();
+        if(u.indexOf("nome da empresa")>=0) c.empresa = j;
+        else if(u.indexOf("nome do funcion")>=0) c.nome = j;
+        else if(/^funcion/.test(u) && c.matricula==null) c.matricula = j;
+        else if(u.indexOf("funcao")>=0) c.funcao = j;
+        else if(u.indexOf("admiss")>=0) c.admissao = j;
+        else if(u.indexOf("demiss")>=0) c.demissao = j;
+      });
+      if(c.empresa!=null && c.nome!=null){ h = i; col = c; }
+    }
+    if(h<0) throw new Error('não encontrei as colunas "Nome da Empresa" e "Nome do Funcionário" — este arquivo é a base geral de funcionários?');
+    var dt = function(v){
+      if(typeof v === "number" && v>20000 && v<80000) return excelSerialToIso(v);
+      if(typeof v === "string"){ var m = v.match(/(\d{2})\/(\d{2})\/(\d{4})/); if(m) return m[3]+"-"+m[2]+"-"+m[1]; }
+      return null;
+    };
+    var txt = function(dr, j){ return j!=null && dr[j]!=null ? String(dr[j]).trim() : ""; };
+    var out = [];
+    for(var r=h+1;r<rows.length;r++){
+      var dr = rows[r]; if(!dr) continue;
+      var nome = txt(dr, col.nome), emp = txt(dr, col.empresa);
+      if(!nome || !emp || !/[A-Za-zÀ-ÿ]/.test(nome)) continue;
+      var mat = txt(dr, col.matricula);
+      if(/^\d+$/.test(mat) && mat.length < 6) mat = ("000000"+mat).slice(-6);
+      out.push({empresaNome:emp, nome:nome, matricula:mat, funcao:txt(dr, col.funcao),
+                admissao: col.admissao!=null ? dt(dr[col.admissao]) : null, demissao: col.demissao!=null ? dt(dr[col.demissao]) : null});
+    }
+    return out;
+  }
+
+  // Compara as linhas da base de UMA empresa com os funcionários da obra (mapa id → doc).
+  function diffBase(funcs, rows){
+    return comFuncionarios(funcs, function(){
+      marcarHomonimosLista(rows);
+      var novos = [], dados = [], demissoes = [], reativar = [], nomesDiferentes = 0, ok = 0, tomados = {};
+      rows.forEach(function(r){
+        var fid = matchFuncionario(r.nome, r.matricula, r.homonimo);
+        if(fid && r.homonimo && tomados[fid]) fid = null;
+        if(!fid && r.matricula){                 // mesma matrícula, nome escrito diferente (único)
+          var dq = digitosMatricula(r.matricula), achados = [];
+          Object.keys(funcs).forEach(function(id){
+            var m = digitosMatricula(funcs[id].matricula);
+            if(m && !tomados[id] && matriculasCompativeis(m, dq)) achados.push(id);
+          });
+          if(achados.length === 1){ fid = achados[0]; }
+        }
+        if(!fid){ novos.push(r); return; }
+        tomados[fid] = true;
+        var d = funcs[fid], upd = {}, motivos = [];
+        if(normName(d.nome) !== normName(r.nome)) nomesDiferentes++;
+        if(!chaveMatricula(d.matricula) && r.matricula){ upd.matricula = r.matricula; motivos.push("matrícula"); }
+        if(r.funcao && normName(d.funcao) !== normName(r.funcao)){ upd.funcao = r.funcao; motivos.push("função"); }
+        if(r.admissao && d.admissao !== r.admissao){ upd.admissao = r.admissao; motivos.push("admissão"); }
+        if(motivos.length) dados.push({fid:fid, nome:d.nome, upd:upd, motivos:motivos}); else ok++;
+        if(r.demissao){
+          if(!d.inativo || d.demissao !== r.demissao) demissoes.push({fid:fid, nome:d.nome, demissao:r.demissao, jaInativo:!!d.inativo});
+        } else if(d.inativo){
+          reativar.push({fid:fid, nome:d.nome});
+        }
+      });
+      var foraBase = Object.keys(funcs).filter(function(id){ return !tomados[id] && !funcs[id].inativo; })
+        .map(function(id){ return {fid:id, nome:funcs[id].nome}; });
+      return {novos:novos, dados:dados, demissoes:demissoes, reativar:reativar, foraBase:foraBase, ok:ok, nomesDiferentes:nomesDiferentes};
+    });
+  }
+
+  async function planejarBase(rows){
+    var grupos = {}, ordem = [];
+    rows.forEach(function(r){
+      var k = normCompanyName(r.empresaNome); if(!k) return;
+      if(!grupos[k]){ grupos[k] = {chave:k, nome:r.empresaNome.replace(/\.+$/,"").trim(), rows:[]}; ordem.push(k); }
+      grupos[k].rows.push(r);
+    });
+    var obraDe = {};
+    Object.keys(state.obras).forEach(function(id){ obraDe[normCompanyName(state.obras[id].nome)] = id; });
+    var plano = [];
+    for(var i=0;i<ordem.length;i++){
+      var g = grupos[ordem[i]];
+      var obraId = obraDe[g.chave] || null, acesso = findEmpresaAcesso(g.nome);
+      var it = {chave:g.chave, nome:g.nome, obraId:obraId, acesso:acesso, rows:g.rows, incluir:true, criarObra:(!obraId && !!acesso)};
+      if(!obraId && !acesso){ it.incluir = false; it.semObra = true; plano.push(it); continue; }
+      $("baseStatus").className = "status-msg show info";
+      $("baseStatus").textContent = "Comparando " + (i+1) + " de " + ordem.length + ": " + g.nome + "...";
+      it.funcs = obraId ? await lerColecaoUmaVez("obras/" + obraId + "/funcionarios") : {};
+      it.diff = diffBase(it.funcs, g.rows);
+      plano.push(it);
+    }
+    return plano;
+  }
+
+  var baseGeral = {plano:null, opts:{novosDemitidos:true, atualizar:true, demissoes:true, reativar:false, foraBase:false}};
+
+  function contagensBase(it){
+    var o = baseGeral.opts, d = it.diff;
+    return {
+      novos: d.novos.filter(function(r){ return !r.demissao || o.novosDemitidos; }).length,
+      dados: o.atualizar ? d.dados.length : 0,
+      demissoes: o.demissoes ? d.demissoes.length : 0,
+      reativar: o.reativar ? d.reativar.length : 0,
+      foraBase: o.foraBase ? d.foraBase.length : 0
+    };
+  }
+  function listaBase(titulo, itens, fmt){
+    if(!itens.length) return "";
+    var max = 30;
+    return '<div style="margin:8px 0 2px;font-size:12px;color:var(--text-dim);"><b>'+titulo+' ('+itens.length+')</b></div>'+
+      itens.slice(0, max).map(function(x){ return '<div class="row-line"><span>'+escapeHtml(fmt(x)[0])+'</span><b style="font-weight:500;">'+escapeHtml(fmt(x)[1])+'</b></div>'; }).join("")+
+      (itens.length > max ? '<div class="row-line"><span>… e mais '+(itens.length-max)+'</span><b></b></div>' : "");
+  }
+
+  function renderPlanoBase(){
+    var plano = baseGeral.plano, box = $("basePlano"), o = baseGeral.opts;
+    if(!plano){ box.innerHTML = ""; return; }
+    var optDefs = [
+      ["novosDemitidos", "Cadastrar também os demitidos que ainda não estão no cadastro (como inativos, com a data de demissão)"],
+      ["atualizar", "Atualizar função e admissão de quem já existe e preencher a matrícula que estiver vazia"],
+      ["demissoes", "Registrar demissões (inativar quem tem data de demissão na base)"],
+      ["reativar", "Reativar quem está inativo no sistema mas ativo na base"],
+      ["foraBase", "Inativar os ativos do sistema que NÃO aparecem na base (use só se a base for completa)"]
+    ];
+    var opcoes = '<div style="margin:14px 0 6px;font-size:12.5px;font-weight:600;">O que aplicar</div>'+optDefs.map(function(d){
+      return '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text-dim);margin:5px 0;cursor:pointer;"><input type="checkbox" data-baseopt="'+d[0]+'"'+(o[d[0]]?' checked':'')+' style="margin-top:2px;accent-color:var(--accent);"> <span>'+d[1]+'</span></label>';
+    }).join("");
+    var tot = {novos:0, dados:0, demissoes:0, reativar:0, foraBase:0, obras:0, criar:0};
+    var linhas = plano.map(function(it, i){
+      if(it.semObra){
+        return '<tr class="off"><td></td><td>'+escapeHtml(it.nome)+'</td><td class="num">'+it.rows.length+'</td><td colspan="6"><span class="lote-tag lote-err">empresa fora da lista do sistema — ignorada</span></td></tr>';
+      }
+      var c = contagensBase(it);
+      if(it.incluir){ tot.novos += c.novos; tot.dados += c.dados; tot.demissoes += c.demissoes; tot.reativar += c.reativar; tot.foraBase += c.foraBase; tot.obras++; if(it.criarObra) tot.criar++; }
+      var d = it.diff;
+      var det = listaBase("Novos", d.novos.filter(function(r){ return !r.demissao || o.novosDemitidos; }), function(r){ return [r.nome, (r.funcao||"—")+(r.admissao?" · "+fmtDateBR(r.admissao):"")+(r.demissao?" · demitido "+fmtDateBR(r.demissao):"")]; })+
+        listaBase("Dados a atualizar", d.dados, function(x){ return [x.nome, x.motivos.join(", ")]; })+
+        listaBase("Demissões", d.demissoes, function(x){ return [x.nome, fmtDateBR(x.demissao)+(x.jaInativo?" (já inativo, só a data)":"")]; })+
+        listaBase("Inativos no sistema, ativos na base", d.reativar, function(x){ return [x.nome, "reativar?"]; })+
+        listaBase("Ativos no sistema, fora da base", d.foraBase, function(x){ return [x.nome, "possível desligamento"]; });
+      return '<tr class="'+(it.incluir?'':'off')+'"><td><input type="checkbox" data-baseemp="'+i+'"'+(it.incluir?' checked':'')+'></td>'+
+        '<td>'+escapeHtml(it.nome)+(det ? '<details><summary>ver detalhes</summary><div style="min-width:420px;">'+det+'</div></details>' : '')+
+          (d.nomesDiferentes ? '<div class="lote-aviso">'+d.nomesDiferentes+' pessoa(s) achada(s) pela matrícula com o nome escrito diferente</div>' : '')+'</td>'+
+        '<td class="num">'+it.rows.length+'</td><td class="num">'+c.novos+'</td><td class="num">'+c.dados+'</td><td class="num">'+c.demissoes+'</td><td class="num">'+c.reativar+'</td><td class="num">'+c.foraBase+'</td>'+
+        '<td>'+(it.criarObra ? '<span class="lote-tag lote-chg">obra será criada</span>' : '<span class="lote-tag lote-ok">obra existente</span>')+'</td></tr>';
+    }).join("");
+    var escritas = tot.novos + tot.dados + tot.demissoes + tot.reativar + tot.foraBase;
+    box.innerHTML = opcoes +
+      '<div class="lote-wrap" style="margin-top:14px;"><table><thead><tr><th></th><th>Empresa / obra</th><th>Na base</th><th>Novos</th><th>Atualizar</th><th>Demissões</th><th>Reativar</th><th>Fora da base</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'+
+      '<p class="lote-resumo">Total: <b>'+tot.novos+'</b> novo(s), <b>'+tot.dados+'</b> atualização(ões), <b>'+tot.demissoes+'</b> demissão(ões), <b>'+tot.reativar+'</b> reativação(ões), <b>'+tot.foraBase+'</b> inativação(ões) por estar fora da base — em '+tot.obras+' obra(s)'+(tot.criar?' ('+tot.criar+' será(ão) criada(s))':'')+'.</p>'+
+      '<button class="btn" id="btnAplicarBase"'+(escritas ? '' : ' disabled')+'>Aplicar ('+escritas+' alteração(ões))</button>';
+    Array.prototype.forEach.call(box.querySelectorAll("input[data-baseopt]"), function(el){
+      el.addEventListener("change", function(){ o[el.getAttribute("data-baseopt")] = el.checked; renderPlanoBase(); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("input[data-baseemp]"), function(el){
+      el.addEventListener("change", function(){ plano[+el.getAttribute("data-baseemp")].incluir = el.checked; renderPlanoBase(); });
+    });
+    var b = $("btnAplicarBase"); if(b) b.addEventListener("click", aplicarBase);
+  }
+
+  async function aplicarBase(){
+    var plano = baseGeral.plano, o = baseGeral.opts, statusEl = $("baseStatus");
+    if(!plano || !state.db || !isAdmin()) return;
+    var alvo = plano.filter(function(it){ return it.incluir && !it.semObra; });
+    var btn = $("btnAplicarBase"); if(btn) btn.disabled = true;
+    var agora = new Date().toISOString();
+    var tot = {novos:0, atualizados:0, demissoes:0, reativados:0, inativados:0, obras:0}, falhas = [];
+    for(var i=0;i<alvo.length;i++){
+      var it = alvo[i];
+      statusEl.className = "status-msg show info";
+      statusEl.textContent = "Aplicando " + (i+1) + " de " + alvo.length + ": " + it.nome + "...";
+      try{
+        var obraId = it.obraId;
+        if(!obraId){
+          obraId = slugify(it.acesso.nome);
+          await state.db.collection("obras").doc(obraId).set({nome:it.acesso.nome, ativo:true, criadoEm:agora, criadoPor:state.email, dpEmails:it.acesso.dp.slice(), engEmails:it.acesso.eng.slice()});
+          tot.obras++;
+        }
+        var col = state.db.collection("obras/" + obraId + "/funcionarios");
+        var d = it.diff, writes = [], usados = {};
+        var porMim = {atualizadoEm:agora, atualizadoPor:state.email};
+        d.novos.forEach(function(r){
+          if(r.demissao && !o.novosDemitidos) return;
+          var id = comFuncionarios(it.funcs, function(){ return idFuncionarioNovo(r.nome, r.matricula, usados); });
+          usados[id] = true;
+          writes.push(col.doc(id).set({nome:r.nome, funcao:r.funcao||"", admissao:r.admissao||null, matricula:r.matricula||"",
+            inativo:!!r.demissao, demissao:r.demissao||null, criadoEm:agora, criadoPor:state.email, origem:"base-geral"}));
+          tot.novos++;
+        });
+        if(o.atualizar) d.dados.forEach(function(c){ writes.push(col.doc(c.fid).update(Object.assign({}, c.upd, porMim))); tot.atualizados++; });
+        if(o.demissoes) d.demissoes.forEach(function(c){ writes.push(col.doc(c.fid).update(Object.assign({inativo:true, demissao:c.demissao}, porMim))); tot.demissoes++; });
+        if(o.reativar) d.reativar.forEach(function(c){ writes.push(col.doc(c.fid).update(Object.assign({inativo:false, demissao:null}, porMim))); tot.reativados++; });
+        if(o.foraBase) d.foraBase.forEach(function(c){ writes.push(col.doc(c.fid).update(Object.assign({inativo:true, inativadoEm:agora}, porMim))); tot.inativados++; });
+        for(var k=0;k<writes.length;k+=150) await Promise.all(writes.slice(k, k+150));
+      }catch(err){
+        falhas.push(it.nome + " (" + ((err && (err.code || err.message)) || "erro") + ")");
+      }
+    }
+    statusEl.className = "status-msg show " + (falhas.length ? "error" : "ok");
+    statusEl.textContent = tot.novos + " novo(s), " + tot.atualizados + " atualizado(s), " + tot.demissoes + " demissão(ões), " + tot.reativados + " reativado(s), " + tot.inativados + " inativado(s)" +
+      (tot.obras ? ", " + tot.obras + " obra(s) criada(s)" : "") + "." + (falhas.length ? " Falhou em: " + falhas.join("; ") + "." : "");
+    baseGeral.plano = null; $("basePlano").innerHTML = ""; $("fileBase").value = "";
+  }
+
+  function openBaseGeral(){
+    if(!isAdmin()) return;
+    baseGeral.plano = null; $("basePlano").innerHTML = ""; $("fileBase").value = "";
+    $("baseStatus").className = "status-msg";
+    $("modalBaseGeral").classList.add("show");
+  }
+  function closeBaseGeral(){ $("modalBaseGeral").classList.remove("show"); }
+  async function handleBaseGeralFile(){
+    var file = $("fileBase").files[0];
+    if(!file || !state.db || !isAdmin()) return;
+    var statusEl = $("baseStatus");
+    statusEl.className = "status-msg show info"; statusEl.textContent = "Lendo a base...";
+    $("basePlano").innerHTML = "";
+    try{
+      var rows = parseBaseGeral(await file.arrayBuffer());
+      if(!rows.length) throw new Error("não encontrei funcionários no arquivo.");
+      baseGeral.plano = await planejarBase(rows);
+      statusEl.className = "status-msg show ok";
+      statusEl.textContent = rows.length + " funcionário(s) na base, " + baseGeral.plano.length + " empresa(s). Confira abaixo e aplique.";
+      renderPlanoBase();
+    }catch(err){
+      statusEl.className = "status-msg show error";
+      statusEl.textContent = "Erro ao ler a base: " + err.message;
+    }
+  }
 
   function toggleInativo(fid){
     if(!state.db || isReadOnly()) return;
@@ -3533,6 +3812,15 @@
   $("tsCancelar").addEventListener("click", closeTrocarSenha);
   $("tsSalvar").addEventListener("click", salvarTrocarSenha);
   $("btnAdminSenhas").addEventListener("click", openAdminSenhas);
+  $("btnBaseGeral").addEventListener("click", openBaseGeral);
+  $("baseFechar").addEventListener("click", closeBaseGeral);
+  $("fileBase").addEventListener("change", handleBaseGeralFile);
+  (function(){
+    var dzb = $("dzBase");
+    ["dragenter","dragover"].forEach(function(ev){ dzb.addEventListener(ev, function(e){ e.preventDefault(); dzb.classList.add("drag"); }); });
+    ["dragleave","drop"].forEach(function(ev){ dzb.addEventListener(ev, function(e){ e.preventDefault(); dzb.classList.remove("drag"); }); });
+    dzb.addEventListener("drop", function(e){ if(e.dataTransfer.files.length){ $("fileBase").files = e.dataTransfer.files; handleBaseGeralFile(); } });
+  })();
   $("adminSenhasFechar").addEventListener("click", closeAdminSenhas);
   $("obraSelect").addEventListener("change", function(){
     var v = this.value;
