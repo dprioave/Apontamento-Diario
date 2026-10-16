@@ -51,8 +51,15 @@
 
   /* ---------- shell ---------- */
   .page{ max-width:1180px; margin:0 auto; padding:36px 20px 64px; }
+  /* Depois do login a página vira um "shell": menu lateral fixo + área principal. */
+  body.logged .page{ max-width:none; margin:0; padding:0; }
+  body.logged .db-banner{ margin:12px 20px 0; }
+  .shell{ display:none; min-height:100vh; }
+  body.logged .shell{ display:flex; }
+  .main{ flex:1; min-width:0; padding:28px 22px 64px; }
+  .main-inner{ max-width:1180px; margin:0 auto; }
   /* Grade do Mês e Resumo Mensal usam a tela quase toda (muitas colunas); o resto continua na largura normal. */
-  .page.wide{ max-width:1780px; }
+  .main-inner.wide{ max-width:1780px; }
   .eyebrow{
     font-family:"IBM Plex Mono",ui-monospace,monospace;
     font-size:11.5px; letter-spacing:.11em; text-transform:uppercase;
@@ -87,17 +94,43 @@
   .email-chip button{ background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:0; }
   .email-chip button:hover{ color:var(--bad); }
 
-  /* ---------- obra gate ---------- */
-  #gate .obras-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-bottom:22px; }
-  .obra-card{
-    background:var(--surface); border:1px solid var(--border-strong); border-radius:12px;
-    padding:18px; cursor:pointer; text-align:left; color:var(--text); transition:border-color .15s,transform .1s;
+  /* ---------- menu lateral (obras + abas) ---------- */
+  .sidebar{
+    width:252px; flex:0 0 252px; align-self:flex-start; position:sticky; top:0; height:100vh; overflow-y:auto;
+    display:flex; flex-direction:column; padding:22px 14px 16px;
+    background:rgba(12,16,22,.84); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-right:1px solid var(--border); z-index:20;
   }
-  .obra-card:hover{ border-color:var(--accent); transform:translateY(-1px); }
-  .obra-card.obra-sugestao{ background:var(--surface-2); border-style:dashed; }
-  .obra-card.obra-sugestao .meta{ color:var(--accent); }
-  .obra-card .nome{ font-size:15.5px; font-weight:600; margin-bottom:6px; }
-  .obra-card .meta{ font-size:12px; color:var(--text-faint); font-family:"IBM Plex Mono",monospace; }
+  .side-brand{ display:flex; align-items:center; gap:11px; padding:0 8px 18px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+  .side-brand img{ height:30px; width:auto; }
+  .side-brand .t{ font-size:13.5px; font-weight:600; line-height:1.25; }
+  .side-brand .t small{ display:block; font-weight:400; color:var(--text-faint); font-size:11px; }
+  .side-label{ font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--text-faint); padding:0 8px; margin:2px 0 8px; }
+  .side-obra-select{ margin-bottom:20px; }
+  .side-obra-select select{
+    width:100%; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:8px;
+    color:var(--text); font-size:13px; font-weight:600; line-height:1.3; padding:10px 10px; cursor:pointer;
+    color-scheme:dark; text-overflow:ellipsis;
+  }
+  .side-obra-select select:hover, .side-obra-select select:focus{ border-color:var(--accent); outline:none; }
+  .side-label, .side-nav, .side-brand, .side-foot{ flex:none; }
+  .side-nav{ display:flex; flex-direction:column; gap:3px; margin-bottom:16px; }
+  .side-foot{ margin-top:auto; padding-top:14px; border-top:1px solid var(--border); }
+  .side-foot .access-note{ margin:0 0 10px; padding:0 8px; word-break:break-all; }
+  .foot-links{ display:flex; flex-direction:column; gap:2px; }
+  .foot-links .link-inline, .foot-links .link-back{ margin:0; padding:6px 8px; border-radius:7px; text-decoration:none; }
+  .foot-links .link-inline:hover, .foot-links .link-back:hover{ background:rgba(255,255,255,.05); }
+  .mobilebar, .side-backdrop{ display:none; }
+  @media (max-width:860px){
+    .shell{ flex-direction:column; }
+    .mobilebar{ display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:30; padding:10px 14px;
+      background:rgba(12,16,22,.94); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+    .mobilebar .nome{ font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sidebar{ position:fixed; left:0; top:0; bottom:0; height:auto; width:min(300px,86vw); transform:translateX(-103%); transition:transform .2s; z-index:45; }
+    body.menu-open .sidebar{ transform:none; }
+    body.menu-open .side-backdrop{ display:block; position:fixed; inset:0; background:rgba(5,7,10,.55); z-index:40; }
+    .main{ padding:20px 14px 48px; }
+  }
 
   /* ---------- buttons ---------- */
   .btn{
@@ -118,13 +151,14 @@
 
   /* ---------- topbar / tabs ---------- */
   .topbar{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:6px; }
-  .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin:20px 0 24px; border-bottom:1px solid var(--border); padding-bottom:0; }
   .tab-btn{
-    background:none; border:none; color:var(--text-faint); font-size:13px; font-weight:600;
-    padding:9px 14px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
+    display:flex; align-items:center; gap:11px; width:100%; text-align:left;
+    background:none; border:none; border-left:3px solid transparent; border-radius:0 8px 8px 0;
+    color:var(--text-dim); font-size:13.5px; font-weight:600; padding:10px 12px; cursor:pointer;
   }
-  .tab-btn.active{ color:var(--text); border-bottom-color:var(--accent); }
-  .tab-btn:hover:not(.active){ color:var(--text-dim); }
+  .tab-btn svg{ width:17px; height:17px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+  .tab-btn.active{ color:var(--text); background:var(--accent-soft); border-left-color:var(--accent); }
+  .tab-btn:hover:not(.active){ color:var(--text); background:rgba(255,255,255,.05); }
   .tabpane{ display:none; }
   .tabpane.active{ display:block; }
 
@@ -280,6 +314,22 @@
   .link-inline:hover{ color:var(--text); }
   .gate-links{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
 
+  /* importação em lote (vários dias de uma vez) */
+  .lote-resumo{ font-size:12.5px; color:var(--text-dim); margin:0 0 12px; }
+  .lote-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:9px; margin-bottom:12px; }
+  .lote-wrap table{ background:transparent; }
+  .lote-wrap td{ font-size:12.5px; }
+  .lote-wrap input[type=date]{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:6px; color:var(--text); font-size:12px; padding:4px 6px; color-scheme:dark; }
+  .lote-wrap input[type=checkbox]{ width:15px; height:15px; accent-color:var(--accent); cursor:pointer; }
+  .lote-wrap tr.off td{ opacity:.45; }
+  .lote-wrap details summary{ cursor:pointer; color:var(--text-faint); font-size:11.5px; margin-top:4px; }
+  .lote-wrap details .diff-box{ margin-top:6px; min-width:340px; }
+  .lote-tag{ display:inline-block; font-size:11px; font-weight:600; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+  .lote-new{ background:var(--good-soft); color:var(--good); }
+  .lote-ok{ background:var(--surface-2); color:var(--text-dim); }
+  .lote-chg{ background:var(--warn-soft); color:var(--warn); }
+  .lote-err{ background:var(--bad-soft); color:var(--bad); }
+  .lote-aviso{ font-size:11px; color:var(--warn); margin-top:3px; }
   .db-banner{ background:var(--warn-soft); color:var(--warn); border:1px solid rgba(224,174,95,.3); border-radius:9px; padding:10px 14px; font-size:12.5px; margin-bottom:20px; }
 
   footer{ margin-top:36px; font-size:11.5px; color:var(--text-faint); line-height:1.6; }
@@ -313,48 +363,63 @@
     </div>
   </div>
 
-  <!-- ================= OBRA GATE ================= -->
-  <div id="gate" style="display:none;">
-    <p class="eyebrow">Apontamento Diário &middot; Departamento Pessoal</p>
-    <h1>Apontamento Diário de Obras</h1>
-    <p class="subtitle">Registro diário de presença por obra. A equipe de DP mantém as ausências atualizadas conforme a legenda, e todos com acesso ao painel acompanham presença, faltas e atestados em tempo real.</p>
-    <p class="access-note" id="loggedAsNote"></p>
-    <div class="gate-links" style="margin-bottom:18px;">
-      <div class="link-back" id="btnLogout" style="margin-bottom:0;">Sair</div>
-      <div class="link-inline" id="btnTrocarSenha" style="margin-bottom:0;">Trocar minha senha</div>
-      <div class="link-inline" id="btnAdminSenhas" style="margin-bottom:0;display:none;">⚙ Administração de senhas</div>
+  <!-- ================= SHELL: menu lateral (obras + abas) + área principal ================= -->
+  <div class="shell" id="shell">
+    <div class="mobilebar">
+      <button class="btn-ghost" id="btnMenu" aria-label="Abrir menu">&#9776;</button>
+      <span class="nome" id="mobileObraNome">Apontamento Diário</span>
     </div>
-    <div id="obrasGrid" class="obras-grid"></div>
-  </div>
-
-  <!-- ================= APP ================= -->
-  <div id="app" style="display:none;">
-    <div class="link-back" id="btnVoltarGate">← Trocar de obra</div>
-    <div class="topbar">
-      <div>
-        <p class="eyebrow" id="appEyebrow">Apontamento Diário</p>
-        <h1 id="obraNomeTitulo">—</h1>
+    <div class="side-backdrop" id="sideBackdrop"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="side-brand">
+        <img id="sideLogo" alt="Rio Ave">
+        <div class="t">Apontamento Diário<small>Departamento Pessoal</small></div>
       </div>
-    </div>
+      <div class="side-label">Obra</div>
+      <div class="side-obra-select"><select id="obraSelect" aria-label="Obra"></select></div>
+      <div class="side-label">Menu</div>
+      <nav class="side-nav" id="sideNav">
+        <button class="tab-btn active" data-tab="diario"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4M16 2v4M3 9h18"/><path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M9 15l2 2 4-4"/></svg>Diário</button>
+        <button class="tab-btn" data-tab="grade"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Grade do Mês</button>
+        <button class="tab-btn" data-tab="mensal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Resumo Mensal</button>
+        <button class="tab-btn" data-tab="cadastro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Cadastro</button>
+      </nav>
+      <div class="side-foot">
+        <p class="access-note" id="loggedAsNote"></p>
+        <div class="foot-links">
+          <div class="link-inline" id="btnTrocarSenha">Trocar minha senha</div>
+          <div class="link-inline" id="btnAdminSenhas" style="display:none;">⚙ Administração de senhas</div>
+          <div class="link-back" id="btnLogout">Sair</div>
+        </div>
+      </div>
+    </aside>
 
-    <div class="legend-box" id="legendBox"></div>
+    <main class="main"><div class="main-inner" id="mainInner">
+      <div class="panel" id="noObra">
+        <p class="panel-title">Nenhuma obra selecionada</p>
+        <p class="panel-hint" id="noObraMsg">Escolha uma obra no menu ao lado.</p>
+      </div>
 
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="diario">Diário</button>
-      <button class="tab-btn" data-tab="grade">Grade do Mês</button>
-      <button class="tab-btn" data-tab="mensal">Resumo Mensal</button>
-      <button class="tab-btn" data-tab="cadastro">Cadastro</button>
-    </div>
+      <!-- ================= APP ================= -->
+      <div id="app" style="display:none;">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow" id="appEyebrow">Apontamento Diário</p>
+            <h1 id="obraNomeTitulo">—</h1>
+          </div>
+        </div>
+
+        <div class="legend-box" id="legendBox"></div>
 
     <!-- ---- TAB: DIÁRIO ---- -->
     <div class="tabpane active" id="tab-diario">
       <div class="panel" id="importPontoPanel">
         <p class="panel-title">Importar ponto do dia</p>
-        <p class="panel-hint">Envie o relatório "Ponto Diário" do Secullum (.xlsx ou .pdf). Os arquivos são lidos inteiramente no seu navegador.</p>
+        <p class="panel-hint">Envie o relatório "Ponto Diário" do Secullum (.xlsx ou .pdf). Para atualizar dias anteriores, envie um arquivo com o período (relatório por período ou Cartão Ponto em PDF) ou selecione vários arquivos de uma vez. Os arquivos são lidos inteiramente no seu navegador.</p>
         <div class="dropzone" id="dzImport">
-          <input type="file" id="fileImport" accept=".xls,.xlsx,.pdf">
+          <input type="file" id="fileImport" accept=".xls,.xlsx,.pdf" multiple>
           <div class="dropzone-label">📋 Ponto Diário (Secullum)</div>
-          <div class="dropzone-sub">.xlsx (recomendado) ou .pdf — arraste ou clique</div>
+          <div class="dropzone-sub">.xlsx (recomendado) ou .pdf — arraste ou clique · aceita relatório de vários dias, Cartão Ponto ou vários arquivos</div>
         </div>
         <div class="status-msg" id="importStatus"></div>
         <div class="import-preview" id="importPreview" style="display:none;"></div>
@@ -459,13 +524,14 @@
 
       <div class="panel" id="importCadastroPanel">
         <p class="panel-title">Importar cadastro inicial</p>
-        <p class="panel-hint">Suba a aba "Cadastro" de uma planilha por obra (Nome / Função / Admissão), ou o arquivo único de ativos do grupo (Empresa / Nome da Empresa / Funcionário / Nome do Funcionário / Função / Admissão) — nesse caso só os funcionários desta obra são importados, o resto do arquivo é ignorado automaticamente. Funcionários que já existem no cadastro desta obra são ignorados.</p>
+        <p class="panel-hint">Suba a aba "Cadastro" de uma planilha por obra (Nome / Função / Admissão), ou o arquivo único de ativos do grupo (Empresa / Nome da Empresa / Funcionário / Nome do Funcionário / Função / Admissão) — nesse caso só os funcionários desta obra são importados, o resto do arquivo é ignorado automaticamente. Também aceita o PDF do Cartão Ponto do Secullum (traz nome completo, função e admissão de cada funcionário do período; você confere a lista antes de importar). Funcionários que já existem no cadastro desta obra são ignorados.</p>
         <div class="dropzone" id="dzCadastro">
-          <input type="file" id="fileCadastro" accept=".xls,.xlsx">
+          <input type="file" id="fileCadastro" accept=".xls,.xlsx,.pdf">
           <div class="dropzone-label">📇 Cadastro de funcionários</div>
-          <div class="dropzone-sub">.xlsx — arraste ou clique</div>
+          <div class="dropzone-sub">.xlsx ou Cartão Ponto (.pdf) — arraste ou clique</div>
         </div>
         <div class="status-msg" id="cadastroImportStatus"></div>
+        <div id="cadastroPreview"></div>
       </div>
 
       <div class="panel" id="addFuncionarioPanel">
@@ -489,8 +555,10 @@
     </div>
 
     <footer id="footerNote"></footer>
-  </div>
-</div>
+      </div>
+    </div></main>
+  </div><!-- /shell -->
+</div><!-- /page -->
 
 <!-- ---- MODAL: ocorrências do funcionário ---- -->
 <div class="modal-backdrop" id="modalOcorrencias">
@@ -578,6 +646,7 @@
   // To change it: hash the new password (e.g. in a browser console) and replace the hex string below.
   var GATE_PASSWORD_HASH = "952dc2d36c52ec57a021941595ad98dc7bdceae62d92e9850aad8e926b7daaf3";
   var LOGIN_STORAGE_KEY = "apontamento-diario:login-email";
+  var ULTIMA_OBRA_KEY = "apontamento-diario:ultima-obra:";
   // E-mails com acesso à "Administração de senhas" (resetar a senha de qualquer pessoa). Só quem está
   // nesta lista vê o link no gate — não é uma permissão por empresa, é global ao app inteiro.
   var ADMIN_EMAILS = ["gabrielle.santos@rioave.com.br"];
@@ -912,7 +981,7 @@
       todosNomes.push(nome);
       var codigo = null, motivoDesconhecido = null, sawAdmissao = false;
       for(var ci=2; ci<=7; ci++){
-        if(typeof dr[ci] === "string" && dr[ci].trim()){
+        if(typeof dr[ci] === "string" && dr[ci].trim() && !isHoraStr(dr[ci])){
           if(isAdmissaoWord(dr[ci])) sawAdmissao = true;
           codigo = mapSecullumStatus(dr[ci]);
           if(codigo) break;
@@ -928,6 +997,167 @@
       }
     }
     return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:naoMapeados, todosNomes:todosNomes, pessoas:pessoas};
+  }
+
+  // ---------- Relatório por PERÍODO (vários dias num arquivo só) ----------
+  // Formato "PontoDiarioExcelSimplificado" com período: linha 2 = "PERÍODO: dd/mm/aaaa ATÉ dd/mm/aaaa.
+  // EMPRESA: ...", cabeçalho "DATA | NOME | ENTRADA 1 ..." e uma linha por pessoa POR DIA (sem coluna de
+  // matrícula). O motivo (FALTA, FÉRIAS, ...) vem repetido nas colunas de horário, como no relatório
+  // de um dia só. Cada dia vira um resultado igual ao do relatório diário.
+  function isHoraStr(v){ return /^\s*\d{1,2}:\d{2}(:\d{2})?\s*$/.test(String(v==null?"":v)); }
+  function isoDeCelula(v){
+    if(typeof v === "string"){
+      var m = v.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      return m ? m[3]+"-"+m[2]+"-"+m[1] : null;
+    }
+    if(typeof v === "number" && v > 20000 && v < 80000) return excelSerialToIso(v);
+    return null;
+  }
+  function acharCabecalhoPeriodo(rows){
+    for(var i=0;i<Math.min(rows.length,10);i++){
+      var row = rows[i]||[];
+      if(typeof row[0]==="string" && typeof row[1]==="string" &&
+         stripAccents(row[0]).trim().toUpperCase()==="DATA" && row[1].toUpperCase().indexOf("NOME")>=0) return i;
+    }
+    return -1;
+  }
+  function parseSecullumPeriodo(rows, headerIdx){
+    var empresaNome = null;
+    for(var i=0;i<headerIdx;i++){
+      var c0 = (rows[i]||[])[0];
+      if(typeof c0 === "string"){ var me = c0.match(/EMPRESA:\s*([^.]+)\./i); if(me) empresaNome = me[1].trim(); }
+    }
+    var porDia = {}, ordem = [];
+    for(var r=headerIdx+1;r<rows.length;r++){
+      var dr = rows[r];
+      if(!dr || dr[1]==null) continue;
+      var iso = isoDeCelula(dr[0]);
+      if(!iso) continue;                                   // "TOTAL GERAL", linhas em branco, etc.
+      if(typeof dr[1] === "number") continue;
+      var nome = String(dr[1]).trim();
+      if(!nome || !/[A-Za-zÀ-ÿ]/.test(nome)) continue;
+      var dia = porDia[iso];
+      if(!dia){
+        dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[]};
+        ordem.push(iso);
+      }
+      dia.todosNomes.push(nome);
+      var codigo = null, motivoDesconhecido = null, sawAdmissao = false;
+      for(var ci=2; ci<=7; ci++){
+        if(typeof dr[ci] === "string" && dr[ci].trim() && !isHoraStr(dr[ci])){
+          if(isAdmissaoWord(dr[ci])) sawAdmissao = true;
+          codigo = mapSecullumStatus(dr[ci]);
+          if(codigo) break;
+          if(!isIgnoredStatus(dr[ci])) motivoDesconhecido = dr[ci].trim();
+        }
+      }
+      dia.pessoas.push({nome:nome, matricula:"", codigo:codigo, admissao:sawAdmissao});
+      if(codigo) dia.ausencias.push({matricula:"", nome:nome, codigo:codigo});
+      else if(motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
+    }
+    return ordem.sort().map(function(iso){ return porDia[iso]; });
+  }
+
+  // ---------- CARTÃO PONTO (PDF do Secullum: 1 funcionário por página, período inteiro) ----------
+  // Cabeçalho da página: NOME (cortado em ~26 letras), Nº FOLHA, ADMISSÃO, FUNÇÃO...; depois uma linha
+  // por dia ("dd/mm/aaaa - Dia") com as batidas, ou o motivo (FOLGA, ATESTAD, FALTA, Feriado...) repetido
+  // nas colunas de horário; no rodapé, o nome COMPLETO acima da linha de assinatura. Por isso a leitura é
+  // por posição (x, y) e não por linhas de texto. Cada dia do período vira um resultado, como no relatório
+  // por período em xlsx. (CPF e demais dados do cabeçalho não são lidos.)
+  function ehPdfCartaoPonto(texto){
+    return /CARTAO\s+PONTO/.test(stripAccents(String(texto||"")).toUpperCase());
+  }
+  function textoDaFaixa(its, y, tol, xmin, xmax){
+    return its.filter(function(it){ return Math.abs(it.y - y) <= tol && it.x >= xmin && it.x < xmax; })
+      .sort(function(a,b){ return a.x - b.x; }).map(function(it){ return it.s; }).join(" ").replace(/\s+/g," ").trim();
+  }
+  async function parseCartaoPontoPdf(pdf, onProgress){
+    var empresaNome = null, porDia = {}, ordem = [], informes = [];
+    var rx = /^(\d{2})\/(\d{2})\/(\d{4})\b/;
+    for(var p=1; p<=pdf.numPages; p++){
+      if(onProgress && (p===1 || p%10===0 || p===pdf.numPages)) await onProgress(p, pdf.numPages);
+      var page = await pdf.getPage(p);
+      var content = await page.getTextContent();
+      var its = content.items.filter(function(it){ return it.str && it.str.trim(); })
+        .map(function(it){ return {s:it.str.trim(), x:it.transform[4], y:it.transform[5]}; });
+      if(!empresaNome){
+        var me = groupTextItemsToLines(content.items).join("\n").match(/Empresa:\s*([^.]+)\./);
+        if(me) empresaNome = me[1].trim();
+      }
+      // cabeçalho do funcionário (valores ficam ~9,5pt abaixo dos rótulos)
+      var lNome = its.filter(function(i){ return i.s === "NOME:"; })[0];
+      var lAdm = its.filter(function(i){ return /^ADMISS/.test(stripAccents(i.s).toUpperCase()) && i.x < 300; })[0];
+      var lFunc = its.filter(function(i){ return /^FUNC/.test(stripAccents(i.s).toUpperCase()) && i.x < 100; })[0];
+      var nomeCab = lNome ? textoDaFaixa(its, lNome.y - 9.6, 3, 0, 170) : "";
+      var folha = lNome ? textoDaFaixa(its, lNome.y - 9.6, 3, 170, 300).replace(/\s+/g,"") : "";
+      var admissao = null;
+      if(lAdm){
+        var ma = textoDaFaixa(its, lAdm.y - 9.6, 3, 170, 300).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if(ma) admissao = ma[3]+"-"+ma[2]+"-"+ma[1];
+      }
+      var funcao = lFunc ? textoDaFaixa(its, lFunc.y - 9.6, 3, 0, 170) : "";
+      // nome completo: logo abaixo da linha de assinatura da esquerda
+      var traco = its.filter(function(i){ return /^_{8,}/.test(i.s) && i.x < 330; })[0];
+      var nomeRod = traco ? textoDaFaixa(its, traco.y - 12, 5, 0, 330) : "";
+      var nome = nomeRod && normName(nomeRod).indexOf(normName(nomeCab)) === 0 ? nomeRod : (nomeCab || nomeRod);
+      if(!nome) continue;
+      informes.push({nome:nome, matricula:folha, admissao:admissao, funcao:funcao});
+
+      its.filter(function(i){ return i.x < 60 && rx.test(i.s); }).forEach(function(d){
+        var m = d.s.match(rx), iso = m[3]+"-"+m[2]+"-"+m[1];
+        var dia = porDia[iso];
+        if(!dia){
+          dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], cadastroInfo:informes};
+          ordem.push(iso);
+        }
+        dia.todosNomes.push(nome);
+        var codigo = null, motivoDesconhecido = null, sawAdmissao = false;
+        its.filter(function(i){ return Math.abs(i.y - d.y) <= 3 && i.x >= 95 && i.x < 260; })
+          .sort(function(a,b){ return a.x - b.x; }).forEach(function(c){
+            if(codigo || /^\d{1,2}:\d{2}/.test(c.s) || !/[A-Za-zÀ-ÿ]/.test(c.s)) return;
+            var w = c.s.replace(/[\^*¨]+$/,"");
+            if(isAdmissaoWord(w)) sawAdmissao = true;
+            var cd = mapSecullumStatus(w);
+            if(cd) codigo = cd;
+            else if(!isIgnoredStatus(w)) motivoDesconhecido = w;
+          });
+        dia.pessoas.push({nome:nome, matricula:folha, codigo:codigo, admissao:sawAdmissao});
+        if(codigo) dia.ausencias.push({matricula:folha, nome:nome, codigo:codigo});
+        else if(motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
+      });
+    }
+    var res = ordem.sort().map(function(iso){ return porDia[iso]; });
+    res.informes = informes;
+    return res;
+  }
+
+  // Lê um arquivo do ponto e devolve a LISTA de dias que ele contém: 1 para o relatório diário (xlsx/pdf),
+  // vários para o relatório por período.
+  async function lerArquivoPonto(file){
+    var lista;
+    if(/\.pdf$/i.test(file.name)){
+      var pdf = await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+      var p1 = await pdf.getPage(1);
+      var t1 = (await p1.getTextContent()).items.map(function(i){ return i.str; }).join(" ");
+      if(ehPdfCartaoPonto(t1)){
+        lista = await parseCartaoPontoPdf(pdf, async function(p, n){
+          var st = $("importStatus"); st.className = "status-msg show info";
+          st.textContent = "Lendo cartão ponto: página " + p + " de " + n + "...";
+          await new Promise(function(r){ setTimeout(r, 0); });
+        });
+        if(!lista.length) throw new Error("não encontrei dias no cartão ponto");
+      } else {
+        lista = [await parseSecullumPdf(file)];
+      }
+    } else {
+      var buf = await file.arrayBuffer();
+      var wb = XLSX.read(buf, {type:"array", raw:true});
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:null});
+      var h = acharCabecalhoPeriodo(rows);
+      lista = h >= 0 ? parseSecullumPeriodo(rows, h) : [parseSecullumXlsx(buf)];
+    }
+    lista.forEach(function(r){ r.arquivoNome = file.name; marcarHomonimos(r); });
+    return lista;
   }
 
   // "ADMISSÃO" no ponto = funcionário começando hoje. Fica fora das ausências (não é falta), mas
@@ -1104,7 +1334,67 @@
     modalDate: null
   };
 
-  function funcName(id){ return (state.funcionarios[id] && state.funcionarios[id].nome) || id; }
+  // Identidade de um funcionário = matrícula (Nº folha do Secullum) quando existir; o nome sozinho só
+  // vale quando não há matrícula. Há funcionários diferentes com o mesmo nome (homônimos).
+  function chaveMatricula(m){ return String(m==null?"":m).replace(/O/g,"0").replace(/\D/g,"").replace(/^0+/,""); }
+  function matriculaCurta(m){ var d = String(m==null?"":m).replace(/\D/g,""); return d ? d.slice(-6) : ""; }
+  // Matrículas de formatos diferentes (ex.: "2996" no cadastro e "0900…002996" no relatório) se
+  // reconhecem quando uma termina com a outra (mínimo 3 dígitos).
+  function matriculasCompativeis(a, b){
+    if(!a || !b) return false;
+    if(a === b) return true;
+    var curta = a.length <= b.length ? a : b, longa = a.length <= b.length ? b : a;
+    return curta.length >= 3 && longa.slice(-curta.length) === curta;
+  }
+  // Índice dos funcionários (nome normalizado + chave de matrícula), refeito só quando o cadastro muda.
+  var _idxF = {src:null, byId:{}, byName:{}, list:[]};
+  function indiceFuncionarios(){
+    if(_idxF.src === state.funcionarios) return _idxF;
+    var byId = {}, byName = {}, list = [];
+    Object.keys(state.funcionarios).forEach(function(id){
+      var f = state.funcionarios[id];
+      var e = {id:id, n:normName(f.nome), k:chaveMatricula(f.matricula)};
+      byId[id] = e; list.push(e); (byName[e.n] = byName[e.n] || []).push(e);
+    });
+    _idxF = {src:state.funcionarios, byId:byId, byName:byName, list:list};
+    return _idxF;
+  }
+  function funcName(id){
+    var f = state.funcionarios[id];
+    if(!f) return id;
+    var ix = indiceFuncionarios(), e = ix.byId[id];
+    if(e && ix.byName[e.n] && ix.byName[e.n].length > 1){
+      var mc = matriculaCurta(f.matricula);
+      if(mc) return (f.nome || id) + " (mat. " + mc + ")";
+    }
+    return f.nome || id;
+  }
+  // Id do documento de um funcionário NOVO: o nome (como sempre); se esse id já está ocupado por outra
+  // pessoa e este tem matrícula, acrescenta a matrícula ao id.
+  function idFuncionarioNovo(nome, matricula, usados){
+    var base = slugify(nome), k = chaveMatricula(matricula);
+    var ocupado = function(id){ return !!state.funcionarios[id] || !!(usados && usados[id]); };
+    if(!k || !ocupado(base)) return base;
+    var id = base + "-" + k, n = 2;
+    while(ocupado(id)) id = base + "-" + k + "-" + (n++);
+    return id;
+  }
+  // Marca quem tem homônimo (mesmo nome, matrículas diferentes) na lista de um mesmo relatório.
+  function marcarHomonimosLista(lista){
+    var porNome = {};
+    lista.forEach(function(p){
+      var k = chaveMatricula(p.matricula); if(!k) return;
+      var n = normName(p.nome); (porNome[n] = porNome[n] || {})[k] = 1;
+    });
+    var hom = {};
+    Object.keys(porNome).forEach(function(n){ if(Object.keys(porNome[n]).length > 1) hom[n] = true; });
+    lista.forEach(function(p){ p.homonimo = !!hom[normName(p.nome)]; });
+    return hom;
+  }
+  function marcarHomonimos(r){
+    var hom = marcarHomonimosLista(r.pessoas || []);
+    (r.ausencias || []).forEach(function(a){ a.homonimo = !!hom[normName(a.nome)]; });
+  }
   function ativosList(){
     return Object.keys(state.funcionarios).filter(function(id){ return !state.funcionarios[id].inativo; });
   }
@@ -1125,7 +1415,8 @@
     $("loggedAsNote").textContent = "Conectado como " + state.email;
     $("btnAdminSenhas").style.display = isAdmin() ? "block" : "none";
     $("loginGate").style.display = "none";
-    $("gate").style.display = "block";
+    document.body.classList.add("logged");
+    try{ $("sideLogo").src = document.querySelector(".login-logo").src; }catch(e){}
     startBoot();
   }
 
@@ -1326,6 +1617,7 @@
       snap.docs.forEach(function(d){ out[d.id] = d.data(); });
       state.obras = out;
       renderObrasGrid();
+      autoSelecionarObra();
       if(state.obraId){
         $("obraNomeTitulo").textContent = (state.obras[state.obraId]||{}).nome || state.obraId;
         var tabCadastroActive = $("tab-cadastro").classList.contains("active");
@@ -1368,9 +1660,19 @@
     if(state.unsubFuncionarios) state.unsubFuncionarios();
     if(state.unsubDias) state.unsubDias();
 
-    $("gate").style.display = "none";
+    // Trocar de obra no menu lateral: descarta qualquer prévia de importação da obra anterior
+    // (senão o "Salvar importação" gravaria o arquivo na obra errada).
+    state.pendingImport = null; state.pendingLote = null;
+    $("importPreview").style.display = "none"; $("importPreview").innerHTML = "";
+    $("importStatus").textContent = ""; $("importStatus").className = "status-msg";
+    try{ $("fileImport").value = ""; }catch(e){}
+    try{ localStorage.setItem(ULTIMA_OBRA_KEY + state.email, obraId); }catch(e){}
+    $("noObra").style.display = "none";
     $("app").style.display = "block";
     $("obraNomeTitulo").textContent = (state.obras[obraId]||{}).nome || obraId;
+    $("mobileObraNome").textContent = (state.obras[obraId]||{}).nome || obraId;
+    document.body.classList.remove("menu-open");
+    renderObrasGrid();
     $("diaSelecionado").value = todayIso();
     $("mesGrade").value = todayIso().slice(0,7);
     $("mesResumo").value = todayIso().slice(0,7);
@@ -1401,37 +1703,46 @@
     renderAll();
   }
 
-  function backToGate(){
-    state.obraId = null;
-    if(state.unsubFuncionarios) state.unsubFuncionarios();
-    if(state.unsubDias) state.unsubDias();
-    $("app").style.display = "none";
-    $("gate").style.display = "block";
-    ajustarLarguraPagina();
-  }
-
   // Página larga só quando uma obra está aberta nas abas Grade do Mês ou Resumo Mensal.
   function ajustarLarguraPagina(){
     var ativa = document.querySelector(".tab-btn.active");
     var aba = ativa ? ativa.getAttribute("data-tab") : "";
     var larga = $("app").style.display === "block" && (aba === "grade" || aba === "mensal");
-    document.querySelector(".page").classList.toggle("wide", larga);
+    $("mainInner").classList.toggle("wide", larga);
   }
 
-  // ================= RENDER: GATE =================
-  function renderObrasGrid(){
-    var grid = $("obrasGrid");
-    // Só mostra obras/sugestões onde o e-mail logado tem acesso — nada de cadeado, o resto nem aparece.
-    var ids = Object.keys(state.obras).filter(function(id){
+  // ================= RENDER: MENU LATERAL (lista de obras) =================
+  // Só mostra obras/sugestões onde o e-mail logado tem acesso — nada de cadeado, o resto nem aparece.
+  function obrasAcessiveis(){
+    return Object.keys(state.obras).filter(function(id){
       return temAcessoObra(state.obras[id]);
     }).sort(function(a,b){
       return (state.obras[a].nome||"").localeCompare(state.obras[b].nome||"");
     });
-    var existingHtml = ids.map(function(id){
-      var o = state.obras[id];
-      return '<button class="obra-card" data-obra="'+id+'"><div class="nome">'+escapeHtml(o.nome)+'</div></button>';
-    }).join("");
+  }
 
+  // Ao entrar, abre direto a última obra usada (ou a primeira da lista) — não há mais uma tela só
+  // de escolha de obra: a lista fica sempre à esquerda e o painel da obra aparece ao lado.
+  function autoSelecionarObra(){
+    if(state.obraId) return;
+    var ids = obrasAcessiveis();
+    if(!ids.length){
+      var temSugestao = EMPRESAS_ACESSO.some(function(e){
+        return e.dp.map(normEmail).indexOf(state.email)>=0 || e.eng.map(normEmail).indexOf(state.email)>=0;
+      });
+      $("noObraMsg").textContent = temSugestao
+        ? "Nenhuma obra criada ainda — clique em “+ criar obra” no menu ao lado para começar."
+        : "Nenhuma obra disponível para o seu acesso — peça pra incluírem seu e-mail em alguma empresa.";
+      return;
+    }
+    var last = null;
+    try{ last = localStorage.getItem(ULTIMA_OBRA_KEY + state.email); }catch(e){}
+    selectObra(ids.indexOf(last)>=0 ? last : ids[0]);
+  }
+
+  function renderObrasGrid(){
+    var sel = $("obraSelect");
+    var ids = obrasAcessiveis();
     // Empresas já conhecidas (Empresas.xlsx) onde o e-mail logado tem acesso e ainda não viraram uma
     // obra — sugestão de 1 clique, já vem com a lista de acesso (dp/eng) certa.
     var sugestoes = EMPRESAS_ACESSO.filter(function(e){
@@ -1439,23 +1750,22 @@
       if(!liberado) return false;
       return !Object.keys(state.obras).some(function(id){ return normName(state.obras[id].nome)===normName(e.nome); });
     });
-    var sugestoesHtml = sugestoes.map(function(e){
-      return '<button class="obra-card obra-sugestao" data-sugestao="'+escapeHtml(e.nome)+'"><div class="nome">'+escapeHtml(e.nome)+'</div><div class="meta">+ criar obra</div></button>';
-    }).join("");
-
+    state.sugestoesObra = sugestoes;
+    var html = "";
     if(!ids.length && !sugestoes.length){
-      grid.innerHTML = '<div style="color:var(--text-faint);font-size:13px;">Nenhuma obra disponível para o seu acesso — peça pra incluírem seu e-mail em alguma empresa.</div>';
-      return;
+      html = '<option value="" disabled selected>Nenhuma obra disponível</option>';
+    } else {
+      if(!state.obraId) html += '<option value="" disabled selected>Selecione a obra…</option>';
+      html += ids.map(function(id){
+        return '<option value="'+id+'"'+(id===state.obraId?' selected':'')+'>'+escapeHtml(state.obras[id].nome)+'</option>';
+      }).join("");
+      if(sugestoes.length){
+        html += '<optgroup label="＋ Criar obra">' + sugestoes.map(function(e, i){
+          return '<option value="sug:'+i+'">'+escapeHtml(e.nome)+'</option>';
+        }).join("") + '</optgroup>';
+      }
     }
-    grid.innerHTML = existingHtml + sugestoesHtml;
-    Array.prototype.forEach.call(grid.querySelectorAll(".obra-card[data-obra]"), function(el){
-      el.addEventListener("click", function(){ selectObra(el.getAttribute("data-obra")); });
-    });
-    Array.prototype.forEach.call(grid.querySelectorAll(".obra-card[data-sugestao]"), function(el){
-      el.addEventListener("click", function(){
-        criarObraComNome(el.getAttribute("data-sugestao"));
-      });
-    });
+    sel.innerHTML = html;
   }
 
   function criarObraComNome(nome){
@@ -1998,17 +2308,19 @@
   fileInput.addEventListener("change", handleImportFile);
 
   function handleImportFile(){
-    var file = fileInput.files[0];
+    var files = fileInput.files;
+    if(files && files.length > 1){ handleImportLote(Array.prototype.slice.call(files)); return; }
+    var file = files && files[0];
     if(!file) return;
+    state.pendingLote = null;
     var statusEl = $("importStatus");
     statusEl.className = "status-msg show info";
     statusEl.textContent = "Lendo arquivo...";
     $("importPreview").style.display = "none";
 
-    var isPdf = /\.pdf$/i.test(file.name);
-    var p = isPdf ? parseSecullumPdf(file) : file.arrayBuffer().then(parseSecullumXlsx);
-
-    p.then(function(result){
+    lerArquivoPonto(file).then(function(lista){
+      if(lista.length > 1){ handleImportLote([file], lista); return; }   // arquivo por período: vários dias
+      var result = lista[0];
       if(!result.data){
         statusEl.className = "status-msg show warn";
         statusEl.textContent = 'Não consegui detectar a data do arquivo automaticamente — confira o campo "Dia" antes de salvar.';
@@ -2017,7 +2329,6 @@
         statusEl.className = "status-msg show ok";
         statusEl.textContent = "Arquivo lido: " + result.ausencias.length + " ausência(s) detectada(s) para " + fmtDateBR(result.data) + ".";
       }
-      result.arquivoNome = file.name;
       state.pendingImport = result;
       renderImportPreview();
     }).catch(function(err){
@@ -2026,13 +2337,29 @@
     });
   }
 
-  function matchFuncionario(nomeRaw){
-    var n = normName(nomeRaw);
-    for(var id in state.funcionarios){
-      if(normName(state.funcionarios[id].nome) === n) return id;
+  // Acha o funcionário do cadastro para uma linha do relatório: 1) mesma matrícula; 2) matrícula de outro
+  // formato que termina igual E mesmo nome; 3) só o nome — mas se o relatório tem dois funcionários com o
+  // mesmo nome (homonimo) e o cadastro já tem OUTRA matrícula para esse nome, não é a mesma pessoa.
+  function matchFuncionario(nomeRaw, matricula, homonimo){
+    var ix = indiceFuncionarios(), n = normName(nomeRaw), k = chaveMatricula(matricula);
+    var porNome = ix.byName[n] || [];
+    if(k){
+      var exato = null, compat = null;
+      for(var i=0;i<ix.list.length;i++){
+        var e = ix.list[i];
+        if(!e.k) continue;
+        if(e.k === k){ if(!exato || e.n === n) exato = e; }
+        else if(e.n === n && !compat && matriculasCompativeis(e.k, k)) compat = e;
+      }
+      if(exato) return exato.id;
+      if(compat) return compat.id;
     }
-    return null;
+    if(!porNome.length) return null;
+    if(!k) return porNome[0].id;
+    for(var j=0;j<porNome.length;j++){ if(!porNome[j].k) return porNome[j].id; }
+    return homonimo ? null : porNome[0].id;
   }
+  function chavePessoa(p){ var k = chaveMatricula(p.matricula); return k ? "m:"+k : "n:"+normName(p.nome); }
 
   // Todo mundo que aparece no relatório e não existe no cadastro — presente, com ausência ou com
   // "ADMISSÃO". Antes só entrava quem tinha ausência, então um funcionário novo que já batia ponto
@@ -2045,20 +2372,23 @@
     return m;
   }
 
-  function calcNaoEncontrados(pend){
+  // opts.semInativos: usado na importação de dias anteriores (lote) — hoje o cadastro não guarda a data em
+  // que alguém foi inativado, então quem está inativo agora pode muito bem ter trabalhado naquele dia;
+  // nesse caso não faz sentido sugerir "reativar".
+  function calcNaoEncontrados(pend, opts){
     var ignorados = nomesIgnoradosMap();
     var porNomeAusencia = {};
-    pend.ausencias.forEach(function(a){ porNomeAusencia[normName(a.nome)] = a; });
+    pend.ausencias.forEach(function(a){ porNomeAusencia[chavePessoa(a)] = a; });
     var vistos = {}, out = [];
     var fonte = pend.pessoas && pend.pessoas.length ? pend.pessoas : pend.ausencias;
     fonte.forEach(function(p){
       // Quem existe no cadastro mas está INATIVO e apareceu no ponto também entra (ex.: estagiário que
       // foi promovido e voltou com novo vínculo): o cadastro acha a pessoa pelo nome, mas ela não conta
       // como ativa — sem este caso ela ficava invisível, nem apontada como nova nem contada.
-      var fidExistente = matchFuncionario(p.nome);
-      if(fidExistente && !state.funcionarios[fidExistente].inativo) return;
-      var chave = normName(p.nome);
-      if(vistos[chave] || ignorados[chave]) return;
+      var fidExistente = matchFuncionario(p.nome, p.matricula, p.homonimo);
+      if(fidExistente && (!state.funcionarios[fidExistente].inativo || (opts && opts.semInativos))) return;
+      var chave = chavePessoa(p);
+      if(vistos[chave] || ignorados[normName(p.nome)]) return;
       vistos[chave] = true;
       var aus = porNomeAusencia[chave];
       var item = {nome:p.nome, matricula:p.matricula||"", codigo:(aus && aus.codigo) || p.codigo || null, admissao:!!p.admissao};
@@ -2102,16 +2432,7 @@
     // Ativos do cadastro que não apareceram em NENHUMA linha do relatório (nem presente, nem ausente)
     // — possível desligamento não registrado ainda. Só roda a checagem se o arquivo parece completo
     // (senão, um relatório parcial acusaria desligamento em todo mundo por engano).
-    var todosNomes = pend.todosNomes || [];
-    var ativosIds = ativosList();
-    var deslig = [];
-    if(todosNomes.length && todosNomes.length >= ativosIds.length*0.5){
-      var todosNorm = todosNomes.map(normName);
-      deslig = ativosIds.filter(function(fid){
-        var n = normName(funcName(fid));
-        return todosNorm.indexOf(n)<0;
-      });
-    }
+    var deslig = desligamentosDe(pend, pend.data);
     pend._possiveisDesligamentos = deslig;
     var desligWarning = "";
     if(deslig.length){
@@ -2138,20 +2459,36 @@
     renderImportDiff();
   }
 
-  // Reimportação de um dia que já tem importação salva (ex.: o ponto foi corrigido depois — atestado
-  // entregue, funcionário chegou atrasado): mostra o que muda em relação ao que está salvo ANTES de
-  // gravar, pra DP só conferir em vez de refazer o dia à mão. Reflete exatamente o que
-  // confirmarImport() vai fazer: entradas manuais são sempre mantidas, o resto é substituído.
-  function renderImportDiff(){
-    var pend = state.pendingImport, box = $("importDiff");
-    if(!pend || !box) return;
-    var iso = $("importDataConfirm").value || pend.data || todayIso();
-    var doc = state.dias[iso];
-    if(!doc || !doc.ausencias){ box.innerHTML = ""; return; }
+  // Ativos do cadastro que não apareceram em NENHUMA linha do relatório — possível desligamento. Só roda
+  // se o arquivo parece completo; e quem foi admitido DEPOIS do dia do relatório não conta (ainda não
+  // trabalhava lá — importante ao importar dias anteriores).
+  function desligamentosDe(pend, iso){
+    var todosNomes = pend.todosNomes || [];
+    var ativosIds = ativosList();
+    if(!(todosNomes.length && todosNomes.length >= ativosIds.length*0.5)) return [];
+    var presentes = {};
+    var fonte = pend.pessoas && pend.pessoas.length ? pend.pessoas : todosNomes.map(function(n){ return {nome:n}; });
+    fonte.forEach(function(p){
+      var fid = matchFuncionario(p.nome, p.matricula, p.homonimo);
+      if(fid) presentes[fid] = true;
+    });
+    return ativosIds.filter(function(fid){
+      var f = state.funcionarios[fid] || {};
+      if(iso && f.admissao && f.admissao > iso) return false;
+      return !presentes[fid];
+    });
+  }
 
+  // Reimportação de um dia que já tem importação salva (ex.: o ponto foi corrigido depois — atestado
+  // entregue, funcionário chegou atrasado): compara o que está salvo com o que o arquivo traz ANTES de
+  // gravar. Reflete exatamente o que montarPayloadDia() vai fazer: entradas manuais são sempre mantidas,
+  // o resto é substituído.
+  function diffDia(pend, iso){
+    var doc = state.dias[iso];
+    if(!doc || !doc.ausencias) return {existe:false, doc:null, mudancas:[], manuais:[]};
     var novo = {};
     pend.ausencias.forEach(function(a){
-      var fid = matchFuncionario(a.nome);
+      var fid = matchFuncionario(a.nome, a.matricula, a.homonimo);
       if(fid && !novo[fid]) novo[fid] = a.codigo;
     });
     var ids = {};
@@ -2170,7 +2507,13 @@
     });
     var porNome = function(a,b){ return funcName(a.fid).localeCompare(funcName(b.fid)); };
     mudancas.sort(porNome); manuais.sort(porNome);
+    return {existe:true, doc:doc, mudancas:mudancas, manuais:manuais};
+  }
 
+  function diffHtmlDia(pend, iso){
+    var d = diffDia(pend, iso);
+    if(!d.existe) return "";
+    var doc = d.doc, mudancas = d.mudancas, manuais = d.manuais;
     var estado = function(c){ return c ? codePill(c) : '<span class="pill pill-presente">Presente</span>'; };
     var quando = doc.importadoEm ? new Date(doc.importadoEm).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
     var html = '<div class="diff-box"><div class="diff-title">Já existe importação salva para '+fmtDateBR(iso)+
@@ -2191,14 +2534,18 @@
           }).join("");
       }
     }
-    box.innerHTML = html + '</div>';
+    return html + '</div>';
   }
 
-  function confirmarImport(){
-    var pend = state.pendingImport;
-    if(!pend || !state.db || isReadOnly()){ return; }
+  function renderImportDiff(){
+    var pend = state.pendingImport, box = $("importDiff");
+    if(!pend || !box) return;
     var iso = $("importDataConfirm").value || pend.data || todayIso();
+    box.innerHTML = diffHtmlDia(pend, iso);
+  }
 
+  // Monta o documento do dia a partir do arquivo (usado pela importação de 1 dia e pela em lote).
+  function montarPayloadDia(pend, iso, opts){
     var existingDoc = state.dias[iso] || {};
     var ausencias = {};
     // preserve manual-origin entries already saved for this day
@@ -2208,28 +2555,32 @@
       });
     }
     pend.ausencias.forEach(function(a){
-      var fid = matchFuncionario(a.nome);
+      var fid = matchFuncionario(a.nome, a.matricula, a.homonimo);
       if(fid && !ausencias[fid]){
         ausencias[fid] = {codigo:a.codigo, origem:"import", atualizadoEm:new Date().toISOString(), atualizadoPor:state.email};
       }
     });
-    var naoEncontrados = calcNaoEncontrados(pend);
-
-    var possiveisDesligamentos = (pend._possiveisDesligamentos || []).map(function(fid){
+    var possiveisDesligamentos = desligamentosDe(pend, iso).map(function(fid){
       var f = state.funcionarios[fid] || {};
       return {funcId:fid, nome:funcName(fid), funcao:f.funcao||""};
     });
-
-    var payload = {
+    return {
       data: iso,
       arquivoNome: pend.arquivoNome,
       origemImport: pend.origemTipo || (/\.pdf$/i.test(pend.arquivoNome||"") ? "pdf" : "xlsx"),
       importadoEm: new Date().toISOString(),
       importadoPor: state.email,
       ausencias: ausencias,
-      naoEncontrados: naoEncontrados,
+      naoEncontrados: calcNaoEncontrados(pend, opts),
       possiveisDesligamentos: possiveisDesligamentos
     };
+  }
+
+  function confirmarImport(){
+    var pend = state.pendingImport;
+    if(!pend || !state.db || isReadOnly()){ return; }
+    var iso = $("importDataConfirm").value || pend.data || todayIso();
+    var payload = montarPayloadDia(pend, iso);
 
     var statusEl = $("importStatus");
     statusEl.className = "status-msg show info";
@@ -2247,6 +2598,143 @@
       statusEl.className = "status-msg show error";
       statusEl.textContent = "Erro ao salvar: " + (err&&err.code||"erro");
     });
+  }
+
+  // ---------- importação em lote: vários arquivos (um por dia) de uma vez, p/ atualizar dias anteriores ----------
+  async function handleImportLote(files, listaPronta){
+    var statusEl = $("importStatus");
+    state.pendingImport = null;
+    state.pendingLote = null;
+    $("importPreview").style.display = "none";
+    var itens = [], arquivosOk = 0, arquivosErro = 0;
+    for(var i=0; i<files.length; i++){
+      var file = files[i];
+      statusEl.className = "status-msg show info";
+      statusEl.textContent = "Lendo arquivo " + (i+1) + " de " + files.length + "...";
+      try{
+        var lista = (listaPronta && files.length === 1) ? listaPronta : await lerArquivoPonto(file);
+        lista.forEach(function(result){
+          if(!(result.pessoas && result.pessoas.length) && !(result.todosNomes && result.todosNomes.length) && !(result.ausencias && result.ausencias.length)){
+            throw new Error("não encontrei funcionários — não parece um relatório Ponto Diário");
+          }
+        });
+        lista.forEach(function(result){
+          itens.push({nome:file.name, multi:lista.length>1, pend:result, iso:result.data || "", incluir:true});
+        });
+        arquivosOk++;
+      }catch(err){
+        arquivosErro++;
+        itens.push({nome:file.name, erro:(err && err.message) || "erro", incluir:false});
+      }
+    }
+    itens.sort(function(a,b){
+      if(!a.iso && !b.iso) return 0;
+      if(!a.iso) return 1; if(!b.iso) return -1;
+      return a.iso < b.iso ? -1 : (a.iso > b.iso ? 1 : 0);
+    });
+    state.pendingLote = itens;
+    var nDias = itens.filter(function(it){ return !it.erro; }).length;
+    statusEl.className = "status-msg show " + (arquivosErro ? "warn" : "ok");
+    statusEl.textContent = arquivosOk + " de " + files.length + " arquivo(s) lido(s) — " + nDias + " dia(s) encontrado(s)" + (arquivosErro ? "; " + arquivosErro + " arquivo(s) com erro (veja abaixo)." : ". Confira os dias abaixo e salve.");
+    renderLotePreview();
+  }
+
+  function renderLotePreview(){
+    var itens = state.pendingLote, box = $("importPreview");
+    if(!itens){ return; }
+    var obraNome = (state.obras[state.obraId]||{}).nome || "";
+    var validos = 0, novos = 0, existentes = 0, bloqueio = false, cadastroVazio = false;
+    var linhas = itens.map(function(it, i){
+      if(it.erro){
+        return '<tr class="off"><td></td><td>'+escapeHtml(it.nome)+'</td><td colspan="4"><span class="lote-tag lote-err">Erro ao ler: '+escapeHtml(it.erro)+'</span></td></tr>';
+      }
+      var iso = it.iso;
+      var dup = !!iso && it.incluir && itens.some(function(o, j){ return j!==i && !o.erro && o.incluir && o.iso===iso; });
+      var d = iso ? diffDia(it.pend, iso) : null;
+      var situ;
+      if(!iso){ situ = '<span class="lote-tag lote-err">informe a data</span>'; if(it.incluir) bloqueio = true; }
+      else if(dup){ situ = '<span class="lote-tag lote-err">data repetida</span>'; bloqueio = true; }
+      else if(!d.existe){ situ = '<span class="lote-tag lote-new">dia novo</span>'; }
+      else if(!d.mudancas.length && !d.manuais.length){ situ = '<span class="lote-tag lote-ok">sem mudanças</span>'; }
+      else { situ = '<span class="lote-tag lote-chg">'+d.mudancas.length+' mudança(s)'+(d.manuais.length ? ' · '+d.manuais.length+' manual(is)' : '')+'</span>'; }
+      if(it.incluir && iso && !dup){ validos++; if(d.existe) existentes++; else novos++; }
+      var aviso = "";
+      if(it.pend.empresa && obraNome){
+        var ea = normName(it.pend.empresa), eb = normName(obraNome);
+        if(ea.indexOf(eb)<0 && eb.indexOf(ea)<0) aviso = '<div class="lote-aviso">Arquivo de outra empresa: "'+escapeHtml(it.pend.empresa)+'"</div>';
+      }
+      var detalhe = (d && d.existe && (d.mudancas.length || d.manuais.length)) ? '<details><summary>ver mudanças</summary>'+diffHtmlDia(it.pend, iso)+'</details>' : "";
+      var naoEnc = calcNaoEncontrados(it.pend, {semInativos:true}).length;
+      var nPess = (it.pend.pessoas || it.pend.ausencias || []).length;
+      if(it.incluir && nPess && naoEnc >= nPess*0.5) cadastroVazio = true;
+      return '<tr class="'+(it.incluir?'':'off')+'">'+
+        '<td><input type="checkbox" data-lote-inc="'+i+'"'+(it.incluir?' checked':'')+'></td>'+
+        '<td>'+escapeHtml(it.nome)+(it.multi ? '<div class="lote-aviso" style="color:var(--text-faint)">arquivo com vários dias</div>' : '')+aviso+'</td>'+
+        '<td><input type="date" data-lote-data="'+i+'" value="'+iso+'"></td>'+
+        '<td class="num">'+it.pend.ausencias.length+'</td>'+
+        '<td class="num">'+naoEnc+'</td>'+
+        '<td>'+situ+detalhe+'</td></tr>';
+    }).join("");
+
+    var resumo = validos + ' dia(s) para salvar' + (validos ? ' ('+novos+' novo(s), '+existentes+' já existente(s) a atualizar)' : '') + '.';
+    box.style.display = "block";
+    box.innerHTML =
+      '<p class="lote-resumo"><b>Importação em lote</b> — '+resumo+'</p>'+
+      (cadastroVazio ? '<div class="status-msg show warn" style="margin:0 0 12px;">Muitos nomes destes arquivos não estão no cadastro desta obra — as ausências deles NÃO são gravadas (só aparecem em "Não encontrados"). Confira se escolheu a obra certa ou importe o cadastro antes (aba Cadastro).</div>' : '')+
+      '<div class="lote-wrap"><table><thead><tr><th></th><th>Arquivo</th><th>Dia</th><th>Ausências</th><th>Não encontrados</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'+
+      '<p class="panel-hint" style="margin-bottom:12px;">Cada dia é salvo como na importação normal: lançamentos manuais são mantidos e o resto é substituído pelo ponto. Em dias anteriores, quem foi admitido depois da data não conta como "sumiu do ponto" e quem hoje está inativo não é sugerido para reativação. Os avisos de cada dia (não encontrados, sumiram do ponto) ficam salvos e aparecem ao abrir o dia.</p>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn" id="btnSalvarLote"'+((!validos || bloqueio) ? ' disabled' : '')+'>Salvar '+validos+' dia(s)</button>'+
+      '<button class="btn-ghost" id="btnCancelarLote">Cancelar</button></div>'+
+      (bloqueio ? '<p class="panel-hint" style="margin:10px 0 0;color:var(--bad);">Corrija as datas em vermelho (ou desmarque o arquivo) para poder salvar.</p>' : '');
+
+    Array.prototype.forEach.call(box.querySelectorAll("input[data-lote-inc]"), function(el){
+      el.addEventListener("change", function(){ itens[+el.getAttribute("data-lote-inc")].incluir = el.checked; renderLotePreview(); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("input[data-lote-data]"), function(el){
+      el.addEventListener("change", function(){ itens[+el.getAttribute("data-lote-data")].iso = el.value; renderLotePreview(); });
+    });
+    $("btnSalvarLote").addEventListener("click", salvarLote);
+    $("btnCancelarLote").addEventListener("click", function(){
+      state.pendingLote = null; box.style.display = "none"; box.innerHTML = "";
+      fileInput.value = ""; $("importStatus").className = "status-msg";
+    });
+  }
+
+  async function salvarLote(){
+    var itens = state.pendingLote;
+    if(!itens || !state.db || isReadOnly()) return;
+    var alvo = itens.filter(function(it){ return !it.erro && it.incluir && it.iso; });
+    if(!alvo.length) return;
+    var btn = $("btnSalvarLote"); if(btn) btn.disabled = true;
+    var statusEl = $("importStatus");
+    var salvos = [], falhas = [];
+    for(var i=0; i<alvo.length; i++){
+      var it = alvo[i];
+      statusEl.className = "status-msg show info";
+      statusEl.textContent = "Salvando dia " + (i+1) + " de " + alvo.length + " (" + fmtDateBR(it.iso) + ")...";
+      try{
+        await state.db.collection("obras/" + state.obraId + "/dias").doc(it.iso).set(montarPayloadDia(it.pend, it.iso, {semInativos:true}));
+        salvos.push(it);
+      }catch(err){
+        falhas.push(fmtDateBR(it.iso) + " (" + ((err && err.code) || "erro") + ")");
+      }
+    }
+    if(!falhas.length){
+      var datas = salvos.map(function(s){ return s.iso; }).sort();
+      statusEl.className = "status-msg show ok";
+      statusEl.textContent = salvos.length + " dia(s) salvo(s): de " + fmtDateBR(datas[0]) + " a " + fmtDateBR(datas[datas.length-1]) + ".";
+      state.pendingLote = null;
+      $("importPreview").style.display = "none"; $("importPreview").innerHTML = "";
+      fileInput.value = "";
+      $("diaSelecionado").value = datas[datas.length-1];
+      renderAll();
+    } else {
+      statusEl.className = "status-msg show error";
+      statusEl.textContent = salvos.length + " dia(s) salvo(s); falhou em: " + falhas.join(", ") + ". Os que falharam continuam na lista abaixo.";
+      state.pendingLote = itens.filter(function(x){ return salvos.indexOf(x) < 0; });
+      renderLotePreview();
+      renderAll();
+    }
   }
 
   // ================= TAB: GRADE DO MÊS =================
@@ -2420,7 +2908,7 @@
       var statusHtml = f.inativo ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inativo</span>' : '<span class="pill pill-presente">Ativo</span>';
       var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>";
       return "<tr>"+
-        '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(f.nome)+"</a></td>"+
+        '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(funcName(id))+"</a></td>"+
         "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+statusHtml+"</td>"+
@@ -2512,7 +3000,7 @@
     var admissao = admissaoParam!=null ? admissaoParam : $("novoFuncAdmissao").value;
     var matricula = matriculaParam!=null ? matriculaParam : $("novoFuncMatricula").value.trim();
     if(!nome || !state.db || isReadOnly()) return null;
-    var fid = slugify(nome);
+    var fid = idFuncionarioNovo(nome, matricula);
     var data = {nome:nome, funcao:funcao||"", admissao:admissao||null, matricula:matricula||"", inativo:false, criadoEm:new Date().toISOString(), criadoPor:state.email};
     state.db.collection("obras/" + state.obraId + "/funcionarios").doc(fid).set(data).then(function(){
       $("novoFuncNome").value=""; $("novoFuncFuncao").value=""; $("novoFuncAdmissao").value=""; $("novoFuncMatricula").value="";
@@ -2520,19 +3008,105 @@
     return fid;
   }
 
+  // Cadastro a partir do Cartão Ponto (PDF do Secullum): lê nome completo, função e admissão de cada
+  // página, mostra a lista para conferir e só grava quem ainda não existe no cadastro da obra.
+  async function importarCadastroDoCartaoPonto(file){
+    var statusEl = $("cadastroImportStatus"), prev = $("cadastroPreview");
+    prev.innerHTML = "";
+    statusEl.className = "status-msg show info";
+    statusEl.textContent = "Lendo cartão ponto...";
+    try{
+      var pdf = await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+      var p1 = await pdf.getPage(1);
+      var t1 = (await p1.getTextContent()).items.map(function(i){ return i.str; }).join(" ");
+      if(!ehPdfCartaoPonto(t1)) throw new Error("este PDF não é um Cartão Ponto do Secullum (para o ponto do dia use a aba Diário).");
+      var lista = await parseCartaoPontoPdf(pdf, async function(p, n){
+        statusEl.textContent = "Lendo cartão ponto: página " + p + " de " + n + "...";
+        await new Promise(function(r){ setTimeout(r, 0); });
+      });
+      var empresa = lista.length ? lista[0].empresa : null;
+      var informes = lista.informes || [];
+      marcarHomonimosLista(informes);
+      var vistos = {}, tomados = {}, novos = [], completar = [], jaExistem = 0;
+      informes.forEach(function(f){
+        var chave = chaveMatricula(f.matricula) || normName(f.nome);
+        if(vistos[chave]) return;                         // mesma matrícula repetida no arquivo
+        vistos[chave] = true;
+        var fid = matchFuncionario(f.nome, f.matricula, f.homonimo);
+        if(!fid || (f.homonimo && tomados[fid])){ novos.push(f); return; }   // homônimo: o 2º não "rouba" o cadastro do 1º
+        tomados[fid] = true; jaExistem++;
+        var d = state.funcionarios[fid], upd = {};
+        if(!chaveMatricula(d.matricula) && f.matricula) upd.matricula = f.matricula;
+        if(!d.admissao && f.admissao) upd.admissao = f.admissao;
+        if(!d.funcao && f.funcao) upd.funcao = f.funcao;
+        if(Object.keys(upd).length) completar.push({fid:fid, upd:upd});
+      });
+      var obraNome = (state.obras[state.obraId]||{}).nome || "";
+      var aviso = "";
+      if(empresa && obraNome){
+        var ea = normName(empresa), eb = normName(obraNome);
+        if(ea.indexOf(eb)<0 && eb.indexOf(ea)<0) aviso = '<div class="status-msg show warn" style="margin:10px 0 0;">O arquivo é da empresa "'+escapeHtml(empresa)+'", diferente da obra aberta ("'+escapeHtml(obraNome)+'"). Confira antes de importar.</div>';
+      }
+      statusEl.className = "status-msg show ok";
+      statusEl.textContent = (Object.keys(vistos).length) + " funcionário(s) no arquivo: " + novos.length + " novo(s), " + jaExistem + " já cadastrado(s)" + (completar.length ? " (" + completar.length + " com dados a completar)" : "") + ".";
+      if(!novos.length && !completar.length){ prev.innerHTML = aviso; $("fileCadastro").value = ""; return; }
+      var amostra = novos.slice(0, 12).map(function(f){
+        return '<div class="row-line"><span>'+escapeHtml(f.nome)+'</span><b>'+escapeHtml(f.funcao||"—")+(f.admissao ? " · "+fmtDateBR(f.admissao) : "")+'</b></div>';
+      }).join("");
+      prev.innerHTML = '<div class="import-preview" style="margin-top:12px;">'+
+        '<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px;">'+(novos.length ? 'Serão cadastrados <b>'+novos.length+'</b> funcionário(s) (nome, função, admissão e Nº folha do cartão). Primeiros da lista:' : '')+(completar.length ? (novos.length ? '<br>' : '')+'Serão completados (só campos vazios: matrícula, admissão, função) <b>'+completar.length+'</b> cadastro(s) já existente(s).' : '')+'</div>'+
+        amostra + (novos.length > 12 ? '<div class="row-line"><span>… e mais '+(novos.length-12)+'</span><b></b></div>' : "") + aviso +
+        '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;"><button class="btn" id="btnConfirmarCadastroPdf">Importar '+novos.length+' novo(s)'+(completar.length ? ' e completar '+completar.length : '')+'</button><button class="btn-ghost" id="btnCancelarCadastroPdf">Cancelar</button></div></div>';
+      $("btnCancelarCadastroPdf").addEventListener("click", function(){
+        prev.innerHTML = ""; $("fileCadastro").value = ""; statusEl.className = "status-msg";
+      });
+      $("btnConfirmarCadastroPdf").addEventListener("click", function(){
+        if(!state.db || isReadOnly()) return;
+        this.disabled = true;
+        statusEl.className = "status-msg show info"; statusEl.textContent = "Importando " + novos.length + " funcionário(s)...";
+        var col = state.db.collection("obras/" + state.obraId + "/funcionarios");
+        var usados = {};
+        var escritas = novos.map(function(f){
+          var id = idFuncionarioNovo(f.nome, f.matricula, usados); usados[id] = true;
+          return col.doc(id).set({
+            nome:f.nome, funcao:f.funcao||"", admissao:f.admissao||null, matricula:f.matricula||"",
+            inativo:false, criadoEm:new Date().toISOString(), criadoPor:state.email, origem:"import-cartao-ponto"
+          });
+        }).concat(completar.map(function(c){ return col.doc(c.fid).update(c.upd); }));
+        Promise.all(escritas).then(function(){
+          statusEl.className = "status-msg show ok";
+          statusEl.textContent = novos.length + " funcionário(s) adicionado(s)" + (completar.length ? ", " + completar.length + " cadastro(s) completado(s)" : "") + ", " + (jaExistem - completar.length) + " já estavam completos.";
+          prev.innerHTML = ""; $("fileCadastro").value = "";
+        }).catch(function(err){
+          statusEl.className = "status-msg show error";
+          statusEl.textContent = "Erro ao importar: " + (err && (err.code || err.message) || "erro");
+        });
+      });
+    }catch(err){
+      statusEl.className = "status-msg show error";
+      statusEl.textContent = "Erro ao ler o cartão ponto: " + err.message;
+    }
+  }
+
   function handleImportCadastroFile(){
     var file = $("fileCadastro").files[0];
     if(!file || !state.db || isReadOnly()) return;
+    $("cadastroPreview").innerHTML = "";
+    if(/\.pdf$/i.test(file.name)){ importarCadastroDoCartaoPonto(file); return; }
     var statusEl = $("cadastroImportStatus");
     statusEl.className = "status-msg show info";
     statusEl.textContent = "Lendo planilha...";
     var obraNomeAtual = (state.obras[state.obraId]||{}).nome || "";
     file.arrayBuffer().then(function(buf){ return parseCadastroXlsx(buf, obraNomeAtual); }).then(function(rows){
       var col = state.db.collection("obras/" + state.obraId + "/funcionarios");
-      var novos = 0, ignorados = 0;
+      var novos = 0, ignorados = 0, usados = {};
+      marcarHomonimosLista(rows);
       var writes = rows.map(function(r){
-        var fid = slugify(r.nome);
-        if(state.funcionarios[fid]){ ignorados++; return Promise.resolve(); }
+        var chaveLote = "k:" + (chaveMatricula(r.matricula) || normName(r.nome));
+        if(matchFuncionario(r.nome, r.matricula, r.homonimo) || usados[chaveLote]){ ignorados++; return Promise.resolve(); }
+        usados[chaveLote] = true;
+        var fid = idFuncionarioNovo(r.nome, r.matricula, usados);
+        usados[fid] = true;
         novos++;
         return col.doc(fid).set({
           nome:r.nome, funcao:r.funcao||"", admissao:r.admissao||null, matricula:r.matricula||"",
@@ -2960,7 +3534,18 @@
   $("tsSalvar").addEventListener("click", salvarTrocarSenha);
   $("btnAdminSenhas").addEventListener("click", openAdminSenhas);
   $("adminSenhasFechar").addEventListener("click", closeAdminSenhas);
-  $("btnVoltarGate").addEventListener("click", backToGate);
+  $("obraSelect").addEventListener("change", function(){
+    var v = this.value;
+    if(v.indexOf("sug:")===0){
+      var s = (state.sugestoesObra||[])[parseInt(v.slice(4),10)];
+      renderObrasGrid();                // volta a seleção para a obra atual enquanto a nova é criada
+      if(s) criarObraComNome(s.nome);
+    } else if(v && v !== state.obraId){
+      selectObra(v);
+    }
+  });
+  $("btnMenu").addEventListener("click", function(){ document.body.classList.toggle("menu-open"); });
+  $("sideBackdrop").addEventListener("click", function(){ document.body.classList.remove("menu-open"); });
   $("diaSelecionado").addEventListener("change", renderAll);
   $("mesGrade").addEventListener("change", function(){ aplicarMes("Grade"); renderGrade(); });
   $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
@@ -3013,6 +3598,8 @@
       Array.prototype.forEach.call(document.querySelectorAll(".tabpane"), function(p){ p.classList.remove("active"); });
       btn.classList.add("active");
       $("tab-"+btn.getAttribute("data-tab")).classList.add("active");
+      document.body.classList.remove("menu-open");
+      window.scrollTo(0,0);
       ajustarLarguraPagina();
     });
   });
