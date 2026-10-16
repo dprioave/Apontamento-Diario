@@ -330,6 +330,14 @@
   .lote-chg{ background:var(--warn-soft); color:var(--warn); }
   .lote-err{ background:var(--bad-soft); color:var(--bad); }
   .lote-aviso{ font-size:11px; color:var(--warn); margin-top:3px; }
+  /* usuários e acessos (administração) */
+  .usuario-form{ display:grid; grid-template-columns:1.3fr 1.5fr 1.4fr 1fr; gap:10px; align-items:flex-end; }
+  @media (max-width:900px){ .usuario-form{ grid-template-columns:1fr 1fr; } }
+  .usuario-form input, .usuario-form select{ width:100%; }
+  .empresas-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:6px 16px; margin:6px 0 8px; }
+  .usu-emp{ display:flex; gap:8px; align-items:center; font-size:12.5px; color:var(--text-dim); cursor:pointer; }
+  .usu-emp input{ accent-color:var(--accent); }
+  #app.tab-global .topbar, #app.tab-global .legend-box{ display:none; }
   .db-banner{ background:var(--warn-soft); color:var(--warn); border:1px solid rgba(224,174,95,.3); border-radius:9px; padding:10px 14px; font-size:12.5px; margin-bottom:20px; }
 
   footer{ margin-top:36px; font-size:11.5px; color:var(--text-faint); line-height:1.6; }
@@ -383,6 +391,7 @@
         <button class="tab-btn" data-tab="grade"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Grade do Mês</button>
         <button class="tab-btn" data-tab="mensal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Resumo Mensal</button>
         <button class="tab-btn" data-tab="cadastro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Cadastro</button>
+        <button class="tab-btn" data-tab="usuarios" id="navUsuarios" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>Usuários e acessos</button>
       </nav>
       <div class="side-foot">
         <p class="access-note" id="loggedAsNote"></p>
@@ -512,12 +521,6 @@
     <!-- ---- TAB: CADASTRO ---- -->
     <div class="tabpane" id="tab-cadastro">
       <div class="panel">
-        <p class="panel-title">Quem tem acesso a esta obra</p>
-        <p class="panel-hint">Só e-mails desta lista conseguem abrir os dados desta obra depois de entrar no painel.</p>
-        <div id="acessosBox"></div>
-      </div>
-
-      <div class="panel">
         <p class="panel-title">Nomes ignorados na conferência</p>
         <p class="panel-hint">Pessoas que aparecem no ponto mas não são funcionários desta obra (ex.: usuário de TI). Não são apontadas como "não encontradas". Para incluir um nome, use "Ignorar sempre" na caixa da aba Diário.</p>
         <div id="ignoradosBox"></div>
@@ -552,6 +555,43 @@
           <thead><tr><th>Nome</th><th>Função</th><th>Admissão</th><th>Demissão</th><th>Status</th><th></th></tr></thead>
           <tbody id="cadastroTbody"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ---- TAB: USUÁRIOS E ACESSOS (só administração) ---- -->
+    <div class="tabpane" id="tab-usuarios">
+      <div class="panel" id="usuFormPanel">
+        <p class="panel-title" id="usuTitulo">Cadastrar usuário</p>
+        <p class="panel-hint">Quem é cadastrado aqui entra com este e-mail e senha e só enxerga as empresas marcadas. Setor DP pode importar e editar; os demais setores só consultam. A senha fica guardada de forma criptografada e não pode ser consultada depois — para trocar, informe uma nova.</p>
+        <div class="usuario-form">
+          <div class="field"><label for="usuNome">Nome</label><input type="text" id="usuNome" autocomplete="off"></div>
+          <div class="field"><label for="usuEmail">E-mail</label><input type="email" id="usuEmail" placeholder="nome@rioave.com.br" autocomplete="off"></div>
+          <div class="field"><label for="usuSenha">Senha</label>
+            <div style="display:flex;gap:6px;"><input type="text" id="usuSenha" placeholder="mín. 6 caracteres" autocomplete="off"><button class="btn-ghost btn-sm" id="usuGerar" type="button">Gerar</button></div></div>
+          <div class="field"><label for="usuSetor">Setor</label>
+            <select id="usuSetor"><option value="DP">DP</option><option value="Engenharia">Engenharia</option><option value="Outro">Outro</option></select></div>
+        </div>
+        <div class="field" style="margin-top:14px;"><label>Empresas de acesso</label>
+          <div class="empresas-grid" id="usuEmpresas"></div>
+          <div style="display:flex;gap:8px;"><button class="btn-ghost btn-sm" id="usuMarcarTodas" type="button">Marcar todas</button><button class="btn-ghost btn-sm" id="usuLimpar" type="button">Limpar</button></div>
+        </div>
+        <div class="login-error" id="usuErro"></div>
+        <div class="status-msg" id="usuMsg"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+          <button class="btn" id="usuSalvar">Salvar usuário</button>
+          <button class="btn-ghost" id="usuCancelar" style="display:none;">Cancelar edição</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div><p class="panel-title">Usuários cadastrados</p>
+          <p class="panel-hint" style="margin-bottom:12px;">Quem ainda não aparece aqui continua entrando pela lista de acesso antiga, com a senha padrão ou a que já trocou.</p></div>
+          <button class="btn-ghost btn-sm" id="usuImportar">Importar da lista de acesso atual</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Empresas</th><th>Status</th><th></th></tr></thead>
+          <tbody id="usuTbody"></tbody>
+        </table></div>
       </div>
     </div>
 
@@ -1448,7 +1488,11 @@
     $("loginGate").style.display = "none";
     document.body.classList.add("logged");
     try{ $("sideLogo").src = document.querySelector(".login-logo").src; }catch(e){}
-    startBoot();
+    $("navUsuarios").style.display = isAdmin() ? "flex" : "none";
+    state.perfil = null;
+    state.dbReady.then(function(db){ return lerUsuario(db, state.email); })
+      .then(function(u){ state.perfil = u; }, function(){ state.perfil = null; })
+      .then(startBoot);
   }
 
   // Senha por pessoa (opcional): guardada em db.collection("usuarios").doc(email) = {senhaHash,...}.
@@ -1473,21 +1517,31 @@
       errEl.classList.add("show");
       return;
     }
-    if(allEmpresaEmails().indexOf(email)<0){
-      errEl.textContent = "Esse e-mail não está na lista de DP/Engenharia de nenhuma empresa (Empresas.xlsx). Peça para te incluírem na planilha.";
-      errEl.classList.add("show");
-      return;
-    }
-    var hash = await sha256Hex(senha);
     var db = await state.dbReady;
-    var expected = await senhaEsperada(db, email);
-    if(hash !== expected){
-      errEl.textContent = "Senha incorreta.";
-      errEl.classList.add("show");
-      return;
-    }
+    var u = null;
+    try{ u = await lerUsuario(db, email); }catch(e){}
+    var legado = allEmpresaEmails().indexOf(email) >= 0;          // lista de acesso antiga (Empresas.xlsx)
+    var cadastrado = !!(u && (u.setor || u.empresas));              // cadastrado em "Usuários e acessos"
+    var falha = function(msg){ errEl.textContent = msg; errEl.classList.add("show"); };
+    if(!legado && !cadastrado){ falha("Esse e-mail não está cadastrado. Peça ao administrador para te incluir em Usuários e acessos."); return; }
+    if(u && u.ativo === false){ falha("Este usuário está desativado. Fale com o administrador."); return; }
+    var hash = await sha256Hex(senha);
+    var esperado = (u && u.senhaHash) ? u.senhaHash : (legado ? GATE_PASSWORD_HASH : null);
+    if(!esperado){ falha("Este usuário ainda não tem senha definida. Peça ao administrador."); return; }
+    if(hash !== esperado){ falha("Senha incorreta."); return; }
     try{ sessionStorage.setItem(LOGIN_STORAGE_KEY, email); }catch(e){}
     enterApp(email);
+  }
+
+  async function lerUsuario(db, email){
+    var d = await db.collection("usuarios").doc(email).get();
+    return d && d.exists ? d.data() : null;
+  }
+  // Grava campos do usuário SEM apagar o resto do documento (senha, nome, setor, empresas vivem juntos).
+  async function gravarUsuario(email, campos){
+    var ref = state.db.collection("usuarios").doc(email);
+    var d = await ref.get();
+    return d && d.exists ? ref.update(campos) : ref.set(campos);
   }
 
   function logout(){
@@ -1661,8 +1715,19 @@
     });
   }
 
+  // Usuário cadastrado em "Usuários e acessos" (state.perfil com empresas): vale o cadastro dele.
+  function empresaPermitida(nomeEmpresa){
+    var n = normCompanyName(nomeEmpresa);
+    return ((state.perfil && state.perfil.empresas) || []).some(function(e){
+      var en = normCompanyName(e);
+      return en === n || en.indexOf(n) >= 0 || n.indexOf(en) >= 0;
+    });
+  }
+  function usaCadastroDeUsuario(){ return !!(state.perfil && state.perfil.empresas && !isAdmin()); }
   function temAcessoObra(obra){
     if(!obra) return false;
+    if(isAdmin()) return true;
+    if(usaCadastroDeUsuario()) return empresaPermitida(obra.nome);
     var dp = obra.dpEmails||[], eng = obra.engEmails||[];
     if(!dp.length && !eng.length) return true; // obra sem lista definida ainda: não bloqueia
     return dp.map(normEmail).indexOf(state.email)>=0 || eng.map(normEmail).indexOf(state.email)>=0;
@@ -1674,6 +1739,8 @@
   function isReadOnly(){
     var obra = state.obras[state.obraId];
     if(!obra) return true;
+    if(isAdmin()) return false;
+    if(usaCadastroDeUsuario()) return state.perfil.setor !== "DP";
     var dp = obra.dpEmails||[];
     if(!dp.length) return false; // obra sem lista de DP definida: não restringe (mesma exceção do temAcessoObra)
     return dp.map(normEmail).indexOf(state.email)<0;
@@ -1744,6 +1811,11 @@
 
   // ================= RENDER: MENU LATERAL (lista de obras) =================
   // Só mostra obras/sugestões onde o e-mail logado tem acesso — nada de cadeado, o resto nem aparece.
+  function acessoEmpresaSugerida(e){
+    if(isAdmin()) return true;
+    if(usaCadastroDeUsuario()) return state.perfil.setor === "DP" && empresaPermitida(e.nome);
+    return e.dp.map(normEmail).indexOf(state.email)>=0 || e.eng.map(normEmail).indexOf(state.email)>=0;
+  }
   function obrasAcessiveis(){
     return Object.keys(state.obras).filter(function(id){
       return temAcessoObra(state.obras[id]);
@@ -1758,9 +1830,7 @@
     if(state.obraId) return;
     var ids = obrasAcessiveis();
     if(!ids.length){
-      var temSugestao = EMPRESAS_ACESSO.some(function(e){
-        return e.dp.map(normEmail).indexOf(state.email)>=0 || e.eng.map(normEmail).indexOf(state.email)>=0;
-      });
+      var temSugestao = EMPRESAS_ACESSO.some(acessoEmpresaSugerida);
       $("noObraMsg").textContent = temSugestao
         ? "Nenhuma obra criada ainda — clique em “+ criar obra” no menu ao lado para começar."
         : "Nenhuma obra disponível para o seu acesso — peça pra incluírem seu e-mail em alguma empresa.";
@@ -1777,8 +1847,7 @@
     // Empresas já conhecidas (Empresas.xlsx) onde o e-mail logado tem acesso e ainda não viraram uma
     // obra — sugestão de 1 clique, já vem com a lista de acesso (dp/eng) certa.
     var sugestoes = EMPRESAS_ACESSO.filter(function(e){
-      var liberado = e.dp.map(normEmail).indexOf(state.email)>=0 || e.eng.map(normEmail).indexOf(state.email)>=0;
-      if(!liberado) return false;
+      if(!acessoEmpresaSugerida(e)) return false;
       return !Object.keys(state.obras).some(function(id){ return normName(state.obras[id].nome)===normName(e.nome); });
     });
     state.sugestoesObra = sugestoes;
@@ -2866,61 +2935,9 @@
   }
 
   // ================= TAB: CADASTRO =================
-  function renderAcessos(){
-    var readOnly = isReadOnly();
-    var obra = state.obras[state.obraId] || {};
-    var dp = obra.dpEmails || [];
-    var eng = obra.engEmails || [];
-    function chips(list, tipo){
-      if(!list.length) return '<span style="color:var(--text-faint);font-size:12px;">nenhum</span>';
-      return list.map(function(email, idx){
-        var removeBtn = readOnly ? "" : ' <button data-remove="'+tipo+'" data-idx="'+idx+'" title="Remover">×</button>';
-        return '<span class="email-chip">'+escapeHtml(email)+removeBtn+'</span>';
-      }).join("");
-    }
-    var html =
-      '<div style="margin-bottom:10px;"><b style="font-size:12.5px;">DP:</b> '+chips(dp,"dp")+'</div>'+
-      '<div style="margin-bottom:14px;"><b style="font-size:12.5px;">Engenharia:</b> '+chips(eng,"eng")+'</div>';
-    if(!readOnly){
-      html += '<div class="access-emails-form">'+
-        '<input type="email" id="novoAcessoEmail" placeholder="email@rioave.com.br">'+
-        '<select id="novoAcessoTipo"><option value="dp">DP</option><option value="eng">Engenharia</option></select>'+
-        '<button class="btn-ghost btn-sm" id="btnAddAcesso">Adicionar</button>'+
-      '</div>';
-    }
-    $("acessosBox").innerHTML = html;
-    renderIgnorados();
-    Array.prototype.forEach.call($("acessosBox").querySelectorAll("[data-remove]"), function(el){
-      el.addEventListener("click", function(){
-        removeAcessoEmail(el.getAttribute("data-remove"), +el.getAttribute("data-idx"));
-      });
-    });
-    if(!readOnly) $("btnAddAcesso").addEventListener("click", addAcessoEmail);
-  }
-
-  function addAcessoEmail(){
-    var email = normEmail($("novoAcessoEmail").value);
-    var tipo = $("novoAcessoTipo").value;
-    if(!email || !state.db || isReadOnly()) return;
-    var obra = state.obras[state.obraId] || {};
-    var field = tipo==="eng" ? "engEmails" : "dpEmails";
-    var list = (obra[field]||[]).slice();
-    if(list.map(normEmail).indexOf(email)<0) list.push(email);
-    var patch = {}; patch[field] = list;
-    state.db.collection("obras").doc(state.obraId).update(patch).then(function(){
-      $("novoAcessoEmail").value = "";
-    }).catch(function(err){ alert("Erro: " + (err&&err.code||"erro")); });
-  }
-
-  function removeAcessoEmail(tipo, idx){
-    if(!state.db || isReadOnly()) return;
-    var obra = state.obras[state.obraId] || {};
-    var field = tipo==="eng" ? "engEmails" : "dpEmails";
-    var list = (obra[field]||[]).slice();
-    list.splice(idx,1);
-    var patch = {}; patch[field] = list;
-    state.db.collection("obras").doc(state.obraId).update(patch).catch(function(err){ alert("Erro: " + (err&&err.code||"erro")); });
-  }
+  // (O painel "Quem tem acesso a esta obra" saiu daqui: o acesso agora é cadastrado por usuário, na aba
+  // "Usuários e acessos", visível só para a administração.)
+  function renderAcessos(){ renderIgnorados(); }
 
   function renderCadastro(){
     var readOnly = isReadOnly();
@@ -3750,7 +3767,7 @@
     }
     var novaHash = await sha256Hex(nova);
     try{
-      await state.db.collection("usuarios").doc(state.email).set({
+      await gravarUsuario(state.email, {
         senhaHash: novaHash, atualizadoEm: new Date().toISOString(), atualizadoPor: state.email
       });
       closeTrocarSenha();
@@ -3810,7 +3827,7 @@
     }
     var hash = await sha256Hex(nova);
     try{
-      await state.db.collection("usuarios").doc(email).set({
+      await gravarUsuario(email, {
         senhaHash: hash, atualizadoEm: new Date().toISOString(), atualizadoPor: state.email
       });
       adminEditingEmail = null;
@@ -3826,7 +3843,11 @@
   }
   function voltarSenhaPadraoAdmin(email){
     if(!state.db) return;
-    state.db.collection("usuarios").doc(email).delete().catch(function(err){ alert("Erro: " + (err && err.message || "erro")); });
+    var u = adminUsuarios[email];
+    var ref = state.db.collection("usuarios").doc(email);
+    // usuário cadastrado em "Usuários e acessos": só tira a senha própria (não apaga o cadastro)
+    var p = (u && (u.setor || u.empresas)) ? ref.update({senhaHash:null}) : ref.delete();
+    p.catch(function(err){ alert("Erro: " + (err && err.message || "erro")); });
   }
   function openAdminSenhas(){
     if(!isAdmin() || !state.db) return;
@@ -3843,6 +3864,151 @@
     if(adminUnsub){ adminUnsub(); adminUnsub = null; }
   }
 
+  // ================= USUÁRIOS E ACESSOS (só administração) =================
+  var usu = {map:{}, unsub:null, editando:null, empresas:{}, confirmaDel:null};
+  function nomeBonito(email){
+    return String(email).split("@")[0].split(/[._-]+/).map(function(p){ return p.charAt(0).toUpperCase()+p.slice(1); }).join(" ");
+  }
+  function opcoesEmpresas(){
+    var vistos = {}, out = [];
+    EMPRESAS_ACESSO.map(function(e){ return e.nome; }).concat(Object.keys(state.obras).map(function(id){ return state.obras[id].nome; })).forEach(function(n){
+      var k = normCompanyName(n);
+      if(!k || vistos[k]) return;
+      vistos[k] = true; out.push(n);
+    });
+    return out.sort(function(a,b){ return a.localeCompare(b); });
+  }
+  function iniciarUsuarios(){
+    if(!isAdmin() || !state.db) return;
+    if(!usu.unsub){
+      usu.unsub = state.db.collection("usuarios").onSnapshot(function(snap){
+        usu.map = {}; snap.docs.forEach(function(d){ usu.map[d.id] = d.data(); });
+        renderUsuarios();
+      });
+    }
+    renderUsuarios();
+  }
+  function renderUsuarios(){
+    if(!isAdmin() || !$("usuEmpresas")) return;
+    var ops = opcoesEmpresas();
+    $("usuEmpresas").innerHTML = ops.map(function(n){
+      var k = normCompanyName(n);
+      return '<label class="usu-emp"><input type="checkbox" data-usuemp="'+k+'"'+(usu.empresas[k]?' checked':'')+'> '+escapeHtml(n)+'</label>';
+    }).join("");
+    Array.prototype.forEach.call($("usuEmpresas").querySelectorAll("input[data-usuemp]"), function(el){
+      el.addEventListener("change", function(){ usu.empresas[el.getAttribute("data-usuemp")] = el.checked; });
+    });
+    var emails = Object.keys(usu.map).sort(function(a,b){
+      return ((usu.map[a].nome||a)).localeCompare(usu.map[b].nome||b);
+    });
+    $("usuTbody").innerHTML = emails.length ? emails.map(function(email){
+      var u = usu.map[email], cad = !!(u.setor || u.empresas);
+      var emp = (u.empresas||[]);
+      var empTxt = emp.length ? emp.slice(0,2).map(escapeHtml).join("<br>") + (emp.length>2 ? '<br><span style="color:var(--text-faint);">+ '+(emp.length-2)+' empresa(s)</span>' : "") : "—";
+      var status = u.ativo === false ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Desativado</span>'
+        : (cad ? '<span class="pill pill-presente">Ativo</span>' : '<span class="pill" style="background:var(--surface-2);color:var(--text-dim)">Lista antiga</span>');
+      status += '<div style="font-size:11px;color:var(--text-faint);margin-top:3px;">'+(u.senhaHash ? "senha própria" : "senha padrão")+'</div>';
+      return '<tr><td class="nome">'+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(email)+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+status+'</td>'+
+        '<td style="white-space:nowrap;"><button class="btn-ghost btn-sm" data-usu-edit="'+escapeHtml(email)+'">Editar</button> '+
+        (cad ? '<button class="btn-ghost btn-sm" data-usu-ativo="'+escapeHtml(email)+'">'+(u.ativo===false?"Ativar":"Desativar")+'</button> ' : "")+
+        '<button class="btn-ghost btn-sm" data-usu-del="'+escapeHtml(email)+'">'+(usu.confirmaDel===email?"Confirmar exclusão":"Excluir")+'</button></td></tr>';
+    }).join("") : '<tr class="empty-row"><td colspan="6">Nenhum usuário cadastrado ainda.</td></tr>';
+    Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-edit]"), function(el){
+      el.addEventListener("click", function(){ editarUsuario(el.getAttribute("data-usu-edit")); });
+    });
+    Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-ativo]"), function(el){
+      el.addEventListener("click", function(){
+        var em = el.getAttribute("data-usu-ativo");
+        gravarUsuario(em, {ativo: usu.map[em].ativo === false, atualizadoEm:new Date().toISOString(), atualizadoPor:state.email});
+      });
+    });
+    Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-del]"), function(el){
+      el.addEventListener("click", function(){
+        var em = el.getAttribute("data-usu-del");
+        if(usu.confirmaDel !== em){ usu.confirmaDel = em; renderUsuarios(); return; }
+        usu.confirmaDel = null;
+        state.db.collection("usuarios").doc(em).delete();
+        if(usu.editando === em) limparFormUsuario();
+      });
+    });
+  }
+  function limparFormUsuario(){
+    usu.editando = null; usu.empresas = {};
+    ["usuNome","usuEmail","usuSenha"].forEach(function(id){ $(id).value = ""; });
+    $("usuEmail").disabled = false; $("usuSetor").value = "DP";
+    $("usuTitulo").textContent = "Cadastrar usuário"; $("usuSalvar").textContent = "Salvar usuário";
+    $("usuCancelar").style.display = "none"; $("usuSenha").placeholder = "mín. 6 caracteres";
+    $("usuErro").classList.remove("show");
+    renderUsuarios();
+  }
+  function editarUsuario(email){
+    var u = usu.map[email]; if(!u) return;
+    usu.editando = email; usu.empresas = {};
+    (u.empresas||[]).forEach(function(n){ usu.empresas[normCompanyName(n)] = true; });
+    $("usuNome").value = u.nome || nomeBonito(email); $("usuEmail").value = email; $("usuEmail").disabled = true;
+    $("usuSenha").value = ""; $("usuSenha").placeholder = "deixe em branco para manter a atual";
+    $("usuSetor").value = u.setor || "DP";
+    $("usuTitulo").textContent = "Editar usuário"; $("usuSalvar").textContent = "Salvar alterações";
+    $("usuCancelar").style.display = "inline-block"; $("usuErro").classList.remove("show"); $("usuMsg").className = "status-msg";
+    renderUsuarios();
+    $("usuFormPanel").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  function gerarSenha(){
+    var al = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789", b = new Uint32Array(10), s = "";
+    crypto.getRandomValues(b);
+    for(var i=0;i<b.length;i++) s += al.charAt(b[i] % al.length);
+    return s;
+  }
+  async function salvarUsuario(){
+    var erro = $("usuErro"); erro.classList.remove("show");
+    var falha = function(m){ erro.textContent = m; erro.classList.add("show"); };
+    if(!isAdmin() || !state.db) return;
+    var nome = $("usuNome").value.trim(), email = normEmail($("usuEmail").value), senha = $("usuSenha").value, setor = $("usuSetor").value;
+    var empresas = opcoesEmpresas().filter(function(n){ return usu.empresas[normCompanyName(n)]; });
+    if(!nome){ falha("Informe o nome."); return; }
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ falha("Informe um e-mail válido."); return; }
+    var existente = usu.map[email] || null, editando = usu.editando === email;
+    if(!editando && existente && (existente.setor || existente.empresas)){ falha("Já existe um usuário com este e-mail — use o botão Editar na lista."); return; }
+    if(senha && senha.length < 6){ falha("A senha precisa ter pelo menos 6 caracteres."); return; }
+    if(!senha && !(existente && existente.senhaHash) && !(allEmpresaEmails().indexOf(email) >= 0)){ falha("Defina uma senha (mín. 6 caracteres)."); return; }
+    if(!empresas.length){ falha("Marque ao menos uma empresa de acesso."); return; }
+    var agora = new Date().toISOString();
+    var campos = {nome:nome, email:email, setor:setor, empresas:empresas, ativo:(existente && existente.ativo === false) ? false : true, atualizadoEm:agora, atualizadoPor:state.email};
+    if(!existente || !existente.criadoEm){ campos.criadoEm = agora; campos.criadoPor = state.email; }
+    if(senha) campos.senhaHash = await sha256Hex(senha);
+    try{
+      await gravarUsuario(email, campos);
+      var msg = $("usuMsg"); msg.className = "status-msg show ok";
+      msg.textContent = (editando ? "Usuário atualizado: " : "Usuário cadastrado: ") + nome + " (" + email + ")." + (senha && !editando ? " Passe a senha para a pessoa — ela não poderá ser consultada depois." : "");
+      limparFormUsuario();
+      $("usuMsg").className = "status-msg show ok"; $("usuMsg").textContent = msg.textContent;
+    }catch(e){ falha("Erro ao salvar: " + (e && (e.code || e.message) || "tente de novo.")); }
+  }
+  async function importarUsuariosLista(){
+    if(!isAdmin() || !state.db) return;
+    var por = {};
+    EMPRESAS_ACESSO.forEach(function(e){
+      [["DP", e.dp], ["Engenharia", e.eng]].forEach(function(par){
+        par[1].map(normEmail).forEach(function(m){
+          var o = por[m] = por[m] || {setor:"Engenharia", empresas:[]};
+          if(par[0] === "DP") o.setor = "DP";
+          if(o.empresas.indexOf(e.nome) < 0) o.empresas.push(e.nome);
+        });
+      });
+    });
+    var agora = new Date().toISOString(), novos = 0, ja = 0;
+    var msg = $("usuMsg");
+    for(var email in por){
+      if(email === normEmail(ADMIN_EMAILS[0])) continue;
+      var ex = usu.map[email];
+      if(ex && (ex.setor || ex.empresas)){ ja++; continue; }
+      await gravarUsuario(email, {nome:nomeBonito(email), email:email, setor:por[email].setor, empresas:por[email].empresas, ativo:true, origem:"lista-de-acesso", criadoEm:agora, criadoPor:state.email, atualizadoEm:agora, atualizadoPor:state.email});
+      novos++;
+    }
+    msg.className = "status-msg show ok";
+    msg.textContent = novos + " usuário(s) importado(s) da lista de acesso atual (senha padrão, até você definir uma senha própria)" + (ja ? "; " + ja + " já estavam cadastrados." : ".");
+  }
+
   // ================= EVENTS =================
   $("btnLogin").addEventListener("click", doLogin);
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
@@ -3850,6 +4016,12 @@
   $("ocorrFechar").addEventListener("click", closeOcorrencias);
   $("modalOcorrencias").addEventListener("click", function(ev){ if(ev.target===this) closeOcorrencias(); });
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
+  $("usuSalvar").addEventListener("click", salvarUsuario);
+  $("usuCancelar").addEventListener("click", limparFormUsuario);
+  $("usuGerar").addEventListener("click", function(){ $("usuSenha").value = gerarSenha(); });
+  $("usuImportar").addEventListener("click", importarUsuariosLista);
+  $("usuMarcarTodas").addEventListener("click", function(){ opcoesEmpresas().forEach(function(n){ usu.empresas[normCompanyName(n)] = true; }); renderUsuarios(); });
+  $("usuLimpar").addEventListener("click", function(){ usu.empresas = {}; renderUsuarios(); });
   $("demCancelar").addEventListener("click", closeDemissao);
   $("demSalvar").addEventListener("click", salvarDemissao);
   $("tsCancelar").addEventListener("click", closeTrocarSenha);
@@ -3931,6 +4103,8 @@
       $("tab-"+btn.getAttribute("data-tab")).classList.add("active");
       document.body.classList.remove("menu-open");
       window.scrollTo(0,0);
+      $("app").classList.toggle("tab-global", btn.getAttribute("data-tab") === "usuarios");
+      if(btn.getAttribute("data-tab") === "usuarios") iniciarUsuarios();
       ajustarLarguraPagina();
     });
   });
