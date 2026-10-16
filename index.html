@@ -549,7 +549,7 @@
       <div class="search-box"><input type="text" id="buscaFuncionario" placeholder="Buscar funcionário..."></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Função</th><th>Admissão</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Nome</th><th>Função</th><th>Admissão</th><th>Demissão</th><th>Status</th><th></th></tr></thead>
           <tbody id="cadastroTbody"></tbody>
         </table>
       </div>
@@ -608,6 +608,19 @@
 </div>
 
 <!-- ================= MODAL: TROCAR MINHA SENHA (self-service) ================= -->
+<div class="modal-backdrop" id="modalDemissao">
+  <div class="modal-box">
+    <h3 id="demTitulo">Data de demissão</h3>
+    <p class="modal-sub" id="demSub"></p>
+    <div class="field"><label for="demData">Data de demissão</label><input type="date" id="demData"></div>
+    <div class="login-error" id="demErro"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="demCancelar">Cancelar</button>
+      <button class="btn" id="demSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modalTrocarSenha">
   <div class="modal-box">
     <h3>Trocar minha senha</h3>
@@ -1899,46 +1912,43 @@
     return (d-p)===86400000;
   }
 
-  // Varre todo o histórico já carregado (não só o mês atual) procurando, por funcionário ativo, a
-  // maior sequência de dias com código F em datas de calendário realmente consecutivas (um dia sem
-  // importação no meio quebra a sequência, já que não dá pra saber o que aconteceu naquele dia).
+  function diaAnterior(iso){
+    var d = new Date(iso+"T12:00:00"); d.setDate(d.getDate()-1);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+
+  // Só entra quem está com 5+ faltas (código F) em dias de calendário consecutivos que chegam ATÉ O DIA
+  // MAIS RECENTE IMPORTADO (hoje, ou o último dia já importado se o de hoje ainda não entrou). Sequências
+  // antigas, que já terminaram, não aparecem. Um dia sem importação no meio quebra a sequência (não dá
+  // pra saber o que aconteceu naquele dia).
   function computeFaltasConsecutivas(){
-    var datas = Object.keys(state.dias).sort();
-    if(!datas.length) return [];
-    var ultimaData = datas[datas.length-1];
-    var resultados = [];
+    var hoje = todayIso();
+    var datas = Object.keys(state.dias).filter(function(iso){ return iso <= hoje; }).sort();
+    if(!datas.length) return {lista:[], ate:null};
+    var ate = datas[datas.length-1];
+    var lista = [];
     ativosList().forEach(function(fid){
-      var streak=0, streakInicio=null, melhorStreak=0, melhorInicio=null, melhorFim=null, prevIso=null;
-      datas.forEach(function(iso){
+      var n = 0, iso = ate, inicio = null;
+      while(state.dias[iso]){
         var a = getAusenciaDoDia(iso, fid);
-        var isFalta = !!(a && a.codigo==="F");
-        if(isFalta && prevIso && isNextCalendarDay(prevIso, iso) && streak>0){
-          streak++;
-        } else if(isFalta){
-          streak = 1; streakInicio = iso;
-        } else {
-          streak = 0; streakInicio = null;
-        }
-        if(streak>melhorStreak){ melhorStreak=streak; melhorInicio=streakInicio; melhorFim=iso; }
-        prevIso = iso;
-      });
-      if(melhorStreak>=5){
-        resultados.push({fid:fid, nome:funcName(fid), dias:melhorStreak, inicio:melhorInicio, fim:melhorFim, emCurso:melhorFim===ultimaData});
+        if(!(a && a.codigo === "F")) break;
+        n++; inicio = iso; iso = diaAnterior(iso);
       }
+      if(n >= 5) lista.push({fid:fid, nome:funcName(fid), dias:n, inicio:inicio, fim:ate});
     });
-    resultados.sort(function(a,b){ return b.dias-a.dias; });
-    return resultados;
+    lista.sort(function(a,b){ return b.dias-a.dias; });
+    return {lista:lista, ate:ate};
   }
 
   function renderFaltasConsecutivas(){
     var box = $("faltasConsecutivasBox");
-    var lista = computeFaltasConsecutivas();
+    var r = computeFaltasConsecutivas(), lista = r.lista;
     if(!lista.length){ box.innerHTML = ""; return; }
+    var nota = r.ate < todayIso() ? ' <span style="font-weight:400;color:var(--text-faint);">(último dia importado)</span>' : "";
     box.innerHTML = '<div class="naoenc-box" style="background:var(--bad-soft);border-color:rgba(224,113,95,.3);">'+
-      '<div style="font-size:13px;font-weight:600;margin-bottom:8px;">⚠ '+lista.length+' funcionário(s) com 5+ faltas consecutivas</div>'+
+      '<div style="font-size:13px;font-weight:600;margin-bottom:8px;">⚠ '+lista.length+' funcionário(s) com 5+ faltas consecutivas até '+fmtDateBR(r.ate)+nota+'</div>'+
       lista.map(function(item){
-        var tagCurso = item.emCurso ? ' <span style="color:var(--bad);font-weight:600;">(em curso)</span>' : '';
-        return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+" — "+item.dias+" dias ("+fmtDateBR(item.inicio)+" a "+fmtDateBR(item.fim)+")"+tagCurso+'</span></div>';
+        return '<div class="naoenc-item"><span>'+escapeHtml(item.nome)+" — "+item.dias+" dias ("+fmtDateBR(item.inicio)+" a "+fmtDateBR(item.fim)+')</span></div>';
       }).join("") +
     '</div>';
   }
@@ -2924,17 +2934,19 @@
 
     var tbody = $("cadastroTbody");
     if(!ids.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhum funcionário cadastrado.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Nenhum funcionário cadastrado.</td></tr>';
       return;
     }
     tbody.innerHTML = ids.map(function(id){
       var f = state.funcionarios[id];
       var statusHtml = f.inativo ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inativo</span>' : '<span class="pill pill-presente">Ativo</span>';
-      var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>";
+      var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>" +
+        (f.inativo ? ' <button class="btn-ghost btn-sm" data-edit-dem="'+id+'" title="Editar a data de demissão">Data</button>' : "");
       return "<tr>"+
         '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(funcName(id))+"</a></td>"+
         "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
+        "<td>"+(f.demissao ? fmtDateBR(f.demissao) : "—")+"</td>"+
         "<td>"+statusHtml+"</td>"+
         "<td>"+acaoHtml+"</td>"+
       "</tr>";
@@ -2943,6 +2955,9 @@
       el.addEventListener("click", function(){
         toggleInativo(el.getAttribute("data-toggle-inativo"));
       });
+    });
+    Array.prototype.forEach.call(tbody.querySelectorAll("[data-edit-dem]"), function(el){
+      el.addEventListener("click", function(){ openDemissao(el.getAttribute("data-edit-dem"), "editar"); });
     });
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-ocorr]"), function(el){
       el.addEventListener("click", function(ev){
@@ -2983,6 +2998,7 @@
     $("ocorrNome").textContent = f.nome;
     var anteriores = (f.vinculosAnteriores||[]).map(function(v){ return (v.funcao||"sem função") + (v.admissao ? " desde " + fmtDateBR(v.admissao) : ""); });
     $("ocorrSub").textContent = (f.funcao||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo") +
+      (f.demissao ? " · Demissão " + fmtDateBR(f.demissao) : "") +
       (anteriores.length ? " · Vínculo anterior: " + anteriores.join("; ") : "");
 
     var ordem = CODES.concat(Object.keys(o.counts).filter(function(c){ return CODES.indexOf(c)<0; }));
@@ -3268,8 +3284,33 @@
     if(!state.db || isReadOnly()) return;
     var f = state.funcionarios[fid];
     if(!f) return;
-    state.db.collection("obras/" + state.obraId + "/funcionarios").doc(fid).update({inativo: !f.inativo}).catch(function(err){
+    if(!f.inativo){ openDemissao(fid, "inativar"); return; }   // pergunta a data de demissão
+    state.db.collection("obras/" + state.obraId + "/funcionarios").doc(fid).update({
+      inativo:false, demissao:null, reativadoEm:new Date().toISOString(), reativadoPor:state.email
+    }).catch(function(err){
       alert("Erro: " + (err&&err.code||"erro"));
+    });
+  }
+
+  // Data de demissão no cadastro: pedida ao marcar inativo (opcional) e editável depois pelo botão "Data".
+  var demFid = null, demModo = null;
+  function openDemissao(fid, modo){
+    var f = state.funcionarios[fid];
+    if(!f || !state.db || isReadOnly()) return;
+    demFid = fid; demModo = modo;
+    $("demTitulo").textContent = modo === "inativar" ? "Marcar como inativo" : "Data de demissão";
+    $("demSub").textContent = funcName(fid) + (modo === "inativar" ? " — informe a data de demissão (opcional)." : "");
+    $("demData").value = f.demissao || (modo === "inativar" ? todayIso() : "");
+    $("demErro").classList.remove("show");
+    $("modalDemissao").classList.add("show");
+  }
+  function closeDemissao(){ $("modalDemissao").classList.remove("show"); demFid = null; }
+  function salvarDemissao(){
+    if(!demFid || !state.db || isReadOnly()) return;
+    var upd = {demissao: $("demData").value || null, atualizadoEm:new Date().toISOString(), atualizadoPor:state.email};
+    if(demModo === "inativar"){ upd.inativo = true; upd.inativadoEm = new Date().toISOString(); upd.inativadoPor = state.email; }
+    state.db.collection("obras/" + state.obraId + "/funcionarios").doc(demFid).update(upd).then(closeDemissao).catch(function(err){
+      var el = $("demErro"); el.textContent = "Erro ao salvar: " + (err && err.code || "erro"); el.classList.add("show");
     });
   }
 
@@ -3809,6 +3850,8 @@
   $("ocorrFechar").addEventListener("click", closeOcorrencias);
   $("modalOcorrencias").addEventListener("click", function(ev){ if(ev.target===this) closeOcorrencias(); });
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
+  $("demCancelar").addEventListener("click", closeDemissao);
+  $("demSalvar").addEventListener("click", salvarDemissao);
   $("tsCancelar").addEventListener("click", closeTrocarSenha);
   $("tsSalvar").addEventListener("click", salvarTrocarSenha);
   $("btnAdminSenhas").addEventListener("click", openAdminSenhas);
