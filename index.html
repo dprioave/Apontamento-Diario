@@ -469,7 +469,7 @@
     <div class="tabpane" id="tab-grade">
       <div class="field-row">
         <div class="field">
-          <label for="mesGrade">Mês</label>
+          <label for="mesGrade" title="Fechamento de 16 do mês anterior a 15 do mês escolhido">Mês (fechamento 16 a 15)</label>
           <input type="month" id="mesGrade">
         </div>
         <div class="field">
@@ -500,7 +500,7 @@
     <div class="tabpane" id="tab-mensal">
       <div class="field-row">
         <div class="field">
-          <label for="mesResumo">Mês</label>
+          <label for="mesResumo" title="Fechamento de 16 do mês anterior a 15 do mês escolhido">Mês (fechamento 16 a 15)</label>
           <input type="month" id="mesResumo">
         </div>
         <div class="field">
@@ -816,18 +816,30 @@
   }
 
   // ---------- Período (Grade do Mês / Resumo Mensal) ----------
-  // Cada aba tem "Mês" (atalho: preenche De/Até com o mês inteiro) + "De"/"Até" livres, que podem
-  // cruzar meses (ex.: 28/09 a 02/10). prefix = "Grade" | "Resumo".
+  // Cada aba tem "Mês" (atalho: preenche De/Até com o FECHAMENTO do mês — de 16 do mês anterior a 15 do mês
+  // escolhido; "2026-10" = 16/09 a 15/10) + "De"/"Até" livres, que podem cruzar meses (ex.: 28/09 a 02/10).
+  // prefix = "Grade" | "Resumo".
   var MAX_DIAS_PERIODO = 93;
   function addDaysIso(iso, n){
     var d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n);
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   }
-  function mesBounds(ym){ return {ini: ym+"-01", fim: ym+"-"+String(daysInMonth(ym)).padStart(2,"0")}; }
+  // Fechamento da folha: 16 do mês anterior a 15 do mês ym (nomeado pelo mês em que termina).
+  function mesBounds(ym){
+    var y = +ym.slice(0,4), m = +ym.slice(5,7);
+    var py = m === 1 ? y-1 : y, pm = m === 1 ? 12 : m-1;
+    return {ini: py+"-"+String(pm).padStart(2,"0")+"-16", fim: ym+"-15"};
+  }
+  // Mês (aaaa-mm) do fechamento que contém a data: até o dia 15 é o próprio mês; do 16 em diante, o seguinte.
+  function mesDoFechamento(iso){
+    var y = +iso.slice(0,4), m = +iso.slice(5,7);
+    if(+iso.slice(8) <= 15) return iso.slice(0,7);
+    return m === 12 ? (y+1)+"-01" : y+"-"+String(m+1).padStart(2,"0");
+  }
   function periodo(prefix){
     var ini = $("ini"+prefix).value, fim = $("fim"+prefix).value;
     if(!ini && !fim){
-      var b = mesBounds($("mes"+prefix).value || todayIso().slice(0,7));
+      var b = mesBounds($("mes"+prefix).value || mesDoFechamento(todayIso()));
       ini = b.ini; fim = b.fim;
     }
     if(!ini) ini = fim;
@@ -839,12 +851,13 @@
       dias.push(cur); cur = addDaysIso(cur, 1);
     }
     var ultimo = dias[dias.length-1];
-    var ehMes = ini.slice(8)==="01" && ultimo===mesBounds(ini.slice(0,7)).fim && ini.slice(0,7)===ultimo.slice(0,7);
+    var ymFim = ultimo.slice(0,7), bFech = mesBounds(ymFim);
+    var ehMes = ini === bFech.ini && ultimo === bFech.fim;   // fechamento completo (16 a 15)
     return {
       ini: ini, fim: ultimo, dias: dias, ehMes: ehMes, truncado: truncado,
       multiMes: ini.slice(0,7) !== ultimo.slice(0,7),
-      label: ehMes ? new Date(ini+"T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"}) : fmtDateBR(ini)+" a "+fmtDateBR(ultimo),
-      key: ehMes ? ini.slice(0,7) : ini+"_a_"+ultimo
+      label: ehMes ? "fechamento de "+new Date(ymFim+"-01T00:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"})+" ("+fmtDateBR(ini).slice(0,5)+" a "+fmtDateBR(ultimo).slice(0,5)+")" : fmtDateBR(ini)+" a "+fmtDateBR(ultimo),
+      key: ehMes ? ymFim : ini+"_a_"+ultimo
     };
   }
   function aplicarMes(prefix){
@@ -855,7 +868,7 @@
   }
   function sincronizarMes(prefix){
     var p = periodo(prefix);
-    $("mes"+prefix).value = p.ehMes ? p.ini.slice(0,7) : "";
+    $("mes"+prefix).value = p.ehMes ? p.fim.slice(0,7) : "";
   }
   // Jornada usada pra converter cada dia de ausência em horas: seg–qui 9h, sex 8h. Sábado e domingo
   // contam 0h (a jornada informada não cobre fim de semana) — ajustar aqui se mudar. Índice = getDay().
@@ -962,7 +975,7 @@
       cargaTotal += cargaFuncionario(fid, p.dias, horas);
       ausTotal += totaisAusenciaDias(fid, p.dias).horas;
     });
-    var per = p.ehMes ? "mês" : "período";
+    var per = p.ehMes ? "fechamento" : "período";
     $("cargaKpis"+prefix).innerHTML =
       kpiCard("Dias úteis no "+per, diasUteis, "") +
       kpiCard("Horas úteis · "+ativos.length+" func.", cargaTotal+"h", "") +
@@ -1819,8 +1832,8 @@
     document.body.classList.remove("menu-open");
     renderObrasGrid();
     $("diaSelecionado").value = todayIso();
-    $("mesGrade").value = todayIso().slice(0,7);
-    $("mesResumo").value = todayIso().slice(0,7);
+    $("mesGrade").value = mesDoFechamento(todayIso());
+    $("mesResumo").value = mesDoFechamento(todayIso());
     aplicarMes("Grade"); aplicarMes("Resumo");
     renderLegend();
     ajustarLarguraPagina();
@@ -2166,7 +2179,7 @@
     var FIRST_COL = 2, nDias = g.dias.length, lastCol = FIRST_COL + 1 + nDias + 2;
     var colT1 = FIRST_COL + 2 + nDias, colT2 = colT1 + 1;
     var titulo = (modo === "sab" ? "SÁBADOS TRABALHADOS — " : "HORAS EXTRAS DIÁRIAS — ") + obraNome;
-    var headerRow = buildExportHeader(ws, titulo, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
+    var headerRow = buildExportHeader(ws, titulo, (p.ehMes?"Competência — ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
       modo === "sab" ? "Só os sábados do período; o 3º sábado do mês está em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -2224,8 +2237,8 @@
     var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1, colPct = colDias + 2;
     var horasPorDia = p.dias.map(horasDoDia);
 
-    var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"mês":"período")+": "+nDias+"  |  Horas úteis (soma de todos os funcionários): "+ativos.reduce(function(s,fid){ return s+cargaFuncionario(fid, p.dias, horasPorDia); },0)+"h  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
+    var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência — ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
+      "Funcionários ativos: "+ativos.length+"  |  Dias no "+(p.ehMes?"fechamento":"período")+": "+nDias+"  |  Horas úteis (soma de todos os funcionários): "+ativos.reduce(function(s,fid){ return s+cargaFuncionario(fid, p.dias, horasPorDia); },0)+"h  |  Horas de ausência: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
@@ -2280,7 +2293,7 @@
     var nCod = CODES.length;
     var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nCod + 4; // margem + nome + função + códigos + total dias + total horas + carga + %
 
-    var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, (dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel(),
+    var headerRow = buildExportHeader(ws, "RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, (dados.ehMes?"Competência — ":"Período: ")+dados.label+" · Gerado em "+periodoLabel(),
       "Funcionários ativos: "+dados.ativos.length+"  |  Horas úteis (soma de todos os funcionários): "+dados.cargaGeral+"h  |  Total de ausências: "+dados.somaTotal+" dia(s) = "+dados.somaTotalH+"h ("+fmtPct(dados.somaTotalH, dados.cargaGeral)+" da carga)  |  Horas: seg–qui 9h, sex 8h, sáb/dom/feriados 0h"+(cidadeDaObra() ? " · feriados de "+cidadeDaObra() : ""), lastCol);
 
     ws.getColumn(1).width = 1.8;
@@ -2363,7 +2376,7 @@
     doc.setFont("helvetica","bold"); doc.setFontSize(15);
     doc.text("RESUMO MENSAL DE AUSÊNCIAS — "+obraNome, 24, 24);
     doc.setFont("helvetica","normal"); doc.setFontSize(10);
-    doc.text((dados.ehMes?"Competência: ":"Período: ")+dados.label+" · Gerado em "+periodoLabel()+" · Funcionários ativos: "+dados.ativos.length, 24, 40);
+    doc.text((dados.ehMes?"Competência — ":"Período: ")+dados.label+" · Gerado em "+periodoLabel()+" · Funcionários ativos: "+dados.ativos.length, 24, 40);
 
     var emHoras = $("modoResumo").value === "horas";
     doc.setTextColor(107,115,120); doc.setFontSize(9);
