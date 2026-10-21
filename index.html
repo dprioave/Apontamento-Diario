@@ -274,6 +274,10 @@
   table.grade.read-only td.dia-cell:hover{ outline:none; }
   table.grade td.dia-cell .code-tag{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:10.5px; }
   table.grade td.weekend{ background:rgba(255,255,255,.02); }
+  table.grade th.naoutil, table.grade td.naoutil{ background:rgba(140,150,170,.20); }
+  table.grade th.naoutil{ color:var(--text-faint); }
+  table.grade td.dia-cell.misto{ width:auto; min-width:34px; padding:2px 3px; height:34px; }
+  table.grade td.dia-cell .hx{ display:block; font-family:"IBM Plex Mono",monospace; font-size:9.5px; font-weight:600; line-height:1.15; color:#6fb3ff; }
   table.grade td.hcell{ width:auto; min-width:34px; padding:0 5px; height:28px; cursor:default; font-family:"IBM Plex Mono",monospace; font-size:10.5px; white-space:nowrap; }
   table.grade td.hcell:hover{ outline:none; }
   table.grade td.hcell .sab-ok{ color:var(--ok, #5fbf8f); font-weight:700; }
@@ -483,8 +487,7 @@
         <div class="field">
           <label for="modoGrade">Mostrar</label>
           <select id="modoGrade">
-            <option value="aus">Ausências</option>
-            <option value="ext">Horas extras</option>
+            <option value="aus">Ausências + horas extras</option>
             <option value="sab">Sábados trabalhados</option>
           </select>
         </div>
@@ -2233,8 +2236,10 @@
 
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Grade do Mês");
-    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias + 3; // margem + nome + dias + total dias + total horas + %
-    var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1, colPct = colDias + 2;
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias + 4; // margem + nome + dias + total dias + total horas + % + extras
+    var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1, colPct = colDias + 2, colExt = colDias + 3;
+    var ghx = dadosGradeHoras(p, "ext"), extPorFidX = {};
+    ghx.linhas.forEach(function(l){ extPorFidX[l.fid] = l; });
     var horasPorDia = p.dias.map(horasDoDia);
 
     var headerRow = buildExportHeader(ws, "GRADE DO MÊS — "+obraNome, (p.ehMes?"Competência — ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
@@ -2242,10 +2247,11 @@
 
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
-    p.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = p.multiMes ? 5.5 : 4; });
+    p.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = 7; });
     ws.getColumn(colDias).width = 8;
     ws.getColumn(colHoras).width = 9;
     ws.getColumn(colPct).width = 9;
+    ws.getColumn(colExt).width = 9;
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
     p.dias.forEach(function(iso, i){
@@ -2254,6 +2260,7 @@
     ws.getCell(headerRow, colDias).value = "Dias";
     ws.getCell(headerRow, colHoras).value = "Horas";
     ws.getCell(headerRow, colPct).value = "% carga";
+    ws.getCell(headerRow, colExt).value = "Extras";
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
 
     ativos.forEach(function(fid, idx){
@@ -2262,8 +2269,10 @@
       ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
       p.dias.forEach(function(iso, i){
         var a = getAusenciaDoDia(iso, fid);
+        var hxx = horasDoFuncNoDia(iso, fid);
         var cell = ws.getCell(r, FIRST_COL+2+i);
-        cell.value = (a && a.codigo) ? a.codigo : "";
+        var txtExt = (hxx && hxx.e > 0) ? fmtHM(hxx.e) : "";
+        cell.value = ((a && a.codigo) ? a.codigo : "") + ((a && a.codigo && txtExt) ? " " : "") + txtExt;
         cell.alignment = {horizontal:"center"};
       });
       var tot = totaisAusenciaDias(fid, p.dias);
@@ -2275,7 +2284,17 @@
       ws.getCell(r, colDias).alignment = {horizontal:"center"};
       ws.getCell(r, colHoras).alignment = {horizontal:"center"};
       ws.getCell(r, colPct).alignment = {horizontal:"center"};
+      var lex = extPorFidX[fid];
+      if(lex && lex.totMin){ ws.getCell(r, colExt).value = lex.totMin/1440; ws.getCell(r, colExt).numFmt = "[h]:mm"; }
+      ws.getCell(r, colExt).alignment = {horizontal:"center"};
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
+      p.dias.forEach(function(iso, i){
+        if(ehNaoUtil(iso)) ws.getCell(r, FIRST_COL+2+i).fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFD9DDE5"}};
+      });
+    });
+    // cabeçalho dos dias não úteis também em cinza
+    p.dias.forEach(function(iso, i){
+      if(ehNaoUtil(iso)) ws.getCell(headerRow, FIRST_COL+2+i).fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF8E96A8"}};
     });
 
     ws.views.push({state:"frozen", ySplit:headerRow, xSplit:FIRST_COL});
@@ -2988,6 +3007,8 @@
     return (d && d.horas && d.horas[fid]) || null;
   }
   function ehSabado(iso){ return new Date(iso+"T00:00:00").getDay() === 6; }
+  // Dia NÃO útil = domingo ou feriado (nacional, estadual, municipal da obra, convenção). Sábado é dia útil.
+  function ehNaoUtil(iso){ return new Date(iso+"T00:00:00").getDay() === 0 || !!feriadoDoDia(iso); }
   // 3º sábado do mês civil = o sábado que cai entre os dias 15 e 21.
   function ehTerceiroSabado(iso){ var d = +iso.slice(8); return ehSabado(iso) && d >= 15 && d <= 21; }
 
@@ -3012,8 +3033,11 @@
       linhas.forEach(function(l){ if(l.cel[i]){ soma += l.cel[i]; pess++; } });
       return {min:soma, pess:pess};
     });
-    var comHoras = p.dias.filter(function(iso){ return state.dias[iso] && state.dias[iso].horas; }).length;
-    return {dias:dias, linhas:linhas, totDia:totDia, comHoras:comHoras};
+    // só conta dias até hoje: dias futuros do fechamento ainda não têm ponto
+    var hoje = todayIso();
+    var diasAteHoje = p.dias.filter(function(iso){ return iso <= hoje; });
+    var comHoras = diasAteHoje.filter(function(iso){ return state.dias[iso] && state.dias[iso].horas; }).length;
+    return {dias:dias, linhas:linhas, totDia:totDia, comHoras:comHoras, diasAteHoje:diasAteHoje.length};
   }
 
   function renderGradeHoras(p, modo){
@@ -3025,7 +3049,7 @@
       ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado do mês fica em azul. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
       : 'Horas extras de cada dia (h:mm), somando EX.70%, SAB 70%, SAB. 100% e EX NOT do ponto do Secullum. A coluna "Extras" soma o período e a última linha soma cada dia. Sábados trabalhados aparecem também aqui, nas horas de sábado.';
     if(!g.comHoras) dica += ' ⚠ Nenhum dia deste período tem horas guardadas ainda: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
-    else if(g.comHoras < p.dias.length) dica += ' (Horas disponíveis em '+g.comHoras+' de '+p.dias.length+' dias do período; os demais precisam ser reimportados.)';
+    else if(g.comHoras < g.diasAteHoje) dica += ' (Horas disponíveis em '+g.comHoras+' de '+g.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
     $("hintHorasGrade").textContent = dica;
 
     var colTot1 = modo === "sab" ? "Sáb." : "Extras";
@@ -3073,15 +3097,30 @@
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var horasPorDia = p.dias.map(horasDoDia);
     renderCargaKpis("Grade", p);
-    $("hintHorasGrade").textContent = textoRegraHoras(p) + ' As colunas "Dias", "Horas" e "%" somam as ausências do período; dias em destaque amarelo são feriados.';
-    var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":""); };
-    var tituloDia = function(iso){ var f = feriadoDoDia(iso); return f ? ' title="Feriado '+f+'"' : ""; };
+    // Horas extras de cada pessoa/dia (mesma fonte da visão de sábados) e dias úteis x não úteis
+    var gh = dadosGradeHoras(p, "ext"), extPorFid = {};
+    gh.linhas.forEach(function(l){ extPorFid[l.fid] = l; });
+    var nNao = p.dias.filter(ehNaoUtil).length, nUteis = p.dias.length - nNao;
+    var totExt = gh.linhas.reduce(function(a, l){ return a + l.totMin; }, 0);
+    var kp = $("cargaKpisGrade");
+    if(kp.firstElementChild) kp.firstElementChild.outerHTML = kpiCard("Dias úteis", nUteis, "") + kpiCard("Dias não úteis (domingos e feriados)", nNao, "");
+    kp.insertAdjacentHTML("beforeend", kpiCard("Horas extras no período", fmtHM(totExt) || "0:00", ""));
+    var dicaG = textoRegraHoras(p) + ' Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
+    if(!gh.comHoras) dicaG += ' ⚠ Nenhum dia deste período tem horas extras guardadas: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
+    else if(gh.comHoras < gh.diasAteHoje) dicaG += ' (Horas extras disponíveis em '+gh.comHoras+' de '+gh.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
+    $("hintHorasGrade").textContent = dicaG;
+    var clsDia = function(iso){ return (ehNaoUtil(iso)?"naoutil":"") + (feriadoDoDia(iso)?" feriado":""); };
+    var tituloDia = function(iso){
+      var f = feriadoDoDia(iso);
+      if(f) return ' title="Feriado '+f+' — dia não útil"';
+      return new Date(iso+"T00:00:00").getDay() === 0 ? ' title="Domingo — dia não útil"' : "";
+    };
 
     var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário</th>';
     p.dias.forEach(function(iso){
       thead += '<th class="weekday-row '+clsDia(iso)+'"'+tituloDia(iso)+'>'+weekdayLabel(iso)+"</th>";
     });
-    thead += '<th class="col-total" rowspan="2" title="Dias de ausência no período">Dias</th><th class="col-total" rowspan="2" title="Horas de ausência no período (seg–qui 9h, sex 8h; sem fins de semana e feriados)">Horas</th><th class="col-total" rowspan="2" title="Horas de ausência ÷ carga horária do período">%</th>';
+    thead += '<th class="col-total" rowspan="2" title="Dias de ausência no período">Dias</th><th class="col-total" rowspan="2" title="Horas de ausência no período (seg–qui 9h, sex 8h; sem fins de semana e feriados)">Horas</th><th class="col-total" rowspan="2" title="Horas de ausência ÷ carga horária do período">%</th><th class="col-total" rowspan="2" title="Total de horas extras no período">Extras</th>';
     thead += "</tr><tr>";
     p.dias.forEach(function(iso3){
       thead += '<th class="'+clsDia(iso3)+'"'+tituloDia(iso3)+'>'+rotuloDia(iso3, p.multiMes)+"</th>";
@@ -3093,19 +3132,25 @@
       tbody += '<tr><td class="col-nome">'+escapeHtml(funcName(fid))+"</td>";
       p.dias.forEach(function(iso2){
         var a = getAusenciaDoDia(iso2, fid);
-        var cellCls = "dia-cell " + clsDia(iso2);
+        var hx = horasDoFuncNoDia(iso2, fid);
+        var cellCls = "dia-cell " + clsDia(iso2) + (hx && hx.e > 0 ? " misto" : "");
         var content = "";
         if(a && a.codigo){
           var meta = CODE_META[a.codigo];
           content = '<span class="code-tag" style="color:var(--'+meta.cls+')">'+a.codigo+"</span>";
         }
+        if(hx && hx.e > 0) content += '<span class="hx" title="Horas extras do dia">'+fmtHM(hx.e)+'</span>';
         tbody += '<td class="'+cellCls+'" data-dia="'+iso2+'" data-func="'+fid+'">'+content+"</td>";
       });
       var tot = totaisAusenciaDias(fid, p.dias);
       var carga = cargaFuncionario(fid, p.dias, horasPorDia);
-      tbody += '<td class="col-total-cell">'+(tot.dias||"")+'</td><td class="col-total-cell">'+(tot.horas ? tot.horas+"h" : "")+'</td><td class="col-total-cell" title="Carga do período: '+carga+'h">'+(tot.dias ? fmtPct(tot.horas, carga) : "")+"</td>";
+      var le = extPorFid[fid];
+      tbody += '<td class="col-total-cell">'+(tot.dias||"")+'</td><td class="col-total-cell">'+(tot.horas ? tot.horas+"h" : "")+'</td><td class="col-total-cell" title="Carga do período: '+carga+'h">'+(tot.dias ? fmtPct(tot.horas, carga) : "")+'</td><td class="col-total-cell">'+(le && le.totMin ? fmtHM(le.totMin) : "")+"</td>";
       tbody += "</tr>";
     });
+    tbody += '<tr class="linha-total"><td class="col-nome">Horas extras do dia</td>';
+    gh.totDia.forEach(function(t, i){ tbody += '<td class="hcell '+clsDia(p.dias[i])+'">'+fmtHM(t.min)+'</td>'; });
+    tbody += '<td></td><td></td><td></td><td class="col-total-cell">'+fmtHM(totExt)+'</td></tr>';
     tbody += "</tbody>";
 
     var table = $("gradeTable");
