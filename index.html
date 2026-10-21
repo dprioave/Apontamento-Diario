@@ -274,6 +274,13 @@
   table.grade.read-only td.dia-cell:hover{ outline:none; }
   table.grade td.dia-cell .code-tag{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:10.5px; }
   table.grade td.weekend{ background:rgba(255,255,255,.02); }
+  table.grade td.hcell{ width:auto; min-width:34px; padding:0 5px; height:28px; cursor:default; font-family:"IBM Plex Mono",monospace; font-size:10.5px; white-space:nowrap; }
+  table.grade td.hcell:hover{ outline:none; }
+  table.grade td.hcell .sab-ok{ color:var(--ok, #5fbf8f); font-weight:700; }
+  table.grade th.sab3, table.grade td.sab3{ background:rgba(120,170,255,.16); }
+  table.grade th.sab3{ color:var(--accent); font-weight:700; }
+  table.grade tr.linha-total td{ background:var(--surface-2); font-weight:700; position:sticky; bottom:0; z-index:1; }
+  table.grade tr.linha-total td.col-nome{ z-index:2; }
   table.grade th.feriado, table.grade td.feriado{ background:rgba(224,174,95,.14); }
 
   /* ---------- cadastro ---------- */
@@ -472,6 +479,14 @@
         <div class="field">
           <label for="fimGrade">Até</label>
           <input type="date" id="fimGrade">
+        </div>
+        <div class="field">
+          <label for="modoGrade">Mostrar</label>
+          <select id="modoGrade">
+            <option value="aus">Ausências</option>
+            <option value="ext">Horas extras</option>
+            <option value="sab">Sábados trabalhados</option>
+          </select>
         </div>
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
@@ -1017,6 +1032,36 @@
     return false;
   }
 
+  // ---------- Horas do Ponto Diário (TRABALHADA, EX.70%, SAB 70%, SAB. 100%, EX NOT...) ----------
+  // As colunas são achadas pelo NOME no cabeçalho: "TRABALHADA" = horas trabalhadas no dia; "SAB..." = horas
+  // de sábado (70%/100%); "EX..." (EX.70%, EX NOT, EXTRAS) = demais horas extras. Valores vêm como hora do
+  // Excel (fração de dia) ou texto "hh:mm"; tudo vira minutos.
+  function minDeCelula(v){
+    if(v==null || v==="") return 0;
+    if(typeof v === "number") return (v > 0 && v < 3) ? Math.round(v*1440) : 0;
+    var m = String(v).trim().match(/^(\d{1,3}):(\d{2})/);
+    return m ? (+m[1])*60 + (+m[2]) : 0;
+  }
+  function acharColunasHoras(header){
+    var map = {};
+    (header||[]).forEach(function(h, i){
+      if(typeof h !== "string") return;
+      var u = stripAccents(h).toUpperCase().replace(/\s+/g," ").trim();
+      if(/^TRABALHADA/.test(u)) map.t = i;
+      else if(/^SAB/.test(u)) (map.sab = map.sab || []).push(i);
+      else if(/^EX/.test(u)) (map.ex = map.ex || []).push(i);
+    });
+    return map;
+  }
+  // {t: trabalhadas, e: extras (EX* + SAB*), s: horas de sábado} em minutos — null se o arquivo não tem a coluna.
+  function horasDaLinha(dr, map){
+    if(!map || map.t == null) return null;
+    var e = 0, s2 = 0;
+    (map.ex||[]).forEach(function(i){ e += minDeCelula(dr[i]); });
+    (map.sab||[]).forEach(function(i){ var m = minDeCelula(dr[i]); e += m; s2 += m; });
+    return {t:minDeCelula(dr[map.t]), e:e, s:s2};
+  }
+
   // ---------- Secullum XLSX parser ----------
   function parseSecullumXlsx(arrayBuffer){
     var wb = XLSX.read(arrayBuffer, {type:"array", raw:true});
@@ -1037,6 +1082,7 @@
       }
     }
     if(headerRowIdx<0) headerRowIdx = 3;
+    var colH = acharColunasHoras(rows[headerRowIdx]);
     var ausencias = [], naoMapeados = [], todosNomes = [], pessoas = [];
     for(var r=headerRowIdx+1;r<rows.length;r++){
       var dr = rows[r];
@@ -1058,14 +1104,14 @@
         }
       }
       var matriculaLinha = String(dr[0]||"").trim();
-      pessoas.push({nome:nome, matricula:matriculaLinha, codigo:codigo, admissao:sawAdmissao});
+      pessoas.push({nome:nome, matricula:matriculaLinha, codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colH)});
       if(codigo){
         ausencias.push({matricula:matriculaLinha, nome:nome, codigo:codigo});
       } else if(motivoDesconhecido){
         naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
       }
     }
-    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:naoMapeados, todosNomes:todosNomes, pessoas:pessoas};
+    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:naoMapeados, todosNomes:todosNomes, pessoas:pessoas, temHoras:colH.t != null};
   }
 
   // ---------- Relatório por PERÍODO (vários dias num arquivo só) ----------
@@ -1097,6 +1143,7 @@
       if(typeof c0 === "string"){ var me = c0.match(/EMPRESA:\s*([^.]+)\./i); if(me) empresaNome = me[1].trim(); }
     }
     var porDia = {}, ordem = [];
+    var colHP = acharColunasHoras(rows[headerIdx]);
     for(var r=headerIdx+1;r<rows.length;r++){
       var dr = rows[r];
       if(!dr || dr[1]==null) continue;
@@ -1107,7 +1154,7 @@
       if(!nome || !/[A-Za-zÀ-ÿ]/.test(nome)) continue;
       var dia = porDia[iso];
       if(!dia){
-        dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[]};
+        dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], temHoras:colHP.t != null};
         ordem.push(iso);
       }
       dia.todosNomes.push(nome);
@@ -1120,7 +1167,7 @@
           if(!isIgnoredStatus(dr[ci])) motivoDesconhecido = dr[ci].trim();
         }
       }
-      dia.pessoas.push({nome:nome, matricula:"", codigo:codigo, admissao:sawAdmissao});
+      dia.pessoas.push({nome:nome, matricula:"", codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colHP)});
       if(codigo) dia.ausencias.push({matricula:"", nome:nome, codigo:codigo});
       else if(motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
     }
@@ -1749,7 +1796,7 @@
   function selectObra(obraId){
     var obraCheck = state.obras[obraId];
     if(obraCheck && !temAcessoObra(obraCheck)){
-      alert('Seu e-mail ("'+state.email+'") não está na lista de acesso desta obra. Peça para um DP/Engenharia já com acesso te adicionar na aba Cadastro → "Quem tem acesso a esta obra".');
+      alert('Seu e-mail ("'+state.email+'") não tem acesso a esta obra. Peça ao administrador para incluir a empresa no seu cadastro em "Usuários e acessos".');
       return;
     }
     state.obraId = obraId;
@@ -2111,8 +2158,62 @@
     return d.toLocaleDateString("pt-BR");
   }
 
+  async function exportGradeHorasExcel(p, modo){
+    var g = dadosGradeHoras(p, modo);
+    var obraNome = (state.obras[state.obraId]||{}).nome || "";
+    var wb = new ExcelJS.Workbook();
+    var ws = wb.addWorksheet(modo === "sab" ? "Sábados trabalhados" : "Horas extras");
+    var FIRST_COL = 2, nDias = g.dias.length, lastCol = FIRST_COL + 1 + nDias + 2;
+    var colT1 = FIRST_COL + 2 + nDias, colT2 = colT1 + 1;
+    var titulo = (modo === "sab" ? "SÁBADOS TRABALHADOS — " : "HORAS EXTRAS DIÁRIAS — ") + obraNome;
+    var headerRow = buildExportHeader(ws, titulo, (p.ehMes?"Competência: ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
+      modo === "sab" ? "Só os sábados do período; o 3º sábado do mês está em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
+    ws.getColumn(1).width = 1.8;
+    ws.getColumn(FIRST_COL).width = 30;
+    g.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = modo === "sab" ? 9 : 6.5; });
+    ws.getColumn(colT1).width = 9; ws.getColumn(colT2).width = 9;
+    ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
+    g.dias.forEach(function(iso, i){
+      ws.getCell(headerRow, FIRST_COL+2+i).value = p.multiMes || modo === "sab" ? rotuloDia(iso, true) : +iso.slice(8);
+    });
+    ws.getCell(headerRow, colT1).value = modo === "sab" ? "Sáb." : "Extras";
+    ws.getCell(headerRow, colT2).value = modo === "sab" ? "Horas" : "Dias";
+    styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
+    var FMT = "[h]:mm";
+    g.linhas.forEach(function(l, idx){
+      var r = headerRow + 1 + idx;
+      ws.getCell(r, FIRST_COL).value = funcName(l.fid);
+      ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
+      l.cel.forEach(function(min, i){
+        var c = ws.getCell(r, FIRST_COL+2+i);
+        if(min){ c.value = min/1440; c.numFmt = FMT; }
+        c.alignment = {horizontal:"center"};
+        if(ehTerceiroSabado(g.dias[i])) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFDCE8FF"}};
+      });
+      var a = ws.getCell(r, colT1), b = ws.getCell(r, colT2);
+      if(modo === "sab"){ a.value = l.qtd || ""; if(l.totMin){ b.value = l.totMin/1440; b.numFmt = FMT; } }
+      else { if(l.totMin){ a.value = l.totMin/1440; a.numFmt = FMT; } b.value = l.qtd || ""; }
+      a.alignment = {horizontal:"center"}; b.alignment = {horizontal:"center"};
+      styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
+    });
+    var rt = headerRow + 1 + g.linhas.length;
+    ws.getCell(rt, FIRST_COL).value = modo === "sab" ? "Pessoas no dia" : "Total do dia";
+    ws.getCell(rt, FIRST_COL).font = {bold:true};
+    g.totDia.forEach(function(t, i){
+      var c = ws.getCell(rt, FIRST_COL+2+i);
+      if(modo === "sab") c.value = t.pess || ""; else if(t.min){ c.value = t.min/1440; c.numFmt = FMT; }
+      c.alignment = {horizontal:"center"}; c.font = {bold:true};
+    });
+    ws.views.push({state:"frozen", ySplit:headerRow, xSplit:FIRST_COL});
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    await saveFile((modo === "sab" ? "Sabados trabalhados - " : "Horas extras - ")+obraNome+" - "+p.key+".xlsx", blob);
+  }
+
   async function exportGradeExcel(){
     var p = periodo("Grade");
+    var modoG = $("modoGrade") ? $("modoGrade").value : "aus";
+    if(modoG !== "aus") return exportGradeHorasExcel(p, modoG);
     var nDias = p.dias.length;
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
@@ -2667,7 +2768,20 @@
       var f = state.funcionarios[fid] || {};
       return {funcId:fid, nome:funcName(fid), funcao:f.funcao||""};
     });
-    return {
+    // Horas do dia (minutos): t = trabalhadas, e = extras (inclui sábado), s = horas de sábado. Só quem tem
+    // alguma hora. Se o arquivo não traz as colunas (PDF), mantém as horas que já estavam salvas no dia.
+    var horas = null;
+    if(pend.temHoras){
+      horas = {};
+      (pend.pessoas || []).forEach(function(p){
+        if(!p.horas || !(p.horas.t || p.horas.e)) return;
+        var hfid = matchFuncionario(p.nome, p.matricula, p.homonimo);
+        if(hfid && !horas[hfid]) horas[hfid] = {t:p.horas.t, e:p.horas.e, s:p.horas.s};
+      });
+    } else if(existingDoc.horas){
+      horas = existingDoc.horas;
+    }
+    var docDia = {
       data: iso,
       arquivoNome: pend.arquivoNome,
       origemImport: pend.origemTipo || (/\.pdf$/i.test(pend.arquivoNome||"") ? "pdf" : "xlsx"),
@@ -2677,6 +2791,8 @@
       naoEncontrados: calcNaoEncontrados(pend, Object.assign({iso:iso}, opts||{})),
       possiveisDesligamentos: possiveisDesligamentos
     };
+    if(horas) docDia.horas = horas;
+    return docDia;
   }
 
   function confirmarImport(){
@@ -2848,9 +2964,99 @@
     return multiMes ? d+"/"+(+iso.slice(5,7)) : String(d);
   }
 
+  // ---------- Grade: horas extras e sábados trabalhados ----------
+  function fmtHM(min){
+    if(!min) return "";
+    var h = Math.floor(min/60), m = min % 60;
+    return h + ":" + (m < 10 ? "0" : "") + m;
+  }
+  function horasDoFuncNoDia(iso, fid){
+    var d = state.dias[iso];
+    return (d && d.horas && d.horas[fid]) || null;
+  }
+  function ehSabado(iso){ return new Date(iso+"T00:00:00").getDay() === 6; }
+  // 3º sábado do mês civil = o sábado que cai entre os dias 15 e 21.
+  function ehTerceiroSabado(iso){ var d = +iso.slice(8); return ehSabado(iso) && d >= 15 && d <= 21; }
+
+  function dadosGradeHoras(p, modo){
+    var dias = modo === "sab" ? p.dias.filter(ehSabado) : p.dias;
+    var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var linhas = ativos.map(function(fid){
+      var totMin = 0, qtd = 0;
+      var cel = dias.map(function(iso){
+        var h = horasDoFuncNoDia(iso, fid);
+        if(modo === "sab"){
+          if(h && h.t > 0){ totMin += h.t; qtd++; return h.t; }
+          return 0;
+        }
+        if(h && h.e > 0){ totMin += h.e; qtd++; return h.e; }
+        return 0;
+      });
+      return {fid:fid, cel:cel, totMin:totMin, qtd:qtd};
+    });
+    var totDia = dias.map(function(iso, i){
+      var soma = 0, pess = 0;
+      linhas.forEach(function(l){ if(l.cel[i]){ soma += l.cel[i]; pess++; } });
+      return {min:soma, pess:pess};
+    });
+    var comHoras = p.dias.filter(function(iso){ return state.dias[iso] && state.dias[iso].horas; }).length;
+    return {dias:dias, linhas:linhas, totDia:totDia, comHoras:comHoras};
+  }
+
+  function renderGradeHoras(p, modo){
+    var g = dadosGradeHoras(p, modo);
+    var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":"") + (ehTerceiroSabado(iso)?" sab3":""); };
+    var tituloDia = function(iso){ return ehTerceiroSabado(iso) ? ' title="3º sábado do mês"' : (feriadoDoDia(iso) ? ' title="Feriado '+feriadoDoDia(iso)+'"' : ""); };
+    $("cargaKpisGrade").style.display = "none";
+    var dica = modo === "sab"
+      ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado do mês fica em azul. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
+      : 'Horas extras de cada dia (h:mm), somando EX.70%, SAB 70%, SAB. 100% e EX NOT do ponto do Secullum. A coluna "Extras" soma o período e a última linha soma cada dia. Sábados trabalhados aparecem também aqui, nas horas de sábado.';
+    if(!g.comHoras) dica += ' ⚠ Nenhum dia deste período tem horas guardadas ainda: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
+    else if(g.comHoras < p.dias.length) dica += ' (Horas disponíveis em '+g.comHoras+' de '+p.dias.length+' dias do período; os demais precisam ser reimportados.)';
+    $("hintHorasGrade").textContent = dica;
+
+    var colTot1 = modo === "sab" ? "Sáb." : "Extras";
+    var colTot2 = modo === "sab" ? "Horas" : "Dias";
+    var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário</th>';
+    g.dias.forEach(function(iso){ thead += '<th class="weekday-row '+clsDia(iso)+'"'+tituloDia(iso)+'>'+weekdayLabel(iso)+"</th>"; });
+    thead += '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Sábados trabalhados no período":"Total de horas extras no período")+'">'+colTot1+'</th>'+
+             '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Horas trabalhadas nos sábados":"Dias com hora extra")+'">'+colTot2+'</th></tr><tr>';
+    g.dias.forEach(function(iso){ thead += '<th class="'+clsDia(iso)+'"'+tituloDia(iso)+'>'+rotuloDia(iso, p.multiMes)+"</th>"; });
+    thead += "</tr></thead>";
+
+    var tbody = "<tbody>";
+    g.linhas.forEach(function(l){
+      tbody += '<tr><td class="col-nome">'+escapeHtml(funcName(l.fid))+"</td>";
+      l.cel.forEach(function(min, i){
+        var txt = "";
+        if(min) txt = modo === "sab" ? '<span class="sab-ok">✓</span> '+fmtHM(min) : fmtHM(min);
+        tbody += '<td class="dia-cell hcell '+clsDia(g.dias[i])+'" data-dia="'+g.dias[i]+'" data-func="'+l.fid+'">'+txt+"</td>";
+      });
+      if(modo === "sab") tbody += '<td class="col-total-cell">'+(l.qtd||"")+'</td><td class="col-total-cell">'+fmtHM(l.totMin)+'</td>';
+      else tbody += '<td class="col-total-cell">'+fmtHM(l.totMin)+'</td><td class="col-total-cell">'+(l.qtd||"")+'</td>';
+      tbody += "</tr>";
+    });
+    var somaMin = g.linhas.reduce(function(a,l){ return a + l.totMin; }, 0);
+    var somaQtd = g.linhas.reduce(function(a,l){ return a + l.qtd; }, 0);
+    tbody += '<tr class="linha-total"><td class="col-nome">'+(modo==="sab" ? "Pessoas no dia" : "Total do dia")+"</td>";
+    g.totDia.forEach(function(t, i){
+      tbody += '<td class="hcell '+clsDia(g.dias[i])+'">'+(modo==="sab" ? (t.pess||"") : fmtHM(t.min))+"</td>";
+    });
+    if(modo === "sab") tbody += '<td class="col-total-cell">'+(somaQtd||"")+'</td><td class="col-total-cell">'+fmtHM(somaMin)+'</td>';
+    else tbody += '<td class="col-total-cell">'+fmtHM(somaMin)+'</td><td class="col-total-cell">'+(somaQtd||"")+'</td>';
+    tbody += "</tr></tbody>";
+
+    var table = $("gradeTable");
+    table.innerHTML = thead + tbody;
+    table.classList.add("read-only");
+  }
+
   function renderGrade(){
     var p = periodo("Grade");
     avisoPeriodo("Grade", p);
+    var modoG = $("modoGrade") ? $("modoGrade").value : "aus";
+    if(modoG !== "aus"){ renderGradeHoras(p, modoG); return; }
+    $("cargaKpisGrade").style.display = "";
     var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var horasPorDia = p.dias.map(horasDoDia);
     renderCargaKpis("Grade", p);
@@ -4053,6 +4259,7 @@
   $("mesGrade").addEventListener("change", function(){ aplicarMes("Grade"); renderGrade(); });
   $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
   $("modoResumo").addEventListener("change", renderMensal);
+  $("modoGrade").addEventListener("change", renderGrade);
   ["ini","fim"].forEach(function(k){
     $(k+"Grade").addEventListener("change", function(){ sincronizarMes("Grade"); renderGrade(); });
     $(k+"Resumo").addEventListener("change", function(){ sincronizarMes("Resumo"); renderMensal(); });
