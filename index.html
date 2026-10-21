@@ -287,6 +287,7 @@
   table.grade td.hcell .sab-ok{ color:var(--ok, #5fbf8f); font-weight:700; }
   table.grade th.sab3, table.grade td.sab3{ background:rgba(120,170,255,.16); }
   table.grade th.sab3{ color:#6fb3ff; font-weight:700; }
+  .tag3{ display:inline-block; margin-left:3px; padding:0 5px; border-radius:7px; font-size:9px; font-weight:700; background:rgba(111,179,255,.25); color:#6fb3ff; }
   table.grade tr.linha-total td{ background:var(--surface-2); font-weight:700; position:sticky; bottom:0; z-index:1; }
   table.grade tr.linha-total td.col-nome{ z-index:2; }
   table.grade th.feriado, table.grade td.feriado{ background:rgba(224,174,95,.14); }
@@ -2195,11 +2196,11 @@
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet(modo === "sab" ? "Sábados trabalhados" : "Horas extras");
-    var FIRST_COL = 2, nDias = g.dias.length, lastCol = FIRST_COL + 1 + nDias + 2;
-    var colT1 = FIRST_COL + 2 + nDias, colT2 = colT1 + 1;
+    var FIRST_COL = 2, nDias = g.dias.length, lastCol = FIRST_COL + 1 + nDias + (modo === "sab" ? 3 : 2);
+    var colT1 = FIRST_COL + 2 + nDias, colT2 = colT1 + 1, colT3 = colT1 + 2;
     var titulo = (modo === "sab" ? "SÁBADOS TRABALHADOS — " : "HORAS EXTRAS DIÁRIAS — ") + obraNome;
     var headerRow = buildExportHeader(ws, titulo, (p.ehMes?"Competência — ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      modo === "sab" ? "Só os sábados do período; o 3º sábado do fechamento (16 a 15) está em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
+      modo === "sab" ? "Só os sábados do período; o 3º sábado trabalhado por cada pessoa dentro do fechamento (16 a 15) está em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
     g.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = modo === "sab" ? 9 : 6.5; });
@@ -2210,6 +2211,7 @@
     });
     ws.getCell(headerRow, colT1).value = modo === "sab" ? "Sáb." : "Extras";
     ws.getCell(headerRow, colT2).value = modo === "sab" ? "Horas" : "Dias";
+    if(modo === "sab"){ ws.getColumn(colT3).width = 14; ws.getCell(headerRow, colT3).value = "3º sáb."; }
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
     var FMT = "[h]:mm";
     g.linhas.forEach(function(l, idx){
@@ -2220,13 +2222,19 @@
         var c = ws.getCell(r, FIRST_COL+2+i);
         if(min){ c.value = min/1440; c.numFmt = FMT; }
         c.alignment = {horizontal:"center"};
-        if(ehTerceiroSabado(g.dias[i])) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFDCE8FF"}};
       });
       var a = ws.getCell(r, colT1), b = ws.getCell(r, colT2);
+      if(modo === "sab"){
+        var d3 = g.dias.filter(function(iso, i){ return l.terc[i]; }).map(function(iso){ return iso.slice(8)+"/"+iso.slice(5,7); }).join(", ");
+        ws.getCell(r, colT3).value = d3; ws.getCell(r, colT3).alignment = {horizontal:"center"};
+      }
       if(modo === "sab"){ a.value = l.qtd || ""; if(l.totMin){ b.value = l.totMin/1440; b.numFmt = FMT; } }
       else { if(l.totMin){ a.value = l.totMin/1440; a.numFmt = FMT; } b.value = l.qtd || ""; }
       a.alignment = {horizontal:"center"}; b.alignment = {horizontal:"center"};
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
+      if(modo === "sab") l.terc.forEach(function(t, i){
+        if(t) ws.getCell(r, FIRST_COL+2+i).fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFDCE8FF"}};
+      });
     });
     var rt = headerRow + 1 + g.linhas.length;
     ws.getCell(rt, FIRST_COL).value = modo === "sab" ? "Pessoas no dia" : "Total do dia";
@@ -3028,12 +3036,16 @@
   function ehSabado(iso){ return new Date(iso+"T00:00:00").getDay() === 6; }
   // Dia NÃO útil = domingo ou feriado (nacional, estadual, municipal da obra, convenção). Sábado é dia útil.
   function ehNaoUtil(iso){ return new Date(iso+"T00:00:00").getDay() === 0 || !!feriadoDoDia(iso); }
-  // 3º sábado do FECHAMENTO (16 a 15) em que o dia cai: conta os sábados desde o dia 16 do fechamento.
-  // Ex.: 16/09 a 15/10 → sábados 19/9, 26/9, 3/10, 10/10; o 3º é 3/10.
-  function ehTerceiroSabado(iso){
-    if(!ehSabado(iso)) return false;
+  // 3º sábado TRABALHADO de cada funcionário dentro do fechamento (16 a 15) em que o sábado cai: conta, desde
+  // o dia 16, os sábados em que a pessoa teve horas trabalhadas; o 3º deles (e só ele) é marcado.
+  function terceiroSabadoTrabalhado(fid, iso){
+    var h0 = horasDoFuncNoDia(iso, fid);
+    if(!(ehSabado(iso) && h0 && h0.t > 0)) return false;
     var b = mesBounds(mesDoFechamento(iso)), n = 0, cur = b.ini;
-    while(cur <= iso){ if(ehSabado(cur)) n++; cur = addDaysIso(cur, 1); }
+    while(cur <= iso){
+      if(ehSabado(cur)){ var h = horasDoFuncNoDia(cur, fid); if(h && h.t > 0) n++; }
+      cur = addDaysIso(cur, 1);
+    }
     return n === 3;
   }
 
@@ -3051,12 +3063,13 @@
         if(h && h.e > 0){ totMin += h.e; qtd++; return h.e; }
         return 0;
       });
-      return {fid:fid, cel:cel, totMin:totMin, qtd:qtd};
+      var terc = modo === "sab" ? cel.map(function(m, i){ return !!m && terceiroSabadoTrabalhado(fid, dias[i]); }) : [];
+      return {fid:fid, cel:cel, totMin:totMin, qtd:qtd, terc:terc};
     });
     var totDia = dias.map(function(iso, i){
-      var soma = 0, pess = 0;
-      linhas.forEach(function(l){ if(l.cel[i]){ soma += l.cel[i]; pess++; } });
-      return {min:soma, pess:pess};
+      var soma = 0, pess = 0, t3 = 0;
+      linhas.forEach(function(l){ if(l.cel[i]){ soma += l.cel[i]; pess++; if(l.terc[i]) t3++; } });
+      return {min:soma, pess:pess, terc:t3};
     });
     // só conta dias até hoje: dias futuros do fechamento ainda não têm ponto
     var hoje = todayIso();
@@ -3067,11 +3080,12 @@
 
   function renderGradeHoras(p, modo){
     var g = dadosGradeHoras(p, modo);
-    var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":"") + (ehTerceiroSabado(iso)?" sab3":""); };
-    var tituloDia = function(iso){ return ehTerceiroSabado(iso) ? ' title="3º sábado do fechamento (16 a 15)"' : (feriadoDoDia(iso) ? ' title="Feriado '+feriadoDoDia(iso)+'"' : ""); };
+    var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":""); };
+    var tituloDia = function(iso){ return feriadoDoDia(iso) ? ' title="Feriado '+feriadoDoDia(iso)+'"' : ""; };
+    var dm = function(iso){ return iso.slice(8)+"/"+iso.slice(5,7); };
     $("cargaKpisGrade").style.display = "none";
     var dica = modo === "sab"
-      ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado do fechamento (16 a 15) fica em azul. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
+      ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado que CADA PESSOA trabalhou dentro do fechamento (16 a 15) fica em azul, com a marca "3º", e a coluna "3º sáb." mostra a data. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
       : 'Horas extras de cada dia (h:mm), somando EX.70%, SAB 70%, SAB. 100% e EX NOT do ponto do Secullum. A coluna "Extras" soma o período e a última linha soma cada dia. Sábados trabalhados aparecem também aqui, nas horas de sábado.';
     if(!g.comHoras) dica += ' ⚠ Nenhum dia deste período tem horas guardadas ainda: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(g.comHoras < g.diasAteHoje) dica += ' (Horas disponíveis em '+g.comHoras+' de '+g.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
@@ -3082,7 +3096,8 @@
     var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário</th>';
     g.dias.forEach(function(iso){ thead += '<th class="weekday-row '+clsDia(iso)+'"'+tituloDia(iso)+'>'+weekdayLabel(iso)+"</th>"; });
     thead += '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Sábados trabalhados no período":"Total de horas extras no período")+'">'+colTot1+'</th>'+
-             '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Horas trabalhadas nos sábados":"Dias com hora extra")+'">'+colTot2+'</th></tr><tr>';
+             '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Horas trabalhadas nos sábados":"Dias com hora extra")+'">'+colTot2+'</th>'+
+             (modo==="sab" ? '<th class="col-total" rowspan="2" title="Data do 3º sábado trabalhado por esta pessoa no fechamento">3º sáb.</th>' : '')+'</tr><tr>';
     g.dias.forEach(function(iso){ thead += '<th class="'+clsDia(iso)+'"'+tituloDia(iso)+'>'+rotuloDia(iso, p.multiMes)+"</th>"; });
     thead += "</tr></thead>";
 
@@ -3091,10 +3106,14 @@
       tbody += '<tr><td class="col-nome">'+escapeHtml(funcName(l.fid))+"</td>";
       l.cel.forEach(function(min, i){
         var txt = "";
-        if(min) txt = modo === "sab" ? '<span class="sab-ok">✓</span> '+fmtHM(min) : fmtHM(min);
-        tbody += '<td class="dia-cell hcell '+clsDia(g.dias[i])+'" data-dia="'+g.dias[i]+'" data-func="'+l.fid+'">'+txt+"</td>";
+        var t3 = modo === "sab" && l.terc[i];
+        if(min) txt = modo === "sab" ? '<span class="sab-ok">✓</span> '+fmtHM(min)+(t3 ? ' <span class="tag3">3º</span>' : '') : fmtHM(min);
+        tbody += '<td class="dia-cell hcell '+clsDia(g.dias[i])+(t3 ? ' sab3' : '')+'" data-dia="'+g.dias[i]+'" data-func="'+l.fid+'"'+(t3 ? ' title="3º sábado trabalhado por este funcionário no fechamento"' : '')+'>'+txt+"</td>";
       });
-      if(modo === "sab") tbody += '<td class="col-total-cell">'+(l.qtd||"")+'</td><td class="col-total-cell">'+fmtHM(l.totMin)+'</td>';
+      if(modo === "sab"){
+        var datas3 = g.dias.filter(function(iso, i){ return l.terc[i]; }).map(dm).join(", ");
+        tbody += '<td class="col-total-cell">'+(l.qtd||"")+'</td><td class="col-total-cell">'+fmtHM(l.totMin)+'</td><td class="col-total-cell">'+datas3+'</td>';
+      }
       else tbody += '<td class="col-total-cell">'+fmtHM(l.totMin)+'</td><td class="col-total-cell">'+(l.qtd||"")+'</td>';
       tbody += "</tr>";
     });
@@ -3102,9 +3121,9 @@
     var somaQtd = g.linhas.reduce(function(a,l){ return a + l.qtd; }, 0);
     tbody += '<tr class="linha-total"><td class="col-nome">'+(modo==="sab" ? "Pessoas no dia" : "Total do dia")+"</td>";
     g.totDia.forEach(function(t, i){
-      tbody += '<td class="hcell '+clsDia(g.dias[i])+'">'+(modo==="sab" ? (t.pess||"") : fmtHM(t.min))+"</td>";
+      tbody += '<td class="hcell '+clsDia(g.dias[i])+'">'+(modo==="sab" ? (t.pess||"") + (t.terc ? ' <span class="tag3" title="pessoas para quem este é o 3º sábado trabalhado">3º: '+t.terc+'</span>' : '') : fmtHM(t.min))+"</td>";
     });
-    if(modo === "sab") tbody += '<td class="col-total-cell">'+(somaQtd||"")+'</td><td class="col-total-cell">'+fmtHM(somaMin)+'</td>';
+    if(modo === "sab") tbody += '<td class="col-total-cell">'+(somaQtd||"")+'</td><td class="col-total-cell">'+fmtHM(somaMin)+'</td><td></td>';
     else tbody += '<td class="col-total-cell">'+fmtHM(somaMin)+'</td><td class="col-total-cell">'+(somaQtd||"")+'</td>';
     tbody += "</tr></tbody>";
 
