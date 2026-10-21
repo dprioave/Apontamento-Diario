@@ -286,7 +286,7 @@
   table.grade td.hcell:hover{ outline:none; }
   table.grade td.hcell .sab-ok{ color:var(--ok, #5fbf8f); font-weight:700; }
   table.grade th.sab3, table.grade td.sab3{ background:rgba(120,170,255,.16); }
-  table.grade th.sab3{ color:var(--accent); font-weight:700; }
+  table.grade th.sab3{ color:#6fb3ff; font-weight:700; }
   table.grade tr.linha-total td{ background:var(--surface-2); font-weight:700; position:sticky; bottom:0; z-index:1; }
   table.grade tr.linha-total td.col-nome{ z-index:2; }
   table.grade th.feriado, table.grade td.feriado{ background:rgba(224,174,95,.14); }
@@ -2199,7 +2199,7 @@
     var colT1 = FIRST_COL + 2 + nDias, colT2 = colT1 + 1;
     var titulo = (modo === "sab" ? "SÁBADOS TRABALHADOS — " : "HORAS EXTRAS DIÁRIAS — ") + obraNome;
     var headerRow = buildExportHeader(ws, titulo, (p.ehMes?"Competência — ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      modo === "sab" ? "Só os sábados do período; o 3º sábado do mês está em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
+      modo === "sab" ? "Só os sábados do período; o 3º sábado do fechamento (16 a 15) está em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
     g.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = modo === "sab" ? 9 : 6.5; });
@@ -3028,8 +3028,14 @@
   function ehSabado(iso){ return new Date(iso+"T00:00:00").getDay() === 6; }
   // Dia NÃO útil = domingo ou feriado (nacional, estadual, municipal da obra, convenção). Sábado é dia útil.
   function ehNaoUtil(iso){ return new Date(iso+"T00:00:00").getDay() === 0 || !!feriadoDoDia(iso); }
-  // 3º sábado do mês civil = o sábado que cai entre os dias 15 e 21.
-  function ehTerceiroSabado(iso){ var d = +iso.slice(8); return ehSabado(iso) && d >= 15 && d <= 21; }
+  // 3º sábado do FECHAMENTO (16 a 15) em que o dia cai: conta os sábados desde o dia 16 do fechamento.
+  // Ex.: 16/09 a 15/10 → sábados 19/9, 26/9, 3/10, 10/10; o 3º é 3/10.
+  function ehTerceiroSabado(iso){
+    if(!ehSabado(iso)) return false;
+    var b = mesBounds(mesDoFechamento(iso)), n = 0, cur = b.ini;
+    while(cur <= iso){ if(ehSabado(cur)) n++; cur = addDaysIso(cur, 1); }
+    return n === 3;
+  }
 
   function dadosGradeHoras(p, modo){
     var dias = modo === "sab" ? p.dias.filter(ehSabado) : p.dias;
@@ -3062,10 +3068,10 @@
   function renderGradeHoras(p, modo){
     var g = dadosGradeHoras(p, modo);
     var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":"") + (ehTerceiroSabado(iso)?" sab3":""); };
-    var tituloDia = function(iso){ return ehTerceiroSabado(iso) ? ' title="3º sábado do mês"' : (feriadoDoDia(iso) ? ' title="Feriado '+feriadoDoDia(iso)+'"' : ""); };
+    var tituloDia = function(iso){ return ehTerceiroSabado(iso) ? ' title="3º sábado do fechamento (16 a 15)"' : (feriadoDoDia(iso) ? ' title="Feriado '+feriadoDoDia(iso)+'"' : ""); };
     $("cargaKpisGrade").style.display = "none";
     var dica = modo === "sab"
-      ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado do mês fica em azul. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
+      ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado do fechamento (16 a 15) fica em azul. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
       : 'Horas extras de cada dia (h:mm), somando EX.70%, SAB 70%, SAB. 100% e EX NOT do ponto do Secullum. A coluna "Extras" soma o período e a última linha soma cada dia. Sábados trabalhados aparecem também aqui, nas horas de sábado.';
     if(!g.comHoras) dica += ' ⚠ Nenhum dia deste período tem horas guardadas ainda: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(g.comHoras < g.diasAteHoje) dica += ' (Horas disponíveis em '+g.comHoras+' de '+g.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
