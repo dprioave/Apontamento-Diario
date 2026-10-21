@@ -274,6 +274,10 @@
   table.grade.read-only td.dia-cell:hover{ outline:none; }
   table.grade td.dia-cell .code-tag{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:10.5px; }
   table.grade td.weekend{ background:rgba(255,255,255,.02); }
+  .tag-np{ display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; font-size:9px; font-weight:600; letter-spacing:.2px; background:rgba(150,150,170,.22); color:var(--text-faint); vertical-align:middle; }
+  table.grade tr.linha-np td.col-nome{ color:var(--text-faint); font-weight:400; }
+  table.grade td.np{ background:repeating-linear-gradient(135deg, rgba(150,150,170,.10) 0 4px, transparent 4px 8px); }
+  label.bp{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; }
   table.grade th.naoutil, table.grade td.naoutil{ background:rgba(140,150,170,.20); }
   table.grade th.naoutil{ color:var(--text-faint); }
   table.grade td.dia-cell.misto{ width:auto; min-width:34px; padding:2px 3px; height:34px; }
@@ -570,7 +574,7 @@
       <div class="search-box"><input type="text" id="buscaFuncionario" placeholder="Buscar funcionário..."></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Função</th><th>Admissão</th><th>Demissão</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Nome</th><th>Função</th><th>Admissão</th><th>Demissão</th><th>Status</th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto</th><th></th></tr></thead>
           <tbody id="cadastroTbody"></tbody>
         </table>
       </div>
@@ -972,7 +976,7 @@
     var diasUteis = horas.filter(function(h){ return h > 0; }).length;
     // Somado sobre TODOS os funcionários ativos: carga de cada um (a partir da admissão) e horas de
     // ausência de cada um no período.
-    var ativos = ativosList();
+    var ativos = ativosPonto();
     var cargaTotal = 0, ausTotal = 0;
     ativos.forEach(function(fid){
       cargaTotal += cargaFuncionario(fid, p.dias, horas);
@@ -1531,6 +1535,18 @@
   function ativosList(){
     return Object.keys(state.funcionarios).filter(function(id){ return !state.funcionarios[id].inativo; });
   }
+  // Quem NÃO bate ponto (estagiário, jovem aprendiz, mestre de obras, coordenador, supervisor, engenheiro
+  // trainee): vem da FUNÇÃO, mas o campo "Bate ponto" do Cadastro (batePonto true/false) prevalece quando
+  // o DP marca à mão. Essas pessoas ficam visíveis, mas fora das contas de ausência, carga, % e extras.
+  var NAO_BATE_PONTO_RE = /ESTAGI|APRENDIZ|MESTRE DE OBRA|COORDENAD|SUPERVIS|TRAINEE/;
+  function funcaoNaoBatePonto(funcao){ return NAO_BATE_PONTO_RE.test(stripAccents(String(funcao||"")).toUpperCase()); }
+  function batePonto(fid){
+    var f = state.funcionarios[fid];
+    if(!f) return true;
+    if(f.batePonto === true || f.batePonto === false) return f.batePonto;
+    return !funcaoNaoBatePonto(f.funcao);
+  }
+  function ativosPonto(){ return ativosList().filter(batePonto); }
 
   // ================= LOGIN =================
   // Guardado em sessionStorage (não localStorage) de propósito: assim que a aba/navegador é fechado,
@@ -1979,7 +1995,7 @@
     var readOnly = isReadOnly();
     $("importPontoPanel").style.display = readOnly ? "none" : "block";
     $("btnAddAusenciaManual").style.display = readOnly ? "none" : "inline-block";
-    var ativos = ativosList();
+    var ativos = ativosPonto();
     var ausentesIds = [];
     ativos.forEach(function(id){
       var a = getAusenciaDoDia(iso, id);
@@ -2059,7 +2075,7 @@
     if(!datas.length) return {lista:[], ate:null};
     var ate = datas[datas.length-1];
     var lista = [];
-    ativosList().forEach(function(fid){
+    ativosPonto().forEach(function(fid){
       var n = 0, iso = ate, inicio = null;
       while(state.dias[iso]){
         var a = getAusenciaDoDia(iso, fid);
@@ -2265,8 +2281,10 @@
 
     ativos.forEach(function(fid, idx){
       var r = headerRow+1+idx;
-      ws.getCell(r, FIRST_COL).value = funcName(fid);
+      var npx = !batePonto(fid);
+      ws.getCell(r, FIRST_COL).value = funcName(fid) + (npx ? " (não bate ponto)" : "");
       ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
+      if(npx){ styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1); return; }
       p.dias.forEach(function(iso, i){
         var a = getAusenciaDoDia(iso, fid);
         var hxx = horasDoFuncNoDia(iso, fid);
@@ -2427,7 +2445,7 @@
   function computeResumoMensal(){
     var p = periodo("Resumo");
     avisoPeriodo("Resumo", p);
-    var ativos = ativosList();
+    var ativos = ativosPonto();
     var totals = {}, totalsH = {}; CODES.forEach(function(c){ totals[c]=0; totalsH[c]=0; });
     var perFunc = {}, perFuncH = {};
     ativos.forEach(function(fid){
@@ -2465,7 +2483,7 @@
   async function exportDiarioJpg(){
     var iso = $("diaSelecionado").value || todayIso();
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
-    var ativos = ativosList();
+    var ativos = ativosPonto();
     var ausentes = ativos.map(function(id){ return {id:id, a:getAusenciaDoDia(iso,id), nome:funcName(id)}; })
       .filter(function(r){ return r.a && r.a.codigo; }).sort(function(x,y){ return x.nome.localeCompare(y.nome); });
     var presentes = ativos.length - ausentes.length;
@@ -2700,7 +2718,7 @@
   // trabalhava lá — importante ao importar dias anteriores).
   function desligamentosDe(pend, iso){
     var todosNomes = pend.todosNomes || [];
-    var ativosIds = ativosList();
+    var ativosIds = ativosPonto();
     if(!(todosNomes.length && todosNomes.length >= ativosIds.length*0.5)) return [];
     var presentes = {};
     var fonte = pend.pessoas && pend.pessoas.length ? pend.pessoas : todosNomes.map(function(n){ return {nome:n}; });
@@ -2725,12 +2743,13 @@
     var novo = {};
     pend.ausencias.forEach(function(a){
       var fid = matchFuncionario(a.nome, a.matricula, a.homonimo);
-      if(fid && !novo[fid]) novo[fid] = a.codigo;
+      if(fid && !novo[fid] && batePonto(fid)) novo[fid] = a.codigo;
     });
     var ids = {};
     Object.keys(doc.ausencias).concat(Object.keys(novo)).forEach(function(id){ ids[id] = 1; });
     var mudancas = [], manuais = [];
     Object.keys(ids).forEach(function(fid){
+      if(!batePonto(fid)) return;
       var o = doc.ausencias[fid] && doc.ausencias[fid].codigo ? doc.ausencias[fid] : null;
       var n = novo[fid] || null;
       if(o && o.origem==="manual"){
@@ -2792,7 +2811,7 @@
     }
     pend.ausencias.forEach(function(a){
       var fid = matchFuncionario(a.nome, a.matricula, a.homonimo);
-      if(fid && !ausencias[fid]){
+      if(fid && !ausencias[fid] && batePonto(fid)){
         ausencias[fid] = {codigo:a.codigo, origem:"import", atualizadoEm:new Date().toISOString(), atualizadoPor:state.email};
       }
     });
@@ -2808,7 +2827,7 @@
       (pend.pessoas || []).forEach(function(p){
         if(!p.horas || !(p.horas.t || p.horas.e)) return;
         var hfid = matchFuncionario(p.nome, p.matricula, p.homonimo);
-        if(hfid && !horas[hfid]) horas[hfid] = {t:p.horas.t, e:p.horas.e, s:p.horas.s};
+        if(hfid && !horas[hfid] && batePonto(hfid)) horas[hfid] = {t:p.horas.t, e:p.horas.e, s:p.horas.s};
       });
     } else if(existingDoc.horas){
       horas = existingDoc.horas;
@@ -3014,7 +3033,7 @@
 
   function dadosGradeHoras(p, modo){
     var dias = modo === "sab" ? p.dias.filter(ehSabado) : p.dias;
-    var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var ativos = ativosPonto().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var linhas = ativos.map(function(fid){
       var totMin = 0, qtd = 0;
       var cel = dias.map(function(iso){
@@ -3105,7 +3124,7 @@
     var kp = $("cargaKpisGrade");
     if(kp.firstElementChild) kp.firstElementChild.outerHTML = kpiCard("Dias úteis", nUteis, "") + kpiCard("Dias não úteis (domingos e feriados)", nNao, "");
     kp.insertAdjacentHTML("beforeend", kpiCard("Horas extras no período", fmtHM(totExt) || "0:00", ""));
-    var dicaG = textoRegraHoras(p) + ' Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
+    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto" e fica fora das contas; o Cadastro permite ajustar caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
     if(!gh.comHoras) dicaG += ' ⚠ Nenhum dia deste período tem horas extras guardadas: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(gh.comHoras < gh.diasAteHoje) dicaG += ' (Horas extras disponíveis em '+gh.comHoras+' de '+gh.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
     $("hintHorasGrade").textContent = dicaG;
@@ -3129,8 +3148,10 @@
 
     var tbody = "<tbody>";
     ativos.forEach(function(fid){
-      tbody += '<tr><td class="col-nome">'+escapeHtml(funcName(fid))+"</td>";
+      var np = !batePonto(fid);
+      tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+escapeHtml(funcName(fid))+(np?' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>':'')+"</td>";
       p.dias.forEach(function(iso2){
+        if(np){ tbody += '<td class="hcell np '+clsDia(iso2)+'"></td>'; return; }
         var a = getAusenciaDoDia(iso2, fid);
         var hx = horasDoFuncNoDia(iso2, fid);
         var cellCls = "dia-cell " + clsDia(iso2) + (hx && hx.e > 0 ? " misto" : "");
@@ -3142,6 +3163,7 @@
         if(hx && hx.e > 0) content += '<span class="hx" title="Horas extras do dia">'+fmtHM(hx.e)+'</span>';
         tbody += '<td class="'+cellCls+'" data-dia="'+iso2+'" data-func="'+fid+'">'+content+"</td>";
       });
+      if(np){ tbody += '<td class="col-total-cell"></td><td class="col-total-cell"></td><td class="col-total-cell"></td><td class="col-total-cell"></td></tr>'; return; }
       var tot = totaisAusenciaDias(fid, p.dias);
       var carga = cargaFuncionario(fid, p.dias, horasPorDia);
       var le = extPorFid[fid];
@@ -3215,7 +3237,7 @@
 
     var tbody = $("cadastroTbody");
     if(!ids.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Nenhum funcionário cadastrado.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhum funcionário cadastrado.</td></tr>';
       return;
     }
     tbody.innerHTML = ids.map(function(id){
@@ -3223,15 +3245,27 @@
       var statusHtml = f.inativo ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inativo</span>' : '<span class="pill pill-presente">Ativo</span>';
       var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>" +
         (f.inativo ? ' <button class="btn-ghost btn-sm" data-edit-dem="'+id+'" title="Editar a data de demissão">Data</button>' : "");
+      var bp = batePonto(id), auto = !(f.batePonto === true || f.batePonto === false);
+      var bateHtml = readOnly ? (bp ? "Sim" : "Não") :
+        '<label class="bp"><input type="checkbox" data-bate-ponto="'+id+'"'+(bp?' checked':'')+'> '+(bp?"Sim":"Não")+'</label>' +
+        (auto && !bp ? ' <span style="color:var(--text-faint);font-size:11px;" title="Definido automaticamente pela função">(pela função)</span>' : "");
       return "<tr>"+
         '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(funcName(id))+"</a></td>"+
         "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+(f.demissao ? fmtDateBR(f.demissao) : "—")+"</td>"+
         "<td>"+statusHtml+"</td>"+
+        "<td>"+bateHtml+"</td>"+
         "<td>"+acaoHtml+"</td>"+
       "</tr>";
     }).join("");
+    Array.prototype.forEach.call(tbody.querySelectorAll("[data-bate-ponto]"), function(el){
+      el.addEventListener("change", function(){
+        if(!state.db || isReadOnly()) return;
+        state.db.collection("obras/" + state.obraId + "/funcionarios").doc(el.getAttribute("data-bate-ponto")).update({batePonto: el.checked})
+          .catch(function(err){ alert("Erro: " + (err&&err.code||"erro")); });
+      });
+    });
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-toggle-inativo]"), function(el){
       el.addEventListener("click", function(){
         toggleInativo(el.getAttribute("data-toggle-inativo"));
@@ -3964,7 +3998,7 @@
     $("modalAusenciaTitulo").textContent = "Registrar ausência";
     $("modalAusenciaSub").textContent = fmtDateBR(iso);
     $("modalFuncSelectWrap").style.display = "block";
-    var ids = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var ids = ativosPonto().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     $("modalFuncSelect").innerHTML = ids.map(function(id){ return '<option value="'+id+'">'+escapeHtml(funcName(id))+'</option>'; }).join("");
     $("modalCodigo").value = "";
     $("modalAusencia").classList.add("show");
