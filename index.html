@@ -1560,9 +1560,11 @@
   // o DP marca à mão. Essas pessoas ficam visíveis, mas fora das contas de ausência, carga, % e extras.
   var NAO_BATE_PONTO_RE = /ESTAGI|APRENDIZ|MESTRE DE OBRA|COORDENAD|SUPERVIS|TRAINEE/;
   function funcaoNaoBatePonto(funcao){ return NAO_BATE_PONTO_RE.test(stripAccents(String(funcao||"")).toUpperCase()); }
+  function foraEscopo(fid){ var f = state.funcionarios[fid]; return !!(f && f.foraEscopo === true); }
   function batePonto(fid){
     var f = state.funcionarios[fid];
     if(!f) return true;
+    if(f.foraEscopo === true) return false;   // marcado pelo robô: fora dos departamentos acompanhados desta empresa
     if(f.batePonto === true || f.batePonto === false) return f.batePonto;
     return !funcaoNaoBatePonto(f.funcao);
   }
@@ -2403,7 +2405,7 @@
     ativos.forEach(function(fid, idx){
       var r = headerRow+1+idx;
       var npx = !batePonto(fid);
-      ws.getCell(r, FIRST_COL).value = funcName(fid) + (npx ? " (não bate ponto)" : "");
+      ws.getCell(r, FIRST_COL).value = funcName(fid) + (npx ? (foraEscopo(fid) ? " (fora do escopo)" : " (não bate ponto)") : "");
       ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
       if(npx){ styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1); return; }
       p.dias.forEach(function(iso, i){
@@ -3262,7 +3264,7 @@
     var kp = $("cargaKpisGrade");
     if(kp.firstElementChild) kp.firstElementChild.outerHTML = kpiCard("Dias úteis", nUteis, "") + kpiCard("Dias não úteis (domingos e feriados)", nNao, "");
     kp.insertAdjacentHTML("beforeend", kpiCard("Horas extras no período", fmtHM(totExt) || "0:00", ""));
-    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto" e fica fora das contas; o Cadastro permite ajustar caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
+    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto", e quem é de departamento não acompanhado (Subholding, Investimentos e Equipamentos) com a marca "fora do escopo"; os dois ficam fora das contas. O Cadastro permite ajustar o primeiro caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
     if(!gh.comHoras) dicaG += ' ⚠ Nenhum dia deste período tem horas extras guardadas: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(gh.comHoras < gh.diasAteHoje) dicaG += ' (Horas extras disponíveis em '+gh.comHoras+' de '+gh.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
     $("hintHorasGrade").textContent = dicaG;
@@ -3287,7 +3289,8 @@
     var tbody = "<tbody>";
     ativos.forEach(function(fid){
       var np = !batePonto(fid);
-      tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+escapeHtml(funcName(fid))+(np?' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>':'')+"</td>";
+      var fe = np && foraEscopo(fid);
+      tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+escapeHtml(funcName(fid))+(np ? (fe ? ' <span class="tag-np" title="Fora dos departamentos acompanhados nesta empresa: fora das contas de ausência, carga, % e horas extras">fora do escopo</span>' : ' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>') : '')+"</td>";
       p.dias.forEach(function(iso2){
         if(np){ tbody += '<td class="hcell np '+clsDia(iso2)+'"></td>'; return; }
         var a = getAusenciaDoDia(iso2, fid);
@@ -3384,7 +3387,8 @@
       var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>" +
         (f.inativo ? ' <button class="btn-ghost btn-sm" data-edit-dem="'+id+'" title="Editar a data de demissão">Data</button>' : "");
       var bp = batePonto(id), auto = !(f.batePonto === true || f.batePonto === false);
-      var bateHtml = readOnly ? (bp ? "Sim" : "Não") :
+      var feCad = foraEscopo(id);
+      var bateHtml = feCad ? '<span style="color:var(--text-faint);" title="O robô marca como fora do escopo quem não está nos departamentos acompanhados desta empresa">Não · fora do escopo</span>' : readOnly ? (bp ? "Sim" : "Não") :
         '<label class="bp"><input type="checkbox" data-bate-ponto="'+id+'"'+(bp?' checked':'')+'> '+(bp?"Sim":"Não")+'</label>' +
         (auto && !bp ? ' <span style="color:var(--text-faint);font-size:11px;" title="Definido automaticamente pela função">(pela função)</span>' : "");
       return "<tr>"+
