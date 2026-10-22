@@ -3309,12 +3309,21 @@
     // Horas extras de cada pessoa/dia (mesma fonte da visão de sábados) e dias úteis x não úteis
     var gh = dadosGradeHoras(p, "ext"), extPorFid = {};
     gh.linhas.forEach(function(l){ extPorFid[l.fid] = l; });
-    var nNao = p.dias.filter(ehNaoUtil).length, nUteis = p.dias.length - nNao;
+    // Dias úteis x não úteis: no MÊS CIVIL do fechamento (ex.: outubro = 01 a 31/10, mesmo que o fechamento seja
+    // 16/09 a 15/10). Em período livre (De/Até fora do fechamento) vale o próprio período.
+    var diasUteis = p.dias, rotUteis = "";
+    if(p.ehMes){
+      var ymF = p.fim.slice(0,7), ndMes = daysInMonth(ymF);
+      diasUteis = [];
+      for(var kd = 1; kd <= ndMes; kd++) diasUteis.push(ymF + "-" + String(kd).padStart(2,"0"));
+      rotUteis = " · 01 a " + ndMes + "/" + ymF.slice(5,7);
+    }
+    var nNao = diasUteis.filter(ehNaoUtil).length, nUteis = diasUteis.length - nNao;
     var totExt = gh.linhas.reduce(function(a, l){ return a + l.totMin; }, 0);
     var kp = $("cargaKpisGrade");
-    if(kp.firstElementChild) kp.firstElementChild.outerHTML = kpiCard("Dias úteis", nUteis, "") + kpiCard("Dias não úteis (domingos e feriados)", nNao, "");
+    if(kp.firstElementChild) kp.firstElementChild.outerHTML = kpiCard("Dias úteis" + rotUteis, nUteis, "") + kpiCard("Dias não úteis" + rotUteis + " (domingos e feriados)", nNao, "");
     kp.insertAdjacentHTML("beforeend", kpiCard("Horas extras no período", fmtHM(totExt) || "0:00", ""));
-    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto", e quem é de departamento não acompanhado (Subholding, Investimentos e Equipamentos) com a marca "fora do escopo"; os dois ficam fora das contas. O Cadastro permite ajustar o primeiro caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
+    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto", e quem é de departamento não acompanhado (Subholding, Investimentos e Equipamentos) com a marca "fora do escopo"; os dois ficam fora das contas. O Cadastro permite ajustar o primeiro caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. Os cartões de dias úteis e não úteis contam o mês civil (ex.: outubro = 01 a 31/10), enquanto o período mostrado segue o fechamento (16 a 15). As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
     if(!gh.comHoras) dicaG += ' ⚠ Nenhum dia deste período tem horas extras guardadas: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(gh.comHoras < gh.diasAteHoje) dicaG += ' (Horas extras disponíveis em '+gh.comHoras+' de '+gh.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
     $("hintHorasGrade").textContent = dicaG;
