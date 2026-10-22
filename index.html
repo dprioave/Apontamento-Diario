@@ -274,6 +274,12 @@
   table.grade.read-only td.dia-cell:hover{ outline:none; }
   table.grade td.dia-cell .code-tag{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:10.5px; }
   table.grade td.weekend{ background:rgba(255,255,255,.02); }
+  .sync-linha{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; margin:2px 0; }
+  .sync-pill{ display:inline-block; padding:1px 8px; border-radius:9px; font-size:11px; font-weight:600; }
+  .sync-ok{ background:rgba(95,191,143,.18); color:#5fbf8f; }
+  .sync-warn{ background:rgba(224,174,95,.2); color:#e0ae5f; }
+  .sync-bad{ background:rgba(224,95,95,.18); color:#e05f5f; }
+  .sync-info{ background:rgba(111,179,255,.18); color:#6fb3ff; }
   .tag-np{ display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; font-size:9px; font-weight:600; letter-spacing:.2px; background:rgba(150,150,170,.22); color:var(--text-faint); vertical-align:middle; }
   table.grade tr.linha-np td.col-nome{ color:var(--text-faint); font-weight:400; }
   table.grade td.np{ background:repeating-linear-gradient(135deg, rgba(150,150,170,.10) 0 4px, transparent 4px 8px); }
@@ -439,6 +445,15 @@
 
     <!-- ---- TAB: DIÁRIO ---- -->
     <div class="tabpane active" id="tab-diario">
+      <div class="panel" id="syncPanel">
+        <p class="panel-title">Sincronização com o Secullum</p>
+        <div id="syncStatus"></div>
+        <div id="syncAcoes" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+          <button class="btn-ghost" id="btnSyncDia">⟳ Sincronizar este dia</button>
+          <button class="btn-ghost" id="btnSyncFechamento">⟳ Sincronizar o fechamento</button>
+        </div>
+        <p class="panel-hint" id="syncHint" style="margin:10px 0 0;"></p>
+      </div>
       <div class="panel" id="importPontoPanel">
         <p class="panel-title">Importar ponto do dia</p>
         <p class="panel-hint">Envie o relatório "Ponto Diário" do Secullum (.xlsx ou .pdf). Para atualizar dias anteriores, envie um arquivo com o período (relatório por período ou Cartão Ponto em PDF) ou selecione vários arquivos de uma vez. Os arquivos são lidos inteiramente no seu navegador.</p>
@@ -1770,7 +1785,17 @@
 
   function startBoot(){
     renderObrasGrid();
-    state.dbReady.then(function(db){ subscribeObras(db); });
+    state.dbReady.then(function(db){
+      subscribeObras(db);
+      try{
+        db.collection("sync_secullum").onSnapshot(function(snap){
+          var out = {};
+          snap.docs.forEach(function(d){ out[d.id] = d.data(); });
+          state.sync = out;
+          renderSync();
+        }, function(){});
+      }catch(e){}
+    });
   }
   function showDbBanner(msg){
     var b = $("dbBanner"); b.hidden=false; b.textContent = msg;
@@ -1979,6 +2004,7 @@
   function renderAll(){
     if(!state.obraId) return;
     renderDiario();
+    renderSync();
     renderGrade();
     renderMensal();
     renderCadastro();
@@ -1989,6 +2015,81 @@
     var d = state.dias[iso];
     if(!d || !d.ausencias) return null;
     return d.ausencias[funcId] || null;
+  }
+
+  // ---------- Sincronização com o Secullum (robô) ----------
+  // O robô do PC grava em sync_secullum/<obra> o resultado da última rodada ("ultimaSync") e atende o pedido
+  // feito aqui ("pedido": pendente → andamento → concluido/erro). A página nunca fala com o Secullum.
+  function fmtDataHora(iso){
+    if(!iso) return "—";
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return "—";
+    return d.toLocaleString("pt-BR", {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+  }
+  function syncDocAtual(){ return (state.sync && state.sync[state.obraId]) || {}; }
+  function syncPedidoAtivo(ped){
+    if(!ped || (ped.status !== "pendente" && ped.status !== "andamento")) return false;
+    var t = new Date(ped.pedidoEm || 0).getTime();
+    return !isNaN(t) && (Date.now() - t) < 3*3600*1000;   // depois de 3h considera abandonado
+  }
+  function renderSync(){
+    var box = $("syncPanel"); if(!box) return;
+    if(!state.obraId){ box.style.display = "none"; return; }
+    box.style.display = "block";
+    var doc = syncDocAtual(), u = doc.ultimaSync || null, ped = doc.pedido || null;
+    var hoje = todayIso(), b = mesBounds(mesDoFechamento(hoje));
+    var html = "";
+    if(u){
+      var cls = u.resultado === "ok" ? "sync-ok" : (u.resultado === "parcial" ? "sync-warn" : "sync-bad");
+      var rot = u.resultado === "ok" ? "completa" : (u.resultado === "parcial" ? "parcial" : "com erro");
+      var idade = (Date.now() - new Date(u.em).getTime()) / 3600000;
+      html += '<div class="sync-linha"><b>Última sincronização automática:</b> '+fmtDataHora(u.em)+
+        ' <span class="sync-pill '+cls+'">'+rot+'</span> '+
+        '<span style="color:var(--text-faint)">dias '+fmtDateBR(u.de).slice(0,5)+' a '+fmtDateBR(u.ate).slice(0,5)+' · '+(u.diasOk||0)+' de '+(u.diasTotal||0)+' importados'+(u.msg ? " · "+escapeHtml(u.msg) : "")+'</span></div>';
+      if(idade > 30) html += '<div class="sync-linha"><span class="sync-pill sync-warn">sem sincronizar há '+Math.floor(idade)+' h</span> <span style="color:var(--text-faint)">o robô deveria rodar todo dia de manhã — confira se o PC dele está ligado.</span></div>';
+    } else {
+      html += '<div class="sync-linha"><span class="sync-pill sync-info">sem registro</span> <span style="color:var(--text-faint)">o robô ainda não registrou uma sincronização para esta obra.</span></div>';
+    }
+    // dias do fechamento (até hoje) sem importação
+    var faltando = [], cur = b.ini;
+    while(cur <= hoje && cur <= b.fim){ if(!state.dias[cur]) faltando.push(cur); cur = addDaysIso(cur, 1); }
+    if(faltando.length){
+      html += '<div class="sync-linha"><span class="sync-pill sync-warn">'+faltando.length+' dia(s) sem importação</span> <span style="color:var(--text-faint)">no fechamento atual: '+
+        faltando.slice(0,8).map(function(i){ return fmtDateBR(i).slice(0,5); }).join(", ")+(faltando.length > 8 ? "…" : "")+'</span></div>';
+    }
+    if(ped && ped.status){
+      var pc = ped.status === "concluido" ? "sync-ok" : (ped.status === "erro" ? "sync-bad" : "sync-info");
+      var pr = {pendente:"pedido enviado", andamento:"sincronizando", concluido:"concluído", erro:"erro"}[ped.status] || ped.status;
+      var abandonado = (ped.status === "pendente" || ped.status === "andamento") && !syncPedidoAtivo(ped);
+      html += '<div class="sync-linha"><b>Pedido:</b> <span class="sync-pill '+(abandonado ? "sync-warn" : pc)+'">'+(abandonado ? "sem resposta" : pr)+'</span> '+
+        '<span style="color:var(--text-faint)">'+(ped.tipo === "dia" ? "dia "+fmtDateBR(ped.dia) : "fechamento")+' · pedido às '+fmtDataHora(ped.pedidoEm)+(ped.pedidoPor ? " por "+escapeHtml(ped.pedidoPor) : "")+
+        (ped.concluidoEm ? " · terminou às "+fmtDataHora(ped.concluidoEm) : "")+(ped.msg ? " · "+escapeHtml(ped.msg) : "")+'</span></div>';
+    }
+    $("syncStatus").innerHTML = html;
+    var ro = isReadOnly(), ativo = syncPedidoAtivo(ped);
+    $("syncAcoes").style.display = ro ? "none" : "flex";
+    $("btnSyncDia").disabled = ativo; $("btnSyncFechamento").disabled = ativo;
+    $("btnSyncDia").textContent = "⟳ Sincronizar este dia (" + fmtDateBR($("diaSelecionado").value || todayIso()).slice(0,5) + ")";
+    $("btnSyncFechamento").textContent = "⟳ Sincronizar o fechamento (" + fmtDateBR(b.ini).slice(0,5) + " a hoje)";
+    $("syncHint").textContent = ro ? "" : "O robô do PC da DP atende o pedido em até uns 5 minutos e a tela se atualiza sozinha. Ele reimporta o ponto do Secullum; lançamentos manuais são mantidos.";
+  }
+  function pedirSync(tipo){
+    if(!state.db || isReadOnly() || !state.obraId) return;
+    var dia = $("diaSelecionado").value || todayIso();
+    if(tipo === "dia" && dia > todayIso()){
+      $("syncHint").textContent = "Escolha um dia que já aconteceu (hoje ou antes) para sincronizar.";
+      return;
+    }
+    var obra = state.obras[state.obraId] || {};
+    var pedido = {status:"pendente", tipo:tipo, dia:dia, pedidoPor:state.email, pedidoEm:new Date().toISOString(),
+                  msg:"Pedido enviado. O robô atende em até uns 5 minutos."};
+    var ref = state.db.collection("sync_secullum").doc(state.obraId);
+    ref.get().then(function(d){
+      var campos = {obraId:state.obraId, obraNome:obra.nome || state.obraId, pedido:pedido};
+      return d && d.exists ? ref.update(campos) : ref.set(campos);
+    }).catch(function(err){
+      $("syncHint").textContent = "Não consegui enviar o pedido (" + (err && err.code || "erro") + ").";
+    });
   }
 
   function renderDiario(){
@@ -4373,6 +4474,8 @@
   $("btnMenu").addEventListener("click", function(){ document.body.classList.toggle("menu-open"); });
   $("sideBackdrop").addEventListener("click", function(){ document.body.classList.remove("menu-open"); });
   $("diaSelecionado").addEventListener("change", renderAll);
+  $("btnSyncDia").addEventListener("click", function(){ pedirSync("dia"); });
+  $("btnSyncFechamento").addEventListener("click", function(){ pedirSync("fechamento"); });
   $("mesGrade").addEventListener("change", function(){ aplicarMes("Grade"); renderGrade(); });
   $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
   $("modoResumo").addEventListener("change", renderMensal);
