@@ -280,6 +280,21 @@
   .sync-warn{ background:rgba(224,174,95,.2); color:#e0ae5f; }
   .sync-bad{ background:rgba(224,95,95,.18); color:#e05f5f; }
   .sync-info{ background:rgba(111,179,255,.18); color:#6fb3ff; }
+  .painel-duplo{ display:grid; grid-template-columns:repeat(auto-fit,minmax(370px,1fr)); gap:14px; margin-bottom:18px; align-items:start; }
+  .painel-duplo .panel{ margin-bottom:0; padding:14px 16px; }
+  .painel-duplo .panel-hint{ margin:0 0 10px; font-size:12px; }
+  .painel-duplo .dropzone{ padding:12px; margin-bottom:8px; }
+  .painel-duplo .panel:has(.import-preview[style*="block"]){ grid-column:1 / -1; }
+  .sync-linha-acoes{ display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .sync-linha-acoes .field{ margin:0; }
+  .sync-linha-acoes .field label{ font-size:10px; margin-bottom:2px; }
+  .sync-linha-acoes input[type=date]{ width:128px; padding:5px 7px; font-size:12px; }
+  .sync-linha-acoes .btn-sm{ padding:7px 10px; }
+  .sync-sep{ width:1px; align-self:stretch; background:var(--border); margin:0 2px; }
+  .func-sub{ display:block; font-size:10.5px; font-weight:400; color:var(--text-faint); line-height:1.25; margin-top:1px; }
+  table.grade td.col-nome{ min-width:210px; }
+  table.grade.modo-sab thead th:not(.col-nome):not(.col-total), table.grade.modo-sab td.hcell, table.grade.modo-sab td.dia-cell{ width:104px; min-width:104px; max-width:104px; }
+  table.grade.modo-sab thead th.col-total, table.grade.modo-sab td.col-total-cell{ width:84px; min-width:84px; }
   .tag-np{ display:inline-block; margin-left:6px; padding:1px 6px; border-radius:8px; font-size:9px; font-weight:600; letter-spacing:.2px; background:rgba(150,150,170,.22); color:var(--text-faint); vertical-align:middle; }
   table.grade tr.linha-np td.col-nome{ color:var(--text-faint); font-weight:400; }
   table.grade td.np{ background:repeating-linear-gradient(135deg, rgba(150,150,170,.10) 0 4px, transparent 4px 8px); }
@@ -445,29 +460,32 @@
 
     <!-- ---- TAB: DIÁRIO ---- -->
     <div class="tabpane active" id="tab-diario">
+      <div class="painel-duplo">
       <div class="panel" id="syncPanel">
         <p class="panel-title">Sincronização com o Secullum</p>
         <div id="syncStatus"></div>
         <div id="syncAcoes" style="margin-top:10px;">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-            <button class="btn-ghost" id="btnSyncHoje">⟳ Sincronizar hoje</button>
-            <div class="field" style="margin:0;"><label for="syncDe">Período — de</label><input type="date" id="syncDe"></div>
-            <div class="field" style="margin:0;"><label for="syncAte">até</label><input type="date" id="syncAte"></div>
-            <button class="btn-ghost" id="btnSyncPeriodo">⟳ Sincronizar período</button>
+          <div class="sync-linha-acoes">
+            <button class="btn-ghost btn-sm" id="btnSyncHoje">⟳ Sincronizar hoje</button>
+            <span class="sync-sep"></span>
+            <div class="field"><label for="syncDe">De</label><input type="date" id="syncDe"></div>
+            <div class="field"><label for="syncAte">Até</label><input type="date" id="syncAte"></div>
+            <button class="btn-ghost btn-sm" id="btnSyncPeriodo">⟳ Sincronizar período</button>
           </div>
         </div>
         <p class="panel-hint" id="syncHint" style="margin:10px 0 0;"></p>
       </div>
       <div class="panel" id="importPontoPanel">
         <p class="panel-title">Importar ponto do dia</p>
-        <p class="panel-hint">Envie o relatório "Ponto Diário" do Secullum (.xlsx ou .pdf). Para atualizar dias anteriores, envie um arquivo com o período (relatório por período ou Cartão Ponto em PDF) ou selecione vários arquivos de uma vez. Os arquivos são lidos inteiramente no seu navegador.</p>
+        <p class="panel-hint">Envie o relatório "Ponto Diário" do Secullum (.xlsx ou .pdf), de um dia ou de um período. Lido inteiramente no seu navegador.</p>
         <div class="dropzone" id="dzImport">
           <input type="file" id="fileImport" accept=".xls,.xlsx,.pdf" multiple>
           <div class="dropzone-label">📋 Ponto Diário (Secullum)</div>
-          <div class="dropzone-sub">.xlsx (recomendado) ou .pdf — arraste ou clique · aceita relatório de vários dias, Cartão Ponto ou vários arquivos</div>
+          <div class="dropzone-sub">.xlsx (recomendado) ou .pdf — arraste ou clique · vários dias, Cartão Ponto ou vários arquivos</div>
         </div>
         <div class="status-msg" id="importStatus"></div>
         <div class="import-preview" id="importPreview" style="display:none;"></div>
+      </div>
       </div>
 
       <div class="field-row">
@@ -1559,7 +1577,30 @@
   // trainee): vem da FUNÇÃO, mas o campo "Bate ponto" do Cadastro (batePonto true/false) prevalece quando
   // o DP marca à mão. Essas pessoas ficam visíveis, mas fora das contas de ausência, carga, % e extras.
   var NAO_BATE_PONTO_RE = /ESTAGI|APRENDIZ|MESTRE DE OBRA|COORDENAD|SUPERVIS|TRAINEE/;
+  // Escrita padronizada da função: só a 1ª letra de cada palavra em maiúscula e preposições em minúscula
+  // (exceto a 1ª palavra). Siglas conhecidas (TI, DP, PDV, SDR, QSMS, ESG…) e numerais romanos ficam em maiúsculas.
+  var FUNC_PREP = {"de":1,"da":1,"do":1,"das":1,"dos":1,"e":1,"em":1,"a":1,"o":1,"para":1,"com":1,"na":1,"no":1,"nas":1,"nos":1,"ao":1,"por":1,"à":1};
+  var FUNC_SIGLAS = {"TI":1,"DP":1,"PDV":1,"SDR":1,"QSMS":1,"ESG":1,"RH":1,"CLT":1,"EPI":1,"CIPA":1,"SESMT":1,"SST":1,"CRM":1};
+  var FUNC_ROMANOS = {"I":1,"II":1,"III":1,"IV":1,"V":1,"VI":1,"VII":1,"VIII":1,"IX":1,"X":1};
+  function fmtFuncao(f){
+    if(!f) return "";
+    return String(f).trim().replace(/\s+/g," ").split(" ").map(function(w, i){
+      var m = w.match(/^([^A-Za-zÀ-ÿ0-9]*)(.*?)([^A-Za-zÀ-ÿ0-9]*)$/), pre = m[1], core = m[2], pos = m[3];
+      if(!core) return w;
+      var up = core.toUpperCase();
+      if(FUNC_SIGLAS[up]) return pre + up + pos;
+      if(FUNC_ROMANOS[up] && core === up) return pre + up + pos;
+      var low = core.toLowerCase();
+      if(i > 0 && FUNC_PREP[low]) return pre + low + pos;
+      return pre + low.charAt(0).toUpperCase() + low.slice(1) + pos;
+    }).join(" ");
+  }
   function funcaoNaoBatePonto(funcao){ return NAO_BATE_PONTO_RE.test(stripAccents(String(funcao||"")).toUpperCase()); }
+  // Célula do nome na Grade: nome + função (padronizada) numa 2ª linha pequena, com a marca opcional ao lado
+  function celNome(fid, marca){
+    var f = state.funcionarios[fid] || {};
+    return escapeHtml(funcName(fid)) + '<span class="func-sub">' + escapeHtml(fmtFuncao(f.funcao) || "—") + (marca || "") + "</span>";
+  }
   function foraEscopo(fid){ var f = state.funcionarios[fid]; return !!(f && f.foraEscopo === true); }
   function batePonto(fid){
     var f = state.funcionarios[fid];
@@ -2075,10 +2116,11 @@
     var ro = isReadOnly(), ativo = syncPedidoAtivo(ped);
     $("syncAcoes").style.display = ro ? "none" : "block";
     $("btnSyncHoje").disabled = ativo; $("btnSyncPeriodo").disabled = ativo;
-    $("btnSyncHoje").textContent = "⟳ Sincronizar hoje (" + fmtDateBR(hoje) + ")";
-    $("btnSyncPeriodo").textContent = "⟳ Sincronizar período" + (($("syncDe").value && $("syncAte").value) ? " (" + fmtDateBR($("syncDe").value) + " a " + fmtDateBR($("syncAte").value) + ")" : "");
+    $("btnSyncHoje").textContent = "⟳ Sincronizar hoje";
+    $("btnSyncHoje").title = "Pede ao robô o dia de hoje (" + fmtDateBR(hoje) + ")";
+    $("btnSyncPeriodo").textContent = "⟳ Sincronizar período";
     // sugestão inicial: o fechamento em andamento (16 até hoje); depois respeita o que a pessoa digitar
-    if(!$("syncDe").value && !$("syncAte").value){ $("syncDe").value = b.ini; $("syncAte").value = hoje; $("btnSyncPeriodo").textContent = "⟳ Sincronizar período (" + fmtDateBR(b.ini) + " a " + fmtDateBR(hoje) + ")"; }
+    if(!$("syncDe").value && !$("syncAte").value){ $("syncDe").value = b.ini; $("syncAte").value = hoje; }
     $("syncHint").textContent = ro ? "" : "O robô do PC da DP atende o pedido em até uns 5 minutos e a tela se atualiza sozinha. Ele reimporta o ponto do Secullum; lançamentos manuais são mantidos.";
   }
   function pedirSync(tipo){
@@ -2145,7 +2187,7 @@
         var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-edit-func="'+r.id+'">Editar</button>';
         return "<tr>"+
           '<td class="nome">'+escapeHtml(r.nome)+"</td>"+
-          "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
+          "<td>"+escapeHtml(fmtFuncao(f.funcao)||"—")+"</td>"+
           "<td>"+codeHtml+"</td>"+
           "<td>"+origemHtml+"</td>"+
           "<td>"+acaoHtml+"</td>"+
@@ -2315,24 +2357,26 @@
     var colT1 = FIRST_COL + 2 + nDias, colT2 = colT1 + 1, colT3 = colT1 + 2;
     var titulo = (modo === "sab" ? "SÁBADOS TRABALHADOS — " : "HORAS EXTRAS DIÁRIAS — ") + obraNome;
     var headerRow = buildExportHeader(ws, titulo, (p.ehMes?"Competência — ":"Período: ")+p.label+" · Gerado em "+periodoLabel(),
-      modo === "sab" ? "Só os sábados do período; o 3º sábado trabalhado por cada pessoa dentro do fechamento (16 a 15) está em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
+      modo === "sab" ? "Só os sábados do período; o 3º sábado trabalhado por cada pessoa dentro do fechamento (16 a 15), e os seguintes, estão em azul. Horas = trabalhadas no sábado." : "Horas extras = EX.70% + SAB 70% + SAB. 100% + EX NOT do ponto do Secullum (h:mm).", lastCol);
     ws.getColumn(1).width = 1.8;
     ws.getColumn(FIRST_COL).width = 30;
     g.dias.forEach(function(iso, i){ ws.getColumn(FIRST_COL+2+i).width = modo === "sab" ? 9 : 6.5; });
     ws.getColumn(colT1).width = 9; ws.getColumn(colT2).width = 9;
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
+    ws.getCell(headerRow, FIRST_COL+1).value = "Função"; ws.getColumn(FIRST_COL+1).width = 26;
     g.dias.forEach(function(iso, i){
       ws.getCell(headerRow, FIRST_COL+2+i).value = p.multiMes || modo === "sab" ? rotuloDia(iso, true) : +iso.slice(8);
     });
     ws.getCell(headerRow, colT1).value = modo === "sab" ? "Sáb." : "Extras";
     ws.getCell(headerRow, colT2).value = modo === "sab" ? "Horas" : "Dias";
-    if(modo === "sab"){ ws.getColumn(colT3).width = 14; ws.getCell(headerRow, colT3).value = "3º sáb."; }
+    if(modo === "sab"){ ws.getColumn(colT3).width = 22; ws.getCell(headerRow, colT3).value = "3º em diante"; }
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
     var FMT = "[h]:mm";
     g.linhas.forEach(function(l, idx){
       var r = headerRow + 1 + idx;
       ws.getCell(r, FIRST_COL).value = funcName(l.fid);
       ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
+      ws.getCell(r, FIRST_COL+1).value = fmtFuncao((state.funcionarios[l.fid]||{}).funcao); ws.getCell(r, FIRST_COL+1).alignment = {horizontal:"left"};
       l.cel.forEach(function(min, i){
         var c = ws.getCell(r, FIRST_COL+2+i);
         if(min){ c.value = min/1440; c.numFmt = FMT; }
@@ -2340,7 +2384,7 @@
       });
       var a = ws.getCell(r, colT1), b = ws.getCell(r, colT2);
       if(modo === "sab"){
-        var d3 = g.dias.filter(function(iso, i){ return l.terc[i]; }).map(function(iso){ return iso.slice(8)+"/"+iso.slice(5,7); }).join(", ");
+        var d3 = g.dias.map(function(iso, i){ return l.terc[i] ? iso.slice(8)+"/"+iso.slice(5,7)+" ("+l.ord[i]+"º)" : ""; }).filter(Boolean).join(", ");
         ws.getCell(r, colT3).value = d3; ws.getCell(r, colT3).alignment = {horizontal:"center"};
       }
       if(modo === "sab"){ a.value = l.qtd || ""; if(l.totMin){ b.value = l.totMin/1440; b.numFmt = FMT; } }
@@ -2393,6 +2437,7 @@
     ws.getColumn(colExt).width = 9;
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
+    ws.getCell(headerRow, FIRST_COL+1).value = "Função"; ws.getColumn(FIRST_COL+1).width = 26;
     p.dias.forEach(function(iso, i){
       ws.getCell(headerRow, FIRST_COL+2+i).value = p.multiMes ? rotuloDia(iso, true) : +iso.slice(8);
     });
@@ -2407,6 +2452,7 @@
       var npx = !batePonto(fid);
       ws.getCell(r, FIRST_COL).value = funcName(fid) + (npx ? (foraEscopo(fid) ? " (fora do escopo)" : " (não bate ponto)") : "");
       ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
+      ws.getCell(r, FIRST_COL+1).value = fmtFuncao((state.funcionarios[fid]||{}).funcao); ws.getCell(r, FIRST_COL+1).alignment = {horizontal:"left"};
       if(npx){ styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1); return; }
       p.dias.forEach(function(iso, i){
         var a = getAusenciaDoDia(iso, fid);
@@ -2598,7 +2644,7 @@
       var somaH = CODES.reduce(function(s,c){ return s+th[c]; },0);
       var carga = cargaFuncionario(fid, p.dias, horasPorDia);
       cargaGeral += carga;
-      return {fid:fid, nome:funcName(fid), funcao:f.funcao||"—", t:t, h:th, soma:soma, somaH:somaH, carga:carga};
+      return {fid:fid, nome:funcName(fid), funcao:fmtFuncao(f.funcao)||"—", t:t, h:th, soma:soma, somaH:somaH, carga:carga};
     }).filter(function(r){ return r.soma>0; }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
     return {ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, totalsH:totalsH, rows:rows, somaTotal:somaTotal, somaTotalH:somaTotalH, cargaGeral:cargaGeral, periodo:p};
   }
@@ -2631,7 +2677,7 @@
       var bg = idx%2===1 ? "#F6F7F7" : "#FFFFFF";
       return '<tr style="background:'+bg+';">'+
         '<td style="padding:9px 12px;font-size:12.5px;color:#2A2A2A;border-bottom:1px solid #E1E4E6;">'+escapeHtml(r.nome)+'</td>'+
-        '<td style="padding:9px 12px;font-size:12.5px;color:#2A2A2A;border-bottom:1px solid #E1E4E6;">'+escapeHtml(f.funcao||"—")+'</td>'+
+        '<td style="padding:9px 12px;font-size:12.5px;color:#2A2A2A;border-bottom:1px solid #E1E4E6;">'+escapeHtml(fmtFuncao(f.funcao)||"—")+'</td>'+
         '<td style="padding:9px 12px;font-size:12px;font-weight:700;color:#16232E;border-bottom:1px solid #E1E4E6;">'+r.a.codigo+" — "+meta.label+'</td>'+
       "</tr>";
     }).join("") : '<tr><td colspan="3" style="padding:20px;text-align:center;color:#6B7378;font-size:12.5px;">Nenhuma ausência registrada.</td></tr>';
@@ -2817,7 +2863,7 @@
         deslig.length+' funcionário(s) ativo(s) no cadastro que não aparecem neste relatório (nem presente, nem ausente) — possível desligamento não registrado: '+
         deslig.map(function(fid){
           var f = state.funcionarios[fid] || {};
-          return escapeHtml(funcName(fid)) + (f.funcao ? " ("+escapeHtml(f.funcao)+")" : "");
+          return escapeHtml(funcName(fid)) + (f.funcao ? " ("+escapeHtml(fmtFuncao(f.funcao))+")" : "");
         }).join(", ")+
         '. Confira na aba Diário depois de salvar.</div>';
     }
@@ -3151,17 +3197,17 @@
   function ehSabado(iso){ return new Date(iso+"T00:00:00").getDay() === 6; }
   // Dia NÃO útil = domingo ou feriado (nacional, estadual, municipal da obra, convenção). Sábado é dia útil.
   function ehNaoUtil(iso){ return new Date(iso+"T00:00:00").getDay() === 0 || !!feriadoDoDia(iso); }
-  // 3º sábado TRABALHADO de cada funcionário dentro do fechamento (16 a 15) em que o sábado cai: conta, desde
-  // o dia 16, os sábados em que a pessoa teve horas trabalhadas; o 3º deles (e só ele) é marcado.
-  function terceiroSabadoTrabalhado(fid, iso){
+  // Ordem do sábado trabalhado por funcionário dentro do fechamento (16 a 15): 1º, 2º, 3º, 4º… (0 = não trabalhou).
+  // O 3º sábado e os seguintes (4º, 5º…) recebem a mesma sinalização.
+  function ordemSabadoTrabalhado(fid, iso){
     var h0 = horasDoFuncNoDia(iso, fid);
-    if(!(ehSabado(iso) && h0 && h0.t > 0)) return false;
+    if(!(ehSabado(iso) && h0 && h0.t > 0)) return 0;
     var b = mesBounds(mesDoFechamento(iso)), n = 0, cur = b.ini;
     while(cur <= iso){
       if(ehSabado(cur)){ var h = horasDoFuncNoDia(cur, fid); if(h && h.t > 0) n++; }
       cur = addDaysIso(cur, 1);
     }
-    return n === 3;
+    return n;
   }
 
   function dadosGradeHoras(p, modo){
@@ -3178,8 +3224,9 @@
         if(h && h.e > 0){ totMin += h.e; qtd++; return h.e; }
         return 0;
       });
-      var terc = modo === "sab" ? cel.map(function(m, i){ return !!m && terceiroSabadoTrabalhado(fid, dias[i]); }) : [];
-      return {fid:fid, cel:cel, totMin:totMin, qtd:qtd, terc:terc};
+      var ord = modo === "sab" ? cel.map(function(m, i){ return m ? ordemSabadoTrabalhado(fid, dias[i]) : 0; }) : [];
+      var terc = ord.map(function(n){ return n >= 3; });
+      return {fid:fid, cel:cel, totMin:totMin, qtd:qtd, terc:terc, ord:ord};
     });
     var totDia = dias.map(function(iso, i){
       var soma = 0, pess = 0, t3 = 0;
@@ -3200,7 +3247,7 @@
     var dm = function(iso){ return iso.slice(8)+"/"+iso.slice(5,7); };
     $("cargaKpisGrade").style.display = "none";
     var dica = modo === "sab"
-      ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado que CADA PESSOA trabalhou dentro do fechamento (16 a 15) fica em azul, com a marca "3º", e a coluna "3º sáb." mostra a data. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
+      ? 'Mostra só os sábados do período. ✓ = trabalhou no sábado (horas trabalhadas ao lado); o 3º sábado que CADA PESSOA trabalhou dentro do fechamento (16 a 15), e os seguintes (4º, 5º…), ficam em azul com a marca da ordem; a coluna "3º em diante" mostra as datas. A coluna "Sáb." conta quantos sábados cada pessoa trabalhou e a última linha mostra quantas pessoas trabalharam em cada sábado.'
       : 'Horas extras de cada dia (h:mm), somando EX.70%, SAB 70%, SAB. 100% e EX NOT do ponto do Secullum. A coluna "Extras" soma o período e a última linha soma cada dia. Sábados trabalhados aparecem também aqui, nas horas de sábado.';
     if(!g.comHoras) dica += ' ⚠ Nenhum dia deste período tem horas guardadas ainda: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(g.comHoras < g.diasAteHoje) dica += ' (Horas disponíveis em '+g.comHoras+' de '+g.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
@@ -3212,21 +3259,21 @@
     g.dias.forEach(function(iso){ thead += '<th class="weekday-row '+clsDia(iso)+'"'+tituloDia(iso)+'>'+weekdayLabel(iso)+"</th>"; });
     thead += '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Sábados trabalhados no período":"Total de horas extras no período")+'">'+colTot1+'</th>'+
              '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Horas trabalhadas nos sábados":"Dias com hora extra")+'">'+colTot2+'</th>'+
-             (modo==="sab" ? '<th class="col-total" rowspan="2" title="Data do 3º sábado trabalhado por esta pessoa no fechamento">3º sáb.</th>' : '')+'</tr><tr>';
+             (modo==="sab" ? '<th class="col-total" rowspan="2" title="Datas do 3º sábado trabalhado por esta pessoa no fechamento e dos seguintes (4º, 5º…)">3º em diante</th>' : '')+'</tr><tr>';
     g.dias.forEach(function(iso){ thead += '<th class="'+clsDia(iso)+'"'+tituloDia(iso)+'>'+rotuloDia(iso, p.multiMes)+"</th>"; });
     thead += "</tr></thead>";
 
     var tbody = "<tbody>";
     g.linhas.forEach(function(l){
-      tbody += '<tr><td class="col-nome">'+escapeHtml(funcName(l.fid))+"</td>";
+      tbody += '<tr><td class="col-nome">'+celNome(l.fid)+"</td>";
       l.cel.forEach(function(min, i){
         var txt = "";
         var t3 = modo === "sab" && l.terc[i];
-        if(min) txt = modo === "sab" ? '<span class="sab-ok">✓</span> '+fmtHM(min)+(t3 ? ' <span class="tag3">3º</span>' : '') : fmtHM(min);
-        tbody += '<td class="dia-cell hcell '+clsDia(g.dias[i])+(t3 ? ' sab3' : '')+'" data-dia="'+g.dias[i]+'" data-func="'+l.fid+'"'+(t3 ? ' title="3º sábado trabalhado por este funcionário no fechamento"' : '')+'>'+txt+"</td>";
+        if(min) txt = modo === "sab" ? '<span class="sab-ok">✓</span> '+fmtHM(min)+(t3 ? ' <span class="tag3">'+l.ord[i]+'º</span>' : '') : fmtHM(min);
+        tbody += '<td class="dia-cell hcell '+clsDia(g.dias[i])+(t3 ? ' sab3' : '')+'" data-dia="'+g.dias[i]+'" data-func="'+l.fid+'"'+(t3 ? ' title="'+l.ord[i]+'º sábado trabalhado por este funcionário no fechamento"' : '')+'>'+txt+"</td>";
       });
       if(modo === "sab"){
-        var datas3 = g.dias.filter(function(iso, i){ return l.terc[i]; }).map(dm).join(", ");
+        var datas3 = g.dias.map(function(iso, i){ return l.terc[i] ? dm(iso)+" ("+l.ord[i]+"º)" : ""; }).filter(Boolean).join(", ");
         tbody += '<td class="col-total-cell">'+(l.qtd||"")+'</td><td class="col-total-cell">'+fmtHM(l.totMin)+'</td><td class="col-total-cell">'+datas3+'</td>';
       }
       else tbody += '<td class="col-total-cell">'+fmtHM(l.totMin)+'</td><td class="col-total-cell">'+(l.qtd||"")+'</td>';
@@ -3236,7 +3283,7 @@
     var somaQtd = g.linhas.reduce(function(a,l){ return a + l.qtd; }, 0);
     tbody += '<tr class="linha-total"><td class="col-nome">'+(modo==="sab" ? "Pessoas no dia" : "Total do dia")+"</td>";
     g.totDia.forEach(function(t, i){
-      tbody += '<td class="hcell '+clsDia(g.dias[i])+'">'+(modo==="sab" ? (t.pess||"") + (t.terc ? ' <span class="tag3" title="pessoas para quem este é o 3º sábado trabalhado">3º: '+t.terc+'</span>' : '') : fmtHM(t.min))+"</td>";
+      tbody += '<td class="hcell '+clsDia(g.dias[i])+'">'+(modo==="sab" ? (t.pess||"") + (t.terc ? ' <span class="tag3" title="pessoas para quem este é o 3º sábado trabalhado ou posterior">3º+: '+t.terc+'</span>' : '') : fmtHM(t.min))+"</td>";
     });
     if(modo === "sab") tbody += '<td class="col-total-cell">'+(somaQtd||"")+'</td><td class="col-total-cell">'+fmtHM(somaMin)+'</td><td></td>';
     else tbody += '<td class="col-total-cell">'+fmtHM(somaMin)+'</td><td class="col-total-cell">'+(somaQtd||"")+'</td>';
@@ -3245,6 +3292,7 @@
     var table = $("gradeTable");
     table.innerHTML = thead + tbody;
     table.classList.add("read-only");
+    table.classList.toggle("modo-sab", modo === "sab");
   }
 
   function renderGrade(){
@@ -3290,7 +3338,7 @@
     ativos.forEach(function(fid){
       var np = !batePonto(fid);
       var fe = np && foraEscopo(fid);
-      tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+escapeHtml(funcName(fid))+(np ? (fe ? ' <span class="tag-np" title="Fora dos departamentos acompanhados nesta empresa: fora das contas de ausência, carga, % e horas extras">fora do escopo</span>' : ' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>') : '')+"</td>";
+      tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+celNome(fid, np ? (fe ? ' <span class="tag-np" title="Fora dos departamentos acompanhados nesta empresa: fora das contas de ausência, carga, % e horas extras">fora do escopo</span>' : ' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>') : "")+"</td>";
       p.dias.forEach(function(iso2){
         if(np){ tbody += '<td class="hcell np '+clsDia(iso2)+'"></td>'; return; }
         var a = getAusenciaDoDia(iso2, fid);
@@ -3318,6 +3366,7 @@
 
     var table = $("gradeTable");
     table.innerHTML = thead + tbody;
+    table.classList.remove("modo-sab");
     if(isReadOnly()){
       table.classList.add("read-only");
     } else {
@@ -3393,7 +3442,7 @@
         (auto && !bp ? ' <span style="color:var(--text-faint);font-size:11px;" title="Definido automaticamente pela função">(pela função)</span>' : "");
       return "<tr>"+
         '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(funcName(id))+"</a></td>"+
-        "<td>"+escapeHtml(f.funcao||"—")+"</td>"+
+        "<td>"+escapeHtml(fmtFuncao(f.funcao)||"—")+"</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+(f.demissao ? fmtDateBR(f.demissao) : "—")+"</td>"+
         "<td>"+statusHtml+"</td>"+
@@ -3454,7 +3503,7 @@
     var o = computeOcorrencias(fid);
     $("ocorrNome").textContent = f.nome;
     var anteriores = (f.vinculosAnteriores||[]).map(function(v){ return (v.funcao||"sem função") + (v.admissao ? " desde " + fmtDateBR(v.admissao) : ""); });
-    $("ocorrSub").textContent = (f.funcao||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo") +
+    $("ocorrSub").textContent = (fmtFuncao(f.funcao)||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo") +
       (f.demissao ? " · Demissão " + fmtDateBR(f.demissao) : "") +
       (anteriores.length ? " · Vínculo anterior: " + anteriores.join("; ") : "");
 
@@ -3828,7 +3877,7 @@
       statusEl.textContent = (Object.keys(vistos).length) + " funcionário(s) no arquivo: " + novos.length + " novo(s), " + jaExistem + " já cadastrado(s)" + (completar.length ? " (" + completar.length + " com dados a completar)" : "") + ".";
       if(!novos.length && !completar.length){ prev.innerHTML = aviso; $("fileCadastro").value = ""; return; }
       var amostra = novos.slice(0, 12).map(function(f){
-        return '<div class="row-line"><span>'+escapeHtml(f.nome)+'</span><b>'+escapeHtml(f.funcao||"—")+(f.admissao ? " · "+fmtDateBR(f.admissao) : "")+'</b></div>';
+        return '<div class="row-line"><span>'+escapeHtml(f.nome)+'</span><b>'+escapeHtml(fmtFuncao(f.funcao)||"—")+(f.admissao ? " · "+fmtDateBR(f.admissao) : "")+'</b></div>';
       }).join("");
       prev.innerHTML = '<div class="import-preview" style="margin-top:12px;">'+
         '<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:8px;">'+(novos.length ? 'Serão cadastrados <b>'+novos.length+'</b> funcionário(s) (nome, função, admissão e Nº folha do cartão). Primeiros da lista:' : '')+(completar.length ? (novos.length ? '<br>' : '')+'Serão completados (só campos vazios: matrícula, admissão, função) <b>'+completar.length+'</b> cadastro(s) já existente(s).' : '')+'</div>'+
