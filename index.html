@@ -285,6 +285,25 @@
   .painel-duplo .panel-hint{ margin:0 0 10px; font-size:12px; }
   .painel-duplo .dropzone{ padding:12px; margin-bottom:8px; }
   .painel-duplo .panel:has(.import-preview[style*="block"]){ grid-column:1 / -1; }
+  .grade-topo{ display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; margin-bottom:6px; }
+  .grade-topo .kpis{ flex:1 1 520px; min-width:0; }
+  .cal-card{ flex:0 0 272px; background:var(--surface); border:1px solid var(--border-strong); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+  .cal-titulo{ font-size:12.5px; font-weight:600; }
+  .cal-sub{ font-size:11px; color:var(--text-faint); margin-bottom:8px; }
+  .cal-legenda{ display:flex; flex-wrap:wrap; gap:4px 10px; font-size:10px; color:var(--text-faint); margin-bottom:8px; }
+  .cal-legenda span{ display:inline-flex; align-items:center; gap:4px; }
+  .cal-legenda i{ width:9px; height:9px; border-radius:3px; display:inline-block; }
+  .cal-mini{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .cal-dow{ font-size:9.5px; text-align:center; color:var(--text-faint); padding-bottom:2px; }
+  .cal-dia{ aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:11px; border-radius:5px; background:var(--surface-2); color:var(--text-dim); position:relative; }
+  .cal-dia.vazio{ background:transparent; }
+  .cal-dia.dom{ background:transparent; color:var(--text-faint); opacity:.55; }
+  .cal-dia.fer{ background:rgba(224,95,95,.20); color:#f08a8a; font-weight:700; cursor:help; }
+  .cal-dia.noper{ box-shadow:0 0 0 1.5px rgba(111,179,255,.55) inset; }
+  .cal-dia.hoje{ outline:1.5px solid var(--accent); outline-offset:1px; }
+  .cal-feriados{ margin-top:8px; border-top:1px solid var(--border); padding-top:6px; font-size:10.5px; color:var(--text-dim); }
+  .cal-feriados div{ display:flex; gap:6px; margin:1px 0; }
+  .cal-feriados b{ min-width:34px; color:#f08a8a; font-weight:600; }
   .sync-linha-acoes{ display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
   .sync-linha-acoes .field{ margin:0; }
   .sync-linha-acoes .field label{ font-size:10px; margin-bottom:2px; }
@@ -538,7 +557,10 @@
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
       <p class="panel-hint" id="avisoGrade" style="display:none;"></p>
-      <div class="kpis" id="cargaKpisGrade"></div>
+      <div class="grade-topo">
+        <div class="kpis" id="cargaKpisGrade"></div>
+        <div class="cal-card" id="calGrade"></div>
+      </div>
       <p class="panel-hint" id="hintHorasGrade"></p>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
@@ -3297,9 +3319,56 @@
     table.classList.toggle("modo-sab", modo === "sab");
   }
 
+  // ---------- mini calendário (feriados) ----------
+  var NOMES_FERIADOS_NAC = {"01-01":"Confraternização Universal","04-21":"Tiradentes","05-01":"Dia do Trabalho","09-07":"Independência do Brasil",
+    "10-12":"Nossa Senhora Aparecida","11-02":"Finados","11-15":"Proclamação da República","11-20":"Dia da Consciência Negra","12-25":"Natal"};
+  function nomeFeriado(iso){
+    var tipo = feriadoDoDia(iso);
+    if(!tipo) return "";
+    var y = +iso.slice(0,4), e = easterDate(y);
+    if(iso === isoDeData(new Date(e.getFullYear(), e.getMonth(), e.getDate()-2))) return "Sexta-feira Santa (" + tipo + ")";
+    if(iso === isoDeData(new Date(e.getFullYear(), e.getMonth(), e.getDate()+60))) return "Corpus Christi (" + tipo + ")";
+    if(tipo === "nacional" && NOMES_FERIADOS_NAC[iso.slice(5)]) return NOMES_FERIADOS_NAC[iso.slice(5)] + " (nacional)";
+    if(/^estadual/.test(tipo) && iso.slice(5) === "03-06") return "Data Magna de Pernambuco (estadual)";
+    if(/convenção/.test(tipo)) return "3ª segunda-feira de outubro (convenção coletiva)";
+    return "Feriado " + tipo;
+  }
+  var MESES_NOMES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  function renderCalGrade(p){
+    var box = $("calGrade"); if(!box) return;
+    // mês civil: o mês em que o fechamento termina (ex.: outubro = 16/09 a 15/10 → calendário de outubro)
+    var ym = p.fim.slice(0,7), y = +ym.slice(0,4), m = +ym.slice(5,7);
+    var nd = daysInMonth(ym), primeiro = new Date(y, m-1, 1).getDay();
+    var dentro = {}; p.dias.forEach(function(i){ dentro[i] = 1; });
+    var hoje = todayIso(), cidade = cidadeDaObra();
+    var html = '<div class="cal-titulo">Calendário — '+MESES_NOMES[m-1]+' de '+y+'</div>'+
+      '<div class="cal-sub">'+(cidade ? 'Feriados de '+escapeHtml(cidade)+' e nacionais' : 'Feriados nacionais e estadual (cidade da obra não mapeada)')+'</div>'+
+      '<div class="cal-legenda"><span><i style="background:var(--surface-2)"></i>Útil</span><span><i style="background:transparent;border:1px solid var(--text-faint);opacity:.6"></i>Domingo</span>'+
+      '<span><i style="background:rgba(224,95,95,.35)"></i>Feriado</span><span><i style="box-shadow:0 0 0 1.5px rgba(111,179,255,.8) inset"></i>Período da grade</span></div>'+
+      '<div class="cal-mini">';
+    ["D","S","T","Q","Q","S","S"].forEach(function(l){ html += '<div class="cal-dow">'+l+'</div>'; });
+    for(var k = 0; k < primeiro; k++) html += '<div class="cal-dia vazio"></div>';
+    var lista = [];
+    for(var d = 1; d <= nd; d++){
+      var iso = ym + "-" + String(d).padStart(2,"0"), dow = new Date(y, m-1, d).getDay();
+      var fer = feriadoDoDia(iso), cls = "cal-dia";
+      if(fer){ cls += " fer"; lista.push({iso:iso, nome:nomeFeriado(iso)}); }
+      else if(dow === 0) cls += " dom";
+      if(dentro[iso]) cls += " noper";
+      if(iso === hoje) cls += " hoje";
+      html += '<div class="'+cls+'"'+(fer ? ' title="'+escapeHtml(nomeFeriado(iso))+'"' : (dow === 0 ? ' title="Domingo"' : ''))+'>'+d+'</div>';
+    }
+    html += '</div>';
+    html += '<div class="cal-feriados">' + (lista.length
+      ? lista.map(function(f){ return '<div><b>'+f.iso.slice(8)+'/'+f.iso.slice(5,7)+'</b><span>'+escapeHtml(f.nome)+'</span></div>'; }).join("")
+      : 'Nenhum feriado neste mês.') + '</div>';
+    box.innerHTML = html;
+  }
+
   function renderGrade(){
     var p = periodo("Grade");
     avisoPeriodo("Grade", p);
+    renderCalGrade(p);
     var modoG = $("modoGrade") ? $("modoGrade").value : "aus";
     if(modoG !== "aus"){ renderGradeHoras(p, modoG); return; }
     $("cargaKpisGrade").style.display = "";
