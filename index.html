@@ -448,9 +448,13 @@
       <div class="panel" id="syncPanel">
         <p class="panel-title">Sincronização com o Secullum</p>
         <div id="syncStatus"></div>
-        <div id="syncAcoes" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
-          <button class="btn-ghost" id="btnSyncDia">⟳ Sincronizar este dia</button>
-          <button class="btn-ghost" id="btnSyncFechamento">⟳ Sincronizar o fechamento</button>
+        <div id="syncAcoes" style="margin-top:10px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <button class="btn-ghost" id="btnSyncHoje">⟳ Sincronizar hoje</button>
+            <div class="field" style="margin:0;"><label for="syncDe">Período — de</label><input type="date" id="syncDe"></div>
+            <div class="field" style="margin:0;"><label for="syncAte">até</label><input type="date" id="syncAte"></div>
+            <button class="btn-ghost" id="btnSyncPeriodo">⟳ Sincronizar período</button>
+          </div>
         </div>
         <p class="panel-hint" id="syncHint" style="margin:10px 0 0;"></p>
       </div>
@@ -2062,26 +2066,34 @@
       var pr = {pendente:"pedido enviado", andamento:"sincronizando", concluido:"concluído", erro:"erro"}[ped.status] || ped.status;
       var abandonado = (ped.status === "pendente" || ped.status === "andamento") && !syncPedidoAtivo(ped);
       html += '<div class="sync-linha"><b>Pedido:</b> <span class="sync-pill '+(abandonado ? "sync-warn" : pc)+'">'+(abandonado ? "sem resposta" : pr)+'</span> '+
-        '<span style="color:var(--text-faint)">'+(ped.tipo === "dia" ? "dia "+fmtDateBR(ped.dia) : "fechamento")+' · pedido às '+fmtDataHora(ped.pedidoEm)+(ped.pedidoPor ? " por "+escapeHtml(ped.pedidoPor) : "")+
+        '<span style="color:var(--text-faint)">'+(ped.tipo === "periodo" ? (ped.de === ped.ate ? "dia "+fmtDateBR(ped.de) : fmtDateBR(ped.de)+" a "+fmtDateBR(ped.ate)) : (ped.tipo === "dia" ? "dia "+fmtDateBR(ped.dia) : "fechamento"))+' · pedido às '+fmtDataHora(ped.pedidoEm)+(ped.pedidoPor ? " por "+escapeHtml(ped.pedidoPor) : "")+
         (ped.concluidoEm ? " · terminou às "+fmtDataHora(ped.concluidoEm) : "")+(ped.msg ? " · "+escapeHtml(ped.msg) : "")+'</span></div>';
     }
     $("syncStatus").innerHTML = html;
     var ro = isReadOnly(), ativo = syncPedidoAtivo(ped);
-    $("syncAcoes").style.display = ro ? "none" : "flex";
-    $("btnSyncDia").disabled = ativo; $("btnSyncFechamento").disabled = ativo;
-    $("btnSyncDia").textContent = "⟳ Sincronizar este dia (" + fmtDateBR($("diaSelecionado").value || todayIso()).slice(0,5) + ")";
-    $("btnSyncFechamento").textContent = "⟳ Sincronizar o fechamento (" + fmtDateBR(b.ini).slice(0,5) + " a hoje)";
+    $("syncAcoes").style.display = ro ? "none" : "block";
+    $("btnSyncHoje").disabled = ativo; $("btnSyncPeriodo").disabled = ativo;
+    $("btnSyncHoje").textContent = "⟳ Sincronizar hoje (" + fmtDateBR(hoje) + ")";
+    $("btnSyncPeriodo").textContent = "⟳ Sincronizar período" + (($("syncDe").value && $("syncAte").value) ? " (" + fmtDateBR($("syncDe").value) + " a " + fmtDateBR($("syncAte").value) + ")" : "");
+    // sugestão inicial: o fechamento em andamento (16 até hoje); depois respeita o que a pessoa digitar
+    if(!$("syncDe").value && !$("syncAte").value){ $("syncDe").value = b.ini; $("syncAte").value = hoje; $("btnSyncPeriodo").textContent = "⟳ Sincronizar período (" + fmtDateBR(b.ini) + " a " + fmtDateBR(hoje) + ")"; }
     $("syncHint").textContent = ro ? "" : "O robô do PC da DP atende o pedido em até uns 5 minutos e a tela se atualiza sozinha. Ele reimporta o ponto do Secullum; lançamentos manuais são mantidos.";
   }
   function pedirSync(tipo){
     if(!state.db || isReadOnly() || !state.obraId) return;
-    var dia = $("diaSelecionado").value || todayIso();
-    if(tipo === "dia" && dia > todayIso()){
-      $("syncHint").textContent = "Escolha um dia que já aconteceu (hoje ou antes) para sincronizar.";
-      return;
+    var hoje = todayIso(), de, ate;
+    if(tipo === "hoje"){ de = ate = hoje; }
+    else {
+      de = $("syncDe").value; ate = $("syncAte").value;
+      if(!de || !ate){ $("syncHint").textContent = "Informe as duas datas do período (de e até)."; return; }
+      if(de > ate){ var t = de; de = ate; ate = t; }
+      if(ate > hoje) ate = hoje;
+      if(de > hoje){ $("syncHint").textContent = "Escolha um período que já aconteceu (até hoje)."; return; }
+      var dias = Math.round((new Date(ate+"T00:00:00") - new Date(de+"T00:00:00"))/86400000) + 1;
+      if(dias > 62){ $("syncHint").textContent = "Período muito longo ("+dias+" dias). Peça no máximo 62 dias por vez."; return; }
     }
     var obra = state.obras[state.obraId] || {};
-    var pedido = {status:"pendente", tipo:tipo, dia:dia, pedidoPor:state.email, pedidoEm:new Date().toISOString(),
+    var pedido = {status:"pendente", tipo:"periodo", de:de, ate:ate, dia:de, pedidoPor:state.email, pedidoEm:new Date().toISOString(),
                   msg:"Pedido enviado. O robô atende em até uns 5 minutos."};
     var ref = state.db.collection("sync_secullum").doc(state.obraId);
     ref.get().then(function(d){
@@ -4474,8 +4486,9 @@
   $("btnMenu").addEventListener("click", function(){ document.body.classList.toggle("menu-open"); });
   $("sideBackdrop").addEventListener("click", function(){ document.body.classList.remove("menu-open"); });
   $("diaSelecionado").addEventListener("change", renderAll);
-  $("btnSyncDia").addEventListener("click", function(){ pedirSync("dia"); });
-  $("btnSyncFechamento").addEventListener("click", function(){ pedirSync("fechamento"); });
+  $("btnSyncHoje").addEventListener("click", function(){ pedirSync("hoje"); });
+  $("btnSyncPeriodo").addEventListener("click", function(){ pedirSync("periodo"); });
+  $("syncDe").addEventListener("change", renderSync); $("syncAte").addEventListener("change", renderSync);
   $("mesGrade").addEventListener("change", function(){ aplicarMes("Grade"); renderGrade(); });
   $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
   $("modoResumo").addEventListener("change", renderMensal);
