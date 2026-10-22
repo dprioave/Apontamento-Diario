@@ -305,6 +305,7 @@
   .cal-feriados{ margin-top:8px; border-top:1px solid var(--border); padding-top:6px; font-size:10.5px; color:var(--text-dim); }
   .cal-feriados div{ display:flex; gap:6px; margin:1px 0; }
   .cal-feriados b{ min-width:34px; color:#f08a8a; font-weight:600; }
+  .kpi-sub{ font-size:12px; font-weight:400; color:var(--text-faint); font-family:inherit; letter-spacing:0; }
   .sync-linha-acoes{ display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
   .sync-linha-acoes .field{ margin:0; }
   .sync-linha-acoes .field label{ font-size:10px; margin-bottom:2px; }
@@ -1046,10 +1047,13 @@
       ausTotal += totaisAusenciaDias(fid, p.dias).horas;
     });
     var per = p.ehMes ? "fechamento" : "período";
+    // dois números: quem bate ponto (entra nas contas) e o total de ativos do cadastro
+    var nAtivosCad = ativosList().length;
+    var rotFunc = ativos.length + " no ponto" + (nAtivosCad !== ativos.length ? " (" + nAtivosCad + " ativos)" : "");
     $("cargaKpis"+prefix).innerHTML =
       kpiCard("Dias úteis no "+per, diasUteis, "") +
-      kpiCard("Horas úteis · "+ativos.length+" func.", cargaTotal+"h", "") +
-      kpiCard("Horas ausentes · "+ativos.length+" func.", ausTotal+"h", ausTotal?"bad":"") +
+      kpiCard("Horas úteis · "+rotFunc, cargaTotal+"h", "") +
+      kpiCard("Horas ausentes · "+rotFunc, ausTotal+"h", ausTotal?"bad":"") +
       kpiCard("% de horas ausentes", fmtPct(ausTotal, cargaTotal), ausTotal?"bad":"");
   }
 
@@ -2189,7 +2193,7 @@
     var pct = totalAtivos ? Math.round((presentes/totalAtivos)*1000)/10 : 0;
 
     $("diaKpis").innerHTML = [
-      kpiCard("Total Ativos", totalAtivos, ""),
+      kpiCard(totalAtivos !== ativosList().length ? "Total ativos (no ponto)" : "Total ativos", totalAtivos + (totalAtivos !== ativosList().length ? ' <span class="kpi-sub">de ' + ativosList().length + ' ativos</span>' : ""), ""),
       kpiCard("Presentes", presentes, "good"),
       kpiCard("Ausentes", ausentesIds.length, ausentesIds.length?"bad":""),
       kpiCard("% Presença", pct+"%", "")
@@ -3470,7 +3474,7 @@
     }).join("") + kpiCard("Total de horas", dados.somaTotalH+"h", dados.somaTotalH?"bad":"")
       + kpiCard("% de horas ausentes", fmtPct(dados.somaTotalH, dados.cargaGeral), dados.somaTotalH?"bad":"");
     renderCargaKpis("Resumo", dados.periodo);
-    $("hintHorasResumo").textContent = textoRegraHoras(dados.periodo) + " O cartão \"% de horas ausentes\" divide o total de horas pela carga de TODOS os funcionários ativos.";
+    $("hintHorasResumo").textContent = textoRegraHoras(dados.periodo) + " O cartão \"% de horas ausentes\" divide o total de horas pela carga de todos os funcionários que batem ponto (quem não bate ponto ou está fora do escopo fica de fora).";
 
     var tbody = $("mensalTbody");
     if(!dados.rows.length){
