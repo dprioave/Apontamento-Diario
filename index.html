@@ -2511,7 +2511,7 @@
         var a = getAusenciaDoDia(iso, fid);
         var hxx = horasDoFuncNoDia(iso, fid);
         var cell = ws.getCell(r, FIRST_COL+2+i);
-        var ext = (hxx && hxx.e > 0) ? hxx.e : 0, atr = (hxx && hxx.a > 0 && iso < hojeX) ? hxx.a : 0;
+        var ext = (hxx && hxx.e > 0) ? hxx.e : 0, atr = (hxx && hxx.a > 0 && iso < hojeX && !(a && a.codigo)) ? hxx.a : 0;
         tAtrX += atr;
         var partes = [];
         if(a && a.codigo) partes.push({text:a.codigo});
@@ -3440,7 +3440,7 @@
     var kp = $("cargaKpisGrade");
     if(kp.firstElementChild) kp.firstElementChild.outerHTML = kpiCard("Dias úteis" + rotUteis, nUteis, "") + kpiCard("Dias não úteis" + rotUteis + " (domingos e feriados)", nNao, "");
     kp.insertAdjacentHTML("beforeend", kpiCard("Horas extras no período", fmtHM(totExt) || "0:00", ""));
-    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto", e quem é de departamento não acompanhado (Subholding, Investimentos e Equipamentos) com a marca "fora do escopo"; os dois ficam fora das contas. O Cadastro permite ajustar o primeiro caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Verde = horas extras (+); vermelho com sinal negativo = atrasos e saídas antecipadas (o Secullum entrega os dois juntos; o dia de hoje só mostra atraso depois que termina). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. Os cartões de dias úteis e não úteis contam o mês civil (ex.: outubro = 01 a 31/10), enquanto o período mostrado segue o fechamento (16 a 15). As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
+    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto", e quem é de departamento não acompanhado (Subholding, Investimentos e Equipamentos) com a marca "fora do escopo"; os dois ficam fora das contas. O Cadastro permite ajustar o primeiro caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Verde = horas extras (+); vermelho com sinal negativo = atrasos e saídas antecipadas (o Secullum entrega os dois juntos; o dia de hoje só mostra atraso depois que termina). Em dia com falta (ou com ajuste manual lançado no Diário) vale só a ausência: o atraso não é mostrado nem somado. Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. Os cartões de dias úteis e não úteis contam o mês civil (ex.: outubro = 01 a 31/10), enquanto o período mostrado segue o fechamento (16 a 15). As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
     if(!gh.comHoras) dicaG += ' ⚠ Nenhum dia deste período tem horas extras guardadas: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(gh.comHoras < gh.diasAteHoje) dicaG += ' (Horas extras disponíveis em '+gh.comHoras+' de '+gh.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
     $("hintHorasGrade").textContent = dicaG;
@@ -3474,7 +3474,9 @@
         var a = getAusenciaDoDia(iso2, fid);
         var hx = horasDoFuncNoDia(iso2, fid);
         var ext = hx && hx.e > 0 ? hx.e : 0;
-        var atr = hx && hx.a > 0 && iso2 < hojeG ? hx.a : 0;   // o dia em andamento ainda está incompleto: sem atraso
+        // Atraso/saída antecipada só aparece em dia SEM ausência: se há falta (ou ajuste manual no Diário), vale só a ausência.
+        // O dia em andamento ainda está incompleto: sem atraso.
+        var atr = (hx && hx.a > 0 && iso2 < hojeG && !(a && a.codigo)) ? hx.a : 0;
         somaExtDia[di] += ext; somaAtrDia[di] += atr; totExtP += ext; totAtrP += atr;
         var cellCls = "dia-cell " + clsDia(iso2) + (ext || atr ? " misto" : "");
         var content = "";
