@@ -263,7 +263,9 @@
   .grade-wrap{ overflow:auto; border:1px solid var(--border); border-radius:10px; max-height:70vh; }
   table.grade{ border-collapse:collapse; background:var(--surface-solid); font-size:11.5px; width:100%; }
   table.grade th, table.grade td{ border:1px solid var(--border); padding:0; text-align:center; }
-  table.grade thead th{ position:sticky; top:0; background:var(--surface-2); z-index:2; padding:4px 3px; font-size:10px; height:20px; }
+  table.grade thead th{ position:sticky; top:0; background:#1e2530; box-shadow:0 1px 0 var(--border-strong); z-index:2; padding:4px 3px; font-size:10px; height:20px; }
+  table.grade thead th.naoutil{ background:#2b3240; }
+  table.grade thead th.feriado{ background:#3b3426; }
   table.grade thead th.weekday-row{ color:var(--text-faint); font-weight:500; font-size:9px; text-transform:uppercase; }
   table.grade thead tr:last-child th:not(.col-nome){ top:22px; }
   table.grade thead th.col-nome{ left:0; z-index:3; text-align:left; padding-left:10px; height:44px; }
@@ -325,14 +327,18 @@
   table.grade th.naoutil, table.grade td.naoutil{ background:rgba(140,150,170,.20); }
   table.grade th.naoutil{ color:var(--text-faint); }
   table.grade td.dia-cell.misto{ width:auto; min-width:34px; padding:2px 3px; height:34px; }
-  table.grade td.dia-cell .hx{ display:block; font-family:"IBM Plex Mono",monospace; font-size:9.5px; font-weight:600; line-height:1.15; color:#6fb3ff; }
+  table.grade .hx, table.grade .hatr{ display:block; font-family:"IBM Plex Mono",monospace; font-size:9.5px; font-weight:600; line-height:1.15; }
+  table.grade .hx{ color:#5fbf8f; }
+  table.grade .hatr{ color:#f07a7a; }
   table.grade td.hcell{ width:auto; min-width:34px; padding:0 5px; height:28px; cursor:default; font-family:"IBM Plex Mono",monospace; font-size:10.5px; white-space:nowrap; }
   table.grade td.hcell:hover{ outline:none; }
   table.grade td.hcell .sab-ok{ color:var(--ok, #5fbf8f); font-weight:700; }
   table.grade th.sab3, table.grade td.sab3{ background:rgba(120,170,255,.16); }
   table.grade th.sab3{ color:#6fb3ff; font-weight:700; }
   .tag3{ display:inline-block; margin-left:3px; padding:0 5px; border-radius:7px; font-size:9px; font-weight:700; background:rgba(111,179,255,.25); color:#6fb3ff; }
-  table.grade tr.linha-total td{ background:var(--surface-2); font-weight:700; position:sticky; bottom:0; z-index:1; }
+  table.grade tr.linha-total td{ background:#1e2530; font-weight:700; position:sticky; bottom:0; z-index:1; box-shadow:0 -1px 0 var(--border-strong); }
+  table.grade tr.linha-total td.naoutil{ background:#2b3240; }
+  table.grade tr.linha-total td.feriado{ background:#3b3426; }
   table.grade tr.linha-total td.col-nome{ z-index:2; }
   table.grade th.feriado, table.grade td.feriado{ background:rgba(224,174,95,.14); }
 
@@ -556,6 +562,11 @@
             <option value="sab">Sábados trabalhados</option>
           </select>
         </div>
+        <div class="field">
+          <label for="buscaGrade">Buscar</label>
+          <input type="search" id="buscaGrade" placeholder="Nome ou função…" autocomplete="off" style="min-width:200px;">
+        </div>
+        <span id="buscaGradeInfo" style="font-size:11px;color:var(--text-faint);align-self:center;"></span>
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
       <p class="panel-hint" id="avisoGrade" style="display:none;"></p>
@@ -1137,6 +1148,7 @@
       if(/^TRABALHADA/.test(u)) map.t = i;
       else if(/^SAB/.test(u)) (map.sab = map.sab || []).push(i);
       else if(/^EX/.test(u)) (map.ex = map.ex || []).push(i);
+      else if(/^ATRASO|^SAIDA ANT|^SAI\.? ?ANT/.test(u)) (map.atr = map.atr || []).push(i);
     });
     return map;
   }
@@ -1146,7 +1158,9 @@
     var e = 0, s2 = 0;
     (map.ex||[]).forEach(function(i){ e += minDeCelula(dr[i]); });
     (map.sab||[]).forEach(function(i){ var m = minDeCelula(dr[i]); e += m; s2 += m; });
-    return {t:minDeCelula(dr[map.t]), e:e, s:s2};
+    var at = 0;
+    (map.atr||[]).forEach(function(i){ at += minDeCelula(dr[i]); });
+    return {t:minDeCelula(dr[map.t]), e:e, s:s2, a:at};
   }
 
   // ---------- Secullum XLSX parser ----------
@@ -2443,14 +2457,15 @@
     var modoG = $("modoGrade") ? $("modoGrade").value : "aus";
     if(modoG !== "aus") return exportGradeHorasExcel(p, modoG);
     var nDias = p.dias.length;
-    var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var ativos = filtrarBuscaGrade(ativosList()).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
+    var hojeX = todayIso();
 
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Grade do Mês");
-    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias + 4; // margem + nome + dias + total dias + total horas + % + extras
-    var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1, colPct = colDias + 2, colExt = colDias + 3;
-    var ghx = dadosGradeHoras(p, "ext"), extPorFidX = {};
+    var FIRST_COL = 2, lastCol = FIRST_COL + 1 + nDias + 5; // margem + nome + dias + total dias + total horas + % + extras + atrasos
+    var colDias = FIRST_COL + 2 + nDias, colHoras = colDias + 1, colPct = colDias + 2, colExt = colDias + 3, colAtr = colDias + 4;
+    var ghx = dadosGradeHoras(p, "ext", true), extPorFidX = {};
     ghx.linhas.forEach(function(l){ extPorFidX[l.fid] = l; });
     var horasPorDia = p.dias.map(horasDoDia);
 
@@ -2464,6 +2479,7 @@
     ws.getColumn(colHoras).width = 9;
     ws.getColumn(colPct).width = 9;
     ws.getColumn(colExt).width = 9;
+    ws.getColumn(colAtr).width = 9;
 
     ws.getCell(headerRow, FIRST_COL).value = "Funcionário";
     ws.getCell(headerRow, FIRST_COL+1).value = "Função"; ws.getColumn(FIRST_COL+1).width = 26;
@@ -2474,6 +2490,7 @@
     ws.getCell(headerRow, colHoras).value = "Horas";
     ws.getCell(headerRow, colPct).value = "% carga";
     ws.getCell(headerRow, colExt).value = "Extras";
+    ws.getCell(headerRow, colAtr).value = "Atrasos";
     styleExportHeaderRow(ws, headerRow, FIRST_COL, lastCol);
 
     ativos.forEach(function(fid, idx){
@@ -2483,12 +2500,18 @@
       ws.getCell(r, FIRST_COL).alignment = {horizontal:"left"};
       ws.getCell(r, FIRST_COL+1).value = fmtFuncao((state.funcionarios[fid]||{}).funcao); ws.getCell(r, FIRST_COL+1).alignment = {horizontal:"left"};
       if(npx){ styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1); return; }
+      var tAtrX = 0;
       p.dias.forEach(function(iso, i){
         var a = getAusenciaDoDia(iso, fid);
         var hxx = horasDoFuncNoDia(iso, fid);
         var cell = ws.getCell(r, FIRST_COL+2+i);
-        var txtExt = (hxx && hxx.e > 0) ? fmtHM(hxx.e) : "";
-        cell.value = ((a && a.codigo) ? a.codigo : "") + ((a && a.codigo && txtExt) ? " " : "") + txtExt;
+        var ext = (hxx && hxx.e > 0) ? hxx.e : 0, atr = (hxx && hxx.a > 0 && iso < hojeX) ? hxx.a : 0;
+        tAtrX += atr;
+        var partes = [];
+        if(a && a.codigo) partes.push({text:a.codigo});
+        if(ext) partes.push({text:(partes.length ? " " : "") + "+" + fmtHM(ext), font:{bold:true, color:{argb:"FF1B8F5A"}}});
+        if(atr) partes.push({text:(partes.length ? " " : "") + "-" + fmtHM(atr), font:{bold:true, color:{argb:"FFC0392B"}}});
+        cell.value = partes.length ? {richText:partes} : "";
         cell.alignment = {horizontal:"center"};
       });
       var tot = totaisAusenciaDias(fid, p.dias);
@@ -2503,7 +2526,10 @@
       var lex = extPorFidX[fid];
       if(lex && lex.totMin){ ws.getCell(r, colExt).value = lex.totMin/1440; ws.getCell(r, colExt).numFmt = "[h]:mm"; }
       ws.getCell(r, colExt).alignment = {horizontal:"center"};
+      ws.getCell(r, colAtr).alignment = {horizontal:"center"};
       styleExportDataRow(ws, r, FIRST_COL, lastCol, idx%2===1);
+      if(tAtrX){ ws.getCell(r, colAtr).value = "-" + fmtHM(tAtrX); ws.getCell(r, colAtr).font = {bold:true, color:{argb:"FFC0392B"}}; }
+      if(lex && lex.totMin) ws.getCell(r, colExt).font = {bold:true, color:{argb:"FF1B8F5A"}};
       p.dias.forEach(function(iso, i){
         if(ehNaoUtil(iso)) ws.getCell(r, FIRST_COL+2+i).fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFD9DDE5"}};
       });
@@ -3023,9 +3049,9 @@
     if(pend.temHoras){
       horas = {};
       (pend.pessoas || []).forEach(function(p){
-        if(!p.horas || !(p.horas.t || p.horas.e)) return;
+        if(!p.horas || !(p.horas.t || p.horas.e || p.horas.a)) return;
         var hfid = matchFuncionario(p.nome, p.matricula, p.homonimo);
-        if(hfid && !horas[hfid] && batePonto(hfid)) horas[hfid] = {t:p.horas.t, e:p.horas.e, s:p.horas.s};
+        if(hfid && !horas[hfid] && batePonto(hfid)) horas[hfid] = {t:p.horas.t, e:p.horas.e, s:p.horas.s, a:p.horas.a || 0};
       });
     } else if(existingDoc.horas){
       horas = existingDoc.horas;
@@ -3239,9 +3265,18 @@
     return n;
   }
 
-  function dadosGradeHoras(p, modo){
+  // Filtro da caixa "Buscar" (nome ou função, sem acento e sem diferenciar maiúsculas)
+  function filtrarBuscaGrade(ids){
+    var q = normName(($("buscaGrade") || {}).value || "");
+    if(!q) return ids;
+    return ids.filter(function(fid){
+      var f = state.funcionarios[fid] || {};
+      return normName(funcName(fid) + " " + (f.funcao || "") + " " + fmtFuncao(f.funcao)).indexOf(q) >= 0;
+    });
+  }
+  function dadosGradeHoras(p, modo, semBusca){
     var dias = modo === "sab" ? p.dias.filter(ehSabado) : p.dias;
-    var ativos = ativosPonto().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var ativos = (semBusca ? ativosPonto() : filtrarBuscaGrade(ativosPonto())).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
     var linhas = ativos.map(function(fid){
       var totMin = 0, qtd = 0;
       var cel = dias.map(function(iso){
@@ -3377,11 +3412,13 @@
     var modoG = $("modoGrade") ? $("modoGrade").value : "aus";
     if(modoG !== "aus"){ renderGradeHoras(p, modoG); return; }
     $("cargaKpisGrade").style.display = "";
-    var ativos = ativosList().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    var todosGrade = ativosList();
+    var ativos = filtrarBuscaGrade(todosGrade).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
+    $("buscaGradeInfo").textContent = ativos.length !== todosGrade.length ? ativos.length + " de " + todosGrade.length + " funcionários" : "";
     var horasPorDia = p.dias.map(horasDoDia);
     renderCargaKpis("Grade", p);
     // Horas extras de cada pessoa/dia (mesma fonte da visão de sábados) e dias úteis x não úteis
-    var gh = dadosGradeHoras(p, "ext"), extPorFid = {};
+    var gh = dadosGradeHoras(p, "ext", true), extPorFid = {};
     gh.linhas.forEach(function(l){ extPorFid[l.fid] = l; });
     // Dias úteis x não úteis: no MÊS CIVIL do fechamento (ex.: outubro = 01 a 31/10, mesmo que o fechamento seja
     // 16/09 a 15/10). Em período livre (De/Até fora do fechamento) vale o próprio período.
@@ -3397,7 +3434,7 @@
     var kp = $("cargaKpisGrade");
     if(kp.firstElementChild) kp.firstElementChild.outerHTML = kpiCard("Dias úteis" + rotUteis, nUteis, "") + kpiCard("Dias não úteis" + rotUteis + " (domingos e feriados)", nNao, "");
     kp.insertAdjacentHTML("beforeend", kpiCard("Horas extras no período", fmtHM(totExt) || "0:00", ""));
-    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto", e quem é de departamento não acompanhado (Subholding, Investimentos e Equipamentos) com a marca "fora do escopo"; os dois ficam fora das contas. O Cadastro permite ajustar o primeiro caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. Os cartões de dias úteis e não úteis contam o mês civil (ex.: outubro = 01 a 31/10), enquanto o período mostrado segue o fechamento (16 a 15). As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
+    var dicaG = textoRegraHoras(p) + ' Quem não bate ponto (estagiários, jovens aprendizes, mestres de obras, coordenadores, supervisores e engenheiro trainee) aparece com a marca "não bate ponto", e quem é de departamento não acompanhado (Subholding, Investimentos e Equipamentos) com a marca "fora do escopo"; os dois ficam fora das contas. O Cadastro permite ajustar o primeiro caso a caso. Cada célula mostra o código da ausência e, abaixo, as horas extras do dia (h:mm = EX.70% + SAB 70% + SAB. 100% + EX NOT do Secullum). Verde = horas extras (+); vermelho com sinal negativo = atrasos e saídas antecipadas (o Secullum entrega os dois juntos; o dia de hoje só mostra atraso depois que termina). Colunas cinza = dia não útil (domingo ou feriado); sábado conta como dia útil. Os cartões de dias úteis e não úteis contam o mês civil (ex.: outubro = 01 a 31/10), enquanto o período mostrado segue o fechamento (16 a 15). As colunas "Dias", "Horas" e "%" somam as ausências; "Extras" soma as horas extras do período.';
     if(!gh.comHoras) dicaG += ' ⚠ Nenhum dia deste período tem horas extras guardadas: elas vêm do Ponto Diário em Excel (xlsx) do Secullum — reimporte os dias para preencher.';
     else if(gh.comHoras < gh.diasAteHoje) dicaG += ' (Horas extras disponíveis em '+gh.comHoras+' de '+gh.diasAteHoje+' dias do período até hoje; os demais precisam ser reimportados pelo Ponto Diário em Excel.)';
     $("hintHorasGrade").textContent = dicaG;
@@ -3412,7 +3449,7 @@
     p.dias.forEach(function(iso){
       thead += '<th class="weekday-row '+clsDia(iso)+'"'+tituloDia(iso)+'>'+weekdayLabel(iso)+"</th>";
     });
-    thead += '<th class="col-total" rowspan="2" title="Dias de ausência no período">Dias</th><th class="col-total" rowspan="2" title="Horas de ausência no período (seg–qui 9h, sex 8h; sem fins de semana e feriados)">Horas</th><th class="col-total" rowspan="2" title="Horas de ausência ÷ carga horária do período">%</th><th class="col-total" rowspan="2" title="Total de horas extras no período">Extras</th>';
+    thead += '<th class="col-total" rowspan="2" title="Dias de ausência no período">Dias</th><th class="col-total" rowspan="2" title="Horas de ausência no período (seg–qui 9h, sex 8h; sem fins de semana e feriados)">Horas</th><th class="col-total" rowspan="2" title="Horas de ausência ÷ carga horária do período">%</th><th class="col-total" rowspan="2" title="Total de horas extras no período">Extras</th><th class="col-total" rowspan="2" title="Total de atrasos e saídas antecipadas no período (dias já encerrados)">Atrasos</th>';
     thead += "</tr><tr>";
     p.dias.forEach(function(iso3){
       thead += '<th class="'+clsDia(iso3)+'"'+tituloDia(iso3)+'>'+rotuloDia(iso3, p.multiMes)+"</th>";
@@ -3420,33 +3457,42 @@
     thead += "</tr></thead>";
 
     var tbody = "<tbody>";
+    var hojeG = todayIso(), somaExtDia = p.dias.map(function(){ return 0; }), somaAtrDia = p.dias.map(function(){ return 0; });
     ativos.forEach(function(fid){
+      var totExtP = 0, totAtrP = 0;
       var np = !batePonto(fid);
       var fe = np && foraEscopo(fid);
       tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+celNome(fid, np ? (fe ? ' <span class="tag-np" title="Fora dos departamentos acompanhados nesta empresa: fora das contas de ausência, carga, % e horas extras">fora do escopo</span>' : ' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>') : "")+"</td>";
-      p.dias.forEach(function(iso2){
+      p.dias.forEach(function(iso2, di){
         if(np){ tbody += '<td class="hcell np '+clsDia(iso2)+'"></td>'; return; }
         var a = getAusenciaDoDia(iso2, fid);
         var hx = horasDoFuncNoDia(iso2, fid);
-        var cellCls = "dia-cell " + clsDia(iso2) + (hx && hx.e > 0 ? " misto" : "");
+        var ext = hx && hx.e > 0 ? hx.e : 0;
+        var atr = hx && hx.a > 0 && iso2 < hojeG ? hx.a : 0;   // o dia em andamento ainda está incompleto: sem atraso
+        somaExtDia[di] += ext; somaAtrDia[di] += atr; totExtP += ext; totAtrP += atr;
+        var cellCls = "dia-cell " + clsDia(iso2) + (ext || atr ? " misto" : "");
         var content = "";
         if(a && a.codigo){
           var meta = CODE_META[a.codigo];
           content = '<span class="code-tag" style="color:var(--'+meta.cls+')">'+a.codigo+"</span>";
         }
-        if(hx && hx.e > 0) content += '<span class="hx" title="Horas extras do dia">'+fmtHM(hx.e)+'</span>';
+        if(ext) content += '<span class="hx" title="Horas extras do dia">+'+fmtHM(ext)+'</span>';
+        if(atr) content += '<span class="hatr" title="Atraso e/ou saída antecipada do dia">-'+fmtHM(atr)+'</span>';
         tbody += '<td class="'+cellCls+'" data-dia="'+iso2+'" data-func="'+fid+'">'+content+"</td>";
       });
-      if(np){ tbody += '<td class="col-total-cell"></td><td class="col-total-cell"></td><td class="col-total-cell"></td><td class="col-total-cell"></td></tr>'; return; }
+      if(np){ tbody += '<td class="col-total-cell"></td><td class="col-total-cell"></td><td class="col-total-cell"></td><td class="col-total-cell"></td><td class="col-total-cell"></td></tr>'; return; }
       var tot = totaisAusenciaDias(fid, p.dias);
       var carga = cargaFuncionario(fid, p.dias, horasPorDia);
       var le = extPorFid[fid];
-      tbody += '<td class="col-total-cell">'+(tot.dias||"")+'</td><td class="col-total-cell">'+(tot.horas ? tot.horas+"h" : "")+'</td><td class="col-total-cell" title="Carga do período: '+carga+'h">'+(tot.dias ? fmtPct(tot.horas, carga) : "")+'</td><td class="col-total-cell">'+(le && le.totMin ? fmtHM(le.totMin) : "")+"</td>";
+      tbody += '<td class="col-total-cell">'+(tot.dias||"")+'</td><td class="col-total-cell">'+(tot.horas ? tot.horas+"h" : "")+'</td><td class="col-total-cell" title="Carga do período: '+carga+'h">'+(tot.dias ? fmtPct(tot.horas, carga) : "")+'</td><td class="col-total-cell">'+(totExtP ? '<span class="hx">+'+fmtHM(totExtP)+'</span>' : "")+'</td><td class="col-total-cell">'+(totAtrP ? '<span class="hatr">-'+fmtHM(totAtrP)+'</span>' : "")+"</td>";
       tbody += "</tr>";
     });
-    tbody += '<tr class="linha-total"><td class="col-nome">Horas extras do dia</td>';
-    gh.totDia.forEach(function(t, i){ tbody += '<td class="hcell '+clsDia(p.dias[i])+'">'+fmtHM(t.min)+'</td>'; });
-    tbody += '<td></td><td></td><td></td><td class="col-total-cell">'+fmtHM(totExt)+'</td></tr>';
+    var sExtT = somaExtDia.reduce(function(x, y){ return x + y; }, 0), sAtrT = somaAtrDia.reduce(function(x, y){ return x + y; }, 0);
+    tbody += '<tr class="linha-total"><td class="col-nome">Extras e atrasos do dia'+(ativos.length !== todosGrade.length ? ' <span class="func-sub">(só os funcionários filtrados)</span>' : '')+'</td>';
+    p.dias.forEach(function(iso, i){
+      tbody += '<td class="hcell '+clsDia(iso)+'">'+(somaExtDia[i] ? '<span class="hx">+'+fmtHM(somaExtDia[i])+'</span>' : '')+(somaAtrDia[i] ? '<span class="hatr">-'+fmtHM(somaAtrDia[i])+'</span>' : '')+'</td>';
+    });
+    tbody += '<td></td><td></td><td></td><td class="col-total-cell">'+(sExtT ? '<span class="hx">+'+fmtHM(sExtT)+'</span>' : '')+'</td><td class="col-total-cell">'+(sAtrT ? '<span class="hatr">-'+fmtHM(sAtrT)+'</span>' : '')+'</td></tr>';
     tbody += "</tbody>";
 
     var table = $("gradeTable");
@@ -4630,6 +4676,7 @@
   $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
   $("modoResumo").addEventListener("change", renderMensal);
   $("modoGrade").addEventListener("change", renderGrade);
+  $("buscaGrade").addEventListener("input", renderGrade);
   ["ini","fim"].forEach(function(k){
     $(k+"Grade").addEventListener("change", function(){ sincronizarMes("Grade"); renderGrade(); });
     $(k+"Resumo").addEventListener("change", function(){ sincronizarMes("Resumo"); renderMensal(); });
