@@ -316,6 +316,11 @@
   .sync-sep{ width:1px; align-self:stretch; background:var(--border); margin:0 2px; }
   #mensalTbody td.nome{ min-width:230px; }
   #mensalTbody td.nome .func-sub{ margin-top:1px; }
+  .grade-toolbar{ display:flex; align-items:center; gap:10px; margin:0 0 8px; flex-wrap:wrap; }
+  .grade-toolbar-titulo{ font-size:12.5px; font-weight:600; color:var(--text-dim); }
+  .grade-toolbar input[type=search]{ width:320px; max-width:100%; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:8px; color:var(--text); font-size:13px; padding:7px 11px; }
+  .grade-toolbar input[type=search]:focus{ outline:none; border-color:var(--accent); }
+  #buscaGradeInfo{ font-size:11px; color:var(--text-faint); }
   .func-sub{ display:block; font-size:10.5px; font-weight:400; color:var(--text-faint); line-height:1.25; margin-top:1px; }
   table.grade td.col-nome{ min-width:210px; }
   table.grade.modo-sab thead th:not(.col-nome):not(.col-total), table.grade.modo-sab td.hcell, table.grade.modo-sab td.dia-cell{ width:104px; min-width:104px; max-width:104px; }
@@ -562,11 +567,7 @@
             <option value="sab">Sábados trabalhados</option>
           </select>
         </div>
-        <div class="field">
-          <label for="buscaGrade">Buscar</label>
-          <input type="search" id="buscaGrade" placeholder="Nome ou função…" autocomplete="off" style="min-width:200px;">
-        </div>
-        <span id="buscaGradeInfo" style="font-size:11px;color:var(--text-faint);align-self:center;"></span>
+
         <button class="btn-ghost" id="btnExportGradeExcel">⬇ Exportar Excel</button>
       </div>
       <p class="panel-hint" id="avisoGrade" style="display:none;"></p>
@@ -575,6 +576,11 @@
         <div class="cal-card" id="calGrade"></div>
       </div>
       <p class="panel-hint" id="hintHorasGrade"></p>
+      <div class="grade-toolbar">
+        <label for="buscaGrade" class="grade-toolbar-titulo">Funcionários</label>
+        <input type="search" id="buscaGrade" placeholder="Buscar por nome ou função…" autocomplete="off">
+        <span id="buscaGradeInfo"></span>
+      </div>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
 
