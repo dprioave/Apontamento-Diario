@@ -2818,7 +2818,23 @@
   // Acha o funcionário do cadastro para uma linha do relatório: 1) mesma matrícula; 2) matrícula de outro
   // formato que termina igual E mesmo nome; 3) só o nome — mas se o relatório tem dois funcionários com o
   // mesmo nome (homonimo) e o cadastro já tem OUTRA matrícula para esse nome, não é a mesma pessoa.
-  function matchFuncionario(nomeRaw, matricula, homonimo){
+  // Mesma pessoa com dois cadastros (re-vínculo: ex. estagiário 002996 inativo + auxiliar 003341 ativo). Sem matrícula no
+  // arquivo, escolhe o vínculo VIGENTE na data do ponto (admissão <= dia <= demissão); sem data ou sem vínculo
+  // vigente, prefere o ATIVO.
+  function escolherVinculo(cands, iso){
+    if(cands.length === 1) return cands[0];
+    var ativo = function(e){ return !state.funcionarios[e.id].inativo; };
+    if(iso){
+      var vig = cands.filter(function(e){
+        var f = state.funcionarios[e.id];
+        return (!f.admissao || f.admissao <= iso) && (!f.demissao || iso <= f.demissao);
+      });
+      if(vig.length === 1) return vig[0];
+      if(vig.length > 1) return vig.filter(ativo)[0] || vig[0];
+    }
+    return cands.filter(ativo)[0] || cands[0];
+  }
+  function matchFuncionario(nomeRaw, matricula, homonimo, iso){
     var ix = indiceFuncionarios(), n = normName(nomeRaw), k = chaveMatricula(matricula), dq = digitosMatricula(matricula);
     var porNome = ix.byName[n] || [];
     if(k){
@@ -2833,9 +2849,9 @@
       if(compat) return compat.id;
     }
     if(!porNome.length) return null;
-    if(!k) return porNome[0].id;
+    if(!k) return escolherVinculo(porNome, iso).id;
     for(var j=0;j<porNome.length;j++){ if(!porNome[j].k) return porNome[j].id; }
-    return homonimo ? null : porNome[0].id;
+    return homonimo ? null : escolherVinculo(porNome, iso).id;
   }
   function chavePessoa(p){ var k = chaveMatricula(p.matricula); return k ? "m:"+k : "n:"+normName(p.nome); }
 
@@ -2863,7 +2879,7 @@
       // Quem existe no cadastro mas está INATIVO e apareceu no ponto também entra (ex.: estagiário que
       // foi promovido e voltou com novo vínculo): o cadastro acha a pessoa pelo nome, mas ela não conta
       // como ativa — sem este caso ela ficava invisível, nem apontada como nova nem contada.
-      var fidExistente = matchFuncionario(p.nome, p.matricula, p.homonimo);
+      var fidExistente = matchFuncionario(p.nome, p.matricula, p.homonimo, opts && opts.iso);
       if(fidExistente){
         var dEx = state.funcionarios[fidExistente];
         if(!dEx.inativo) return;
@@ -2953,7 +2969,7 @@
     var presentes = {};
     var fonte = pend.pessoas && pend.pessoas.length ? pend.pessoas : todosNomes.map(function(n){ return {nome:n}; });
     fonte.forEach(function(p){
-      var fid = matchFuncionario(p.nome, p.matricula, p.homonimo);
+      var fid = matchFuncionario(p.nome, p.matricula, p.homonimo, iso);
       if(fid) presentes[fid] = true;
     });
     return ativosIds.filter(function(fid){
@@ -2972,7 +2988,7 @@
     if(!doc || !doc.ausencias) return {existe:false, doc:null, mudancas:[], manuais:[]};
     var novo = {};
     pend.ausencias.forEach(function(a){
-      var fid = matchFuncionario(a.nome, a.matricula, a.homonimo);
+      var fid = matchFuncionario(a.nome, a.matricula, a.homonimo, iso);
       if(fid && !novo[fid] && batePonto(fid)) novo[fid] = a.codigo;
     });
     var ids = {};
@@ -3040,7 +3056,7 @@
       });
     }
     pend.ausencias.forEach(function(a){
-      var fid = matchFuncionario(a.nome, a.matricula, a.homonimo);
+      var fid = matchFuncionario(a.nome, a.matricula, a.homonimo, iso);
       if(fid && !ausencias[fid] && batePonto(fid)){
         ausencias[fid] = {codigo:a.codigo, origem:"import", atualizadoEm:new Date().toISOString(), atualizadoPor:state.email};
       }
@@ -3056,7 +3072,7 @@
       horas = {};
       (pend.pessoas || []).forEach(function(p){
         if(!p.horas || !(p.horas.t || p.horas.e || p.horas.a)) return;
-        var hfid = matchFuncionario(p.nome, p.matricula, p.homonimo);
+        var hfid = matchFuncionario(p.nome, p.matricula, p.homonimo, iso);
         if(hfid && !horas[hfid] && batePonto(hfid)) horas[hfid] = {t:p.horas.t, e:p.horas.e, s:p.horas.s, a:p.horas.a || 0};
       });
     } else if(existingDoc.horas){
