@@ -321,6 +321,7 @@
   .grade-toolbar input[type=search]{ width:320px; max-width:100%; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:8px; color:var(--text); font-size:13px; padding:7px 11px; }
   .grade-toolbar input[type=search]:focus{ outline:none; border-color:var(--accent); }
   #buscaGradeInfo{ font-size:11px; color:var(--text-faint); }
+  #cadastroTbody td.mat{ font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--text-dim); white-space:nowrap; }
   .func-sub{ display:block; font-size:10.5px; font-weight:400; color:var(--text-faint); line-height:1.25; margin-top:1px; }
   table.grade td.col-nome{ min-width:210px; }
   table.grade.modo-sab thead th:not(.col-nome):not(.col-total), table.grade.modo-sab td.hcell, table.grade.modo-sab td.dia-cell{ width:104px; min-width:104px; max-width:104px; }
@@ -652,10 +653,10 @@
         </div>
       </div>
 
-      <div class="search-box"><input type="text" id="buscaFuncionario" placeholder="Buscar funcionário..."></div>
+      <div class="search-box"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Função</th><th>Admissão</th><th>Demissão</th><th>Status</th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto</th><th></th></tr></thead>
+          <thead><tr><th title="Matrícula (últimos 6 dígitos)">Matrícula</th><th>Nome</th><th>Função</th><th>Admissão</th><th>Demissão</th><th>Status</th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto</th><th></th></tr></thead>
           <tbody id="cadastroTbody"></tbody>
         </table>
       </div>
@@ -3576,12 +3577,13 @@
     renderAcessos();
     var busca = normName($("buscaFuncionario").value);
     var ids = Object.keys(state.funcionarios).filter(function(id){
-      return !busca || normName(state.funcionarios[id].nome).indexOf(busca)>=0;
+      var fb = state.funcionarios[id], qd = busca.replace(/\D/g, "");
+      return !busca || normName(fb.nome).indexOf(busca)>=0 || (qd.length >= 2 && matriculaCurta(fb.matricula).indexOf(qd) >= 0);
     }).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
 
     var tbody = $("cadastroTbody");
     if(!ids.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhum funcionário cadastrado.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Nenhum funcionário cadastrado.</td></tr>';
       return;
     }
     tbody.innerHTML = ids.map(function(id){
@@ -3595,7 +3597,8 @@
         '<label class="bp"><input type="checkbox" data-bate-ponto="'+id+'"'+(bp?' checked':'')+'> '+(bp?"Sim":"Não")+'</label>' +
         (auto && !bp ? ' <span style="color:var(--text-faint);font-size:11px;" title="Definido automaticamente pela função">(pela função)</span>' : "");
       return "<tr>"+
-        '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(funcName(id))+"</a></td>"+
+        '<td class="mat">'+escapeHtml(matriculaCurta(f.matricula) || "—")+"</td>"+
+        '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(f.nome || id)+"</a></td>"+
         "<td>"+escapeHtml(fmtFuncao(f.funcao)||"—")+"</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+(f.demissao ? fmtDateBR(f.demissao) : "—")+"</td>"+
