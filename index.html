@@ -660,7 +660,7 @@
         </div>
       </div>
 
-      <div class="search-box" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."><label class="chk-fora" id="lblForaEscopo" style="display:none;" title="Pessoas dos departamentos que não são acompanhados: ficam escondidas de todas as telas, menos daqui"><input type="checkbox" id="chkForaEscopo"> <span id="txtForaEscopo"></span></label></div>
+      <div class="search-box" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."><label class="chk-fora" id="lblForaEscopo" style="display:none;" title="Pessoas dos departamentos que não são acompanhados: ficam escondidas de todas as telas, menos daqui"><input type="checkbox" id="chkForaEscopo"> <span id="txtForaEscopo"></span></label><label class="chk-fora" id="lblDesligAntigos" style="display:none;" title="Pessoas que saíram antes do mês atual ficam escondidas do Cadastro"><input type="checkbox" id="chkDesligAntigos"> <span id="txtDesligAntigos"></span></label></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th title="Matrícula (últimos 6 dígitos)">Matrícula</th><th>Nome</th><th>Função</th><th id="thDeptoCad" style="display:none;">Departamento</th><th>Admissão</th><th>Demissão</th><th>Status</th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto</th><th></th></tr></thead>
@@ -3643,6 +3643,15 @@
       if(fx.departamento) temDept = true;
       if(fx.foraEscopo === true) nFora++;
     });
+    // Quem saiu antes do mês atual (inativo com demissão anterior ao dia 1) não aparece no Cadastro; o DP pode mostrar
+    var corte = todayIso().slice(0, 8) + "01", nAntigos = 0;
+    Object.keys(state.funcionarios).forEach(function(id){
+      var fx = state.funcionarios[id];
+      if(fx.inativo && fx.demissao && fx.demissao < corte) nAntigos++;
+    });
+    $("lblDesligAntigos").style.display = (!readOnly && nAntigos > 0) ? "" : "none";
+    $("txtDesligAntigos").textContent = "Mostrar quem saiu antes de " + fmtDateBR(corte) + " (" + nAntigos + ")";
+    var verAntigos = !readOnly && $("chkDesligAntigos").checked;
     var podeVerFora = !readOnly && !perm && nFora > 0;
     $("lblForaEscopo").style.display = podeVerFora ? "" : "none";
     $("txtForaEscopo").textContent = "Mostrar fora do escopo (" + nFora + ")";
@@ -3651,6 +3660,7 @@
     var ncol = 8 + (temDept ? 1 : 0);
     var ids = Object.keys(state.funcionarios).filter(function(id){
       var fb = state.funcionarios[id], qd = busca.replace(/\D/g, "");
+      if(!verAntigos && fb.inativo && fb.demissao && fb.demissao < corte) return false;
       if(fb.foraEscopo === true){ if(!verFora) return false; }
       else if(!visivelNaVisao(id)) return false;
       return !busca || normName(fb.nome).indexOf(busca)>=0 || (qd.length >= 2 && matriculaCurta(fb.matricula).indexOf(qd) >= 0);
@@ -4809,6 +4819,7 @@
   $("diaSelecionado").addEventListener("change", renderAll);
   $("deptFiltro").addEventListener("change", function(){ state.deptFiltro = this.value; renderAll(); });
   $("chkForaEscopo").addEventListener("change", renderCadastro);
+  $("chkDesligAntigos").addEventListener("change", renderCadastro);
   $("btnSyncHoje").addEventListener("click", function(){ pedirSync("hoje"); });
   $("btnSyncPeriodo").addEventListener("click", function(){ pedirSync("periodo"); });
   $("syncDe").addEventListener("change", renderSync); $("syncAte").addEventListener("change", renderSync);
