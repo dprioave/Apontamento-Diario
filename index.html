@@ -327,6 +327,10 @@
   .dept-bar select{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:7px 10px; max-width:260px; }
   .chk-fora{ font-size:12.5px; color:var(--text-dim); display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
   .usu-deptos{ margin-top:10px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); }
+  .usu-filtros{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .usu-filtros input{ flex:1 1 220px; max-width:320px; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:8px 11px; }
+  .usu-filtros select{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:7px 10px; max-width:240px; }
+  .usu-contagem{ font-size:12px; color:var(--text-faint); margin-left:auto; }
   .usu-deptos-t{ font-size:12.5px; font-weight:600; margin-bottom:6px; }
   .func-sub{ display:block; font-size:10.5px; font-weight:400; color:var(--text-faint); line-height:1.25; margin-top:1px; }
   table.grade td.col-nome{ min-width:210px; }
@@ -699,6 +703,13 @@
           <div><p class="panel-title">Usuários cadastrados</p>
           <p class="panel-hint" style="margin-bottom:12px;">Quem ainda não aparece aqui continua entrando pela lista de acesso antiga, com a senha padrão ou a que já trocou.</p></div>
           <button class="btn-ghost btn-sm" id="usuImportar">Importar da lista de acesso atual</button>
+        </div>
+        <div class="usu-filtros">
+          <input type="text" id="usuBusca" placeholder="Buscar por nome ou e-mail..." autocomplete="off">
+          <select id="usuFiltroSetor"><option value="">Todos os setores</option><option value="DP">DP</option><option value="Engenharia">Engenharia</option><option value="Outro">Outro</option></select>
+          <select id="usuFiltroEmpresa"><option value="">Todas as empresas</option></select>
+          <select id="usuFiltroStatus"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="desativado">Desativado</option><option value="antiga">Lista antiga</option></select>
+          <span id="usuContagem" class="usu-contagem"></span>
         </div>
         <div class="table-wrap"><table>
           <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Empresas</th><th>Status</th><th></th></tr></thead>
@@ -4653,9 +4664,28 @@
       el.addEventListener("change", function(){ usu.empresas[el.getAttribute("data-usuemp")] = el.checked; renderUsuDeptos(); });
     });
     renderUsuDeptos();
-    var emails = Object.keys(usu.map).sort(function(a,b){
+    // filtros da lista: busca por nome/e-mail, setor, empresa e status
+    var selEmp = $("usuFiltroEmpresa"), empAtual = selEmp.value;
+    selEmp.innerHTML = '<option value="">Todas as empresas</option>' + ops.map(function(n){
+      var k = normCompanyName(n); return '<option value="'+escapeHtml(k)+'">'+escapeHtml(n)+'</option>';
+    }).join("");
+    selEmp.value = empAtual;
+    var fq = normName($("usuBusca").value), fSetor = $("usuFiltroSetor").value, fEmp = selEmp.value, fSt = $("usuFiltroStatus").value;
+    var todos = Object.keys(usu.map).sort(function(a,b){
       return ((usu.map[a].nome||a)).localeCompare(usu.map[b].nome||b);
     });
+    var emails = todos.filter(function(email){
+      var u = usu.map[email], cad = !!(u.setor || u.empresas);
+      if(fq && normName((u.nome||"") + " " + email).indexOf(fq) < 0) return false;
+      if(fSetor && u.setor !== fSetor) return false;
+      if(fEmp && !(u.empresas||[]).some(function(n){ return mesmaEmpresa(n, fEmp); })) return false;
+      if(fSt){
+        var st = u.ativo === false ? "desativado" : (cad ? "ativo" : "antiga");
+        if(st !== fSt) return false;
+      }
+      return true;
+    });
+    $("usuContagem").textContent = emails.length === todos.length ? todos.length + " usuário(s)" : emails.length + " de " + todos.length + " usuário(s)";
     $("usuTbody").innerHTML = emails.length ? emails.map(function(email){
       var u = usu.map[email], cad = !!(u.setor || u.empresas);
       var emp = (u.empresas||[]);
@@ -4669,7 +4699,7 @@
         '<td style="white-space:nowrap;"><button class="btn-ghost btn-sm" data-usu-edit="'+escapeHtml(email)+'">Editar</button> '+
         (cad ? '<button class="btn-ghost btn-sm" data-usu-ativo="'+escapeHtml(email)+'">'+(u.ativo===false?"Ativar":"Desativar")+'</button> ' : "")+
         '<button class="btn-ghost btn-sm" data-usu-del="'+escapeHtml(email)+'">'+(usu.confirmaDel===email?"Confirmar exclusão":"Excluir")+'</button></td></tr>';
-    }).join("") : '<tr class="empty-row"><td colspan="6">Nenhum usuário cadastrado ainda.</td></tr>';
+    }).join("") : '<tr class="empty-row"><td colspan="6">'+(todos.length ? "Nenhum usuário encontrado com esses filtros." : "Nenhum usuário cadastrado ainda.")+'</td></tr>';
     Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-edit]"), function(el){
       el.addEventListener("click", function(){ editarUsuario(el.getAttribute("data-usu-edit")); });
     });
@@ -4784,6 +4814,8 @@
   $("modalOcorrencias").addEventListener("click", function(ev){ if(ev.target===this) closeOcorrencias(); });
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
   $("usuSalvar").addEventListener("click", salvarUsuario);
+  $("usuBusca").addEventListener("input", renderUsuarios);
+  ["usuFiltroSetor", "usuFiltroEmpresa", "usuFiltroStatus"].forEach(function(id){ $(id).addEventListener("change", renderUsuarios); });
   $("usuCancelar").addEventListener("click", limparFormUsuario);
   $("usuGerar").addEventListener("click", function(){ $("usuSenha").value = gerarSenha(); });
   $("usuImportar").addEventListener("click", importarUsuariosLista);
