@@ -330,6 +330,8 @@
   .usu-filtros{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
   .usu-filtros input{ flex:1 1 220px; max-width:320px; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:8px 11px; }
   .usu-filtros select{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:7px 10px; max-width:240px; }
+  .modal-box textarea{ width:100%; box-sizing:border-box; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font:inherit; font-size:13px; line-height:1.5; padding:9px 11px; resize:vertical; }
+  .modal-box .field input[type=text]{ width:100%; box-sizing:border-box; }
   .usu-contagem{ font-size:12px; color:var(--text-faint); margin-left:auto; }
   .usu-deptos-t{ font-size:12.5px; font-weight:600; margin-bottom:6px; }
   .func-sub{ display:block; font-size:10.5px; font-weight:400; color:var(--text-faint); line-height:1.25; margin-top:1px; }
@@ -780,6 +782,26 @@
     <div class="modal-actions">
       <button class="btn-ghost" id="demCancelar">Cancelar</button>
       <button class="btn" id="demSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: E-MAIL DE ACESSO (administração) ================= -->
+<div class="modal-backdrop" id="modalEmailAcesso">
+  <div class="modal-box wide" style="max-width:660px;max-height:92vh;overflow:auto;">
+    <h3>E-mail de acesso</h3>
+    <p class="modal-sub" id="emSub"></p>
+    <div class="field"><label for="emPara">Para</label><input type="text" id="emPara" autocomplete="off"></div>
+    <div class="field"><label for="emSenha">Senha que vai no e-mail</label><input type="text" id="emSenha" autocomplete="off" placeholder="digite a senha que a pessoa vai usar">
+      <div class="panel-hint" id="emSenhaDica" style="margin:4px 0 0;"></div></div>
+    <div class="field"><label for="emAssunto">Assunto</label><input type="text" id="emAssunto" autocomplete="off"></div>
+    <div class="field"><label for="emCorpo">Mensagem</label><textarea id="emCorpo" rows="15"></textarea></div>
+    <div class="login-error" id="emErro"></div>
+    <div class="status-msg" id="emMsg"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="emFechar">Fechar</button>
+      <button class="btn-ghost" id="emCopiar">Copiar texto</button>
+      <button class="btn" id="emAbrir">Abrir no e-mail</button>
     </div>
   </div>
 </div>
@@ -4697,11 +4719,15 @@
       status += '<div style="font-size:11px;color:var(--text-faint);margin-top:3px;">'+(u.senhaHash ? "senha própria" : "senha padrão")+'</div>';
       return '<tr><td class="nome">'+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(email)+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+status+'</td>'+
         '<td style="white-space:nowrap;"><button class="btn-ghost btn-sm" data-usu-edit="'+escapeHtml(email)+'">Editar</button> '+
+        (cad ? '<button class="btn-ghost btn-sm" data-usu-mail="'+escapeHtml(email)+'" title="Enviar o e-mail de confirmação de cadastro e acesso">E-mail</button> ' : "")+
         (cad ? '<button class="btn-ghost btn-sm" data-usu-ativo="'+escapeHtml(email)+'">'+(u.ativo===false?"Ativar":"Desativar")+'</button> ' : "")+
         '<button class="btn-ghost btn-sm" data-usu-del="'+escapeHtml(email)+'">'+(usu.confirmaDel===email?"Confirmar exclusão":"Excluir")+'</button></td></tr>';
     }).join("") : '<tr class="empty-row"><td colspan="6">'+(todos.length ? "Nenhum usuário encontrado com esses filtros." : "Nenhum usuário cadastrado ainda.")+'</td></tr>';
     Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-edit]"), function(el){
       el.addEventListener("click", function(){ editarUsuario(el.getAttribute("data-usu-edit")); });
+    });
+    Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-mail]"), function(el){
+      el.addEventListener("click", function(){ abrirEmailAcesso(el.getAttribute("data-usu-mail")); });
     });
     Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-ativo]"), function(el){
       el.addEventListener("click", function(){
@@ -4718,6 +4744,70 @@
         if(usu.editando === em) limparFormUsuario();
       });
     });
+  }
+  // ---- E-mail de confirmação de cadastro e acesso ----
+  // O sistema não envia e-mail sozinho: monta a mensagem e abre no programa de e-mail do computador (Outlook). A senha
+  // não fica guardada em lugar nenhum (nem a padrão, que só existe como hash): quem envia a digita aqui; ao cadastrar
+  // um usuário com senha nova, ela já vem preenchida.
+  var APP_URL = "https://dprioave.github.io/Apontamento-Diario/";
+  var em = {email:"", u:null, editado:false};
+  function montarEmailAcesso(u, email, senha){
+    var primeiro = String(u.nome || nomeBonito(email)).trim().split(/\s+/)[0];
+    var emp = u.empresas || [], deps = [];
+    Object.keys(u.departamentos || {}).forEach(function(k){ deps = deps.concat(u.departamentos[k] || []); });
+    var perfil = u.setor === "DP" ? "Seu perfil permite consultar, importar o ponto e editar os cadastros das empresas liberadas." : "Seu perfil é de consulta: você acompanha os painéis, sem editar.";
+    var L = ["Olá, " + primeiro + "!", "", "Seu cadastro no Apontamento Diário foi confirmado e o acesso já está liberado.", "",
+      "Link de acesso: " + APP_URL, "E-mail de acesso: " + email, "Senha: " + (senha || "[informe a senha]"), ""];
+    if(emp.length) L.push("Empresa(s) liberada(s): " + emp.join("; "));
+    if(deps.length) L.push("Departamento(s): " + deps.join(", "));
+    L.push(perfil, "", "No primeiro acesso, use a opção \"Trocar minha senha\" (menu lateral) para definir uma senha só sua.", "",
+      "Qualquer dúvida, é só falar com o DP.", "", "Atenciosamente,", "DP Rio Ave");
+    return L.join("\n");
+  }
+  function atualizarCorpoEmail(){
+    if(em.editado) return;
+    $("emCorpo").value = montarEmailAcesso(em.u, em.email, $("emSenha").value.trim());
+  }
+  function abrirEmailAcesso(email, senha, uObj, propria){
+    var u = uObj || usu.map[email]; if(!u) return;
+    em.email = email; em.u = u; em.editado = false;
+    $("emSub").textContent = (u.nome || nomeBonito(email)) + " · " + email;
+    $("emPara").value = email;
+    $("emSenha").value = senha || "";
+    var tem = propria !== undefined ? propria : !!u.senhaHash;
+    $("emSenhaDica").textContent = tem
+      ? "Esta pessoa tem senha própria. Informe a senha que você definiu para ela (o sistema não guarda a senha em texto)."
+      : "Esta pessoa entra com a senha padrão (compartilhada). Por segurança ela não fica guardada no sistema: digite-a aqui.";
+    $("emAssunto").value = "Acesso ao Apontamento Diário — Rio Ave";
+    $("emErro").classList.remove("show"); $("emMsg").className = "status-msg";
+    atualizarCorpoEmail();
+    $("modalEmailAcesso").classList.add("show");
+  }
+  function fecharEmailAcesso(){ $("modalEmailAcesso").classList.remove("show"); $("emSenha").value = ""; $("emCorpo").value = ""; }
+  function validarEmail(){
+    var erro = $("emErro"); erro.classList.remove("show");
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($("emPara").value.trim())){ erro.textContent = "Informe um e-mail de destino válido."; erro.classList.add("show"); return false; }
+    if(!$("emSenha").value.trim() && $("emCorpo").value.indexOf("[informe a senha]") >= 0){ erro.textContent = "Digite a senha que vai no e-mail."; erro.classList.add("show"); return false; }
+    return true;
+  }
+  function abrirNoEmail(){
+    if(!validarEmail()) return;
+    var corpo = $("emCorpo").value.replace(/\r?\n/g, "\r\n");
+    var a = document.createElement("a");
+    a.href = "mailto:" + encodeURIComponent($("emPara").value.trim()).replace(/%40/g, "@") + "?subject=" + encodeURIComponent($("emAssunto").value) + "&body=" + encodeURIComponent(corpo);
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    $("emMsg").className = "status-msg show ok"; $("emMsg").textContent = "Mensagem aberta no seu programa de e-mail. Confira e envie por lá.";
+  }
+  function copiarEmail(){
+    if(!validarEmail()) return;
+    var txt = "Para: " + $("emPara").value.trim() + "\nAssunto: " + $("emAssunto").value + "\n\n" + $("emCorpo").value;
+    var ok = function(){ $("emMsg").className = "status-msg show ok"; $("emMsg").textContent = "Texto copiado."; };
+    var fallback = function(){
+      var t = document.createElement("textarea"); t.value = txt; document.body.appendChild(t); t.select();
+      try{ document.execCommand("copy"); ok(); }catch(e){ $("emMsg").className = "status-msg show error"; $("emMsg").textContent = "Não consegui copiar; selecione o texto e copie manualmente."; }
+      document.body.removeChild(t);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, fallback); else fallback();
   }
   function limparFormUsuario(){
     usu.editando = null; usu.empresas = {}; usu.deptos = {};
@@ -4779,6 +4869,7 @@
       msg.textContent = (editando ? "Usuário atualizado: " : "Usuário cadastrado: ") + nome + " (" + email + ")." + (senha && !editando ? " Passe a senha para a pessoa — ela não poderá ser consultada depois." : "");
       limparFormUsuario();
       $("usuMsg").className = "status-msg show ok"; $("usuMsg").textContent = msg.textContent;
+      if(senha) abrirEmailAcesso(email, senha, campos, true);
     }catch(e){ falha("Erro ao salvar: " + (e && (e.code || e.message) || "tente de novo.")); }
   }
   async function importarUsuariosLista(){
@@ -4815,6 +4906,12 @@
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
   $("usuSalvar").addEventListener("click", salvarUsuario);
   $("usuBusca").addEventListener("input", renderUsuarios);
+  $("emFechar").addEventListener("click", fecharEmailAcesso);
+  $("modalEmailAcesso").addEventListener("click", function(ev){ if(ev.target === this) fecharEmailAcesso(); });
+  $("emAbrir").addEventListener("click", abrirNoEmail);
+  $("emCopiar").addEventListener("click", copiarEmail);
+  $("emSenha").addEventListener("input", atualizarCorpoEmail);
+  $("emCorpo").addEventListener("input", function(){ em.editado = true; });
   ["usuFiltroSetor", "usuFiltroEmpresa", "usuFiltroStatus"].forEach(function(id){ $(id).addEventListener("change", renderUsuarios); });
   $("usuCancelar").addEventListener("click", limparFormUsuario);
   $("usuGerar").addEventListener("click", function(){ $("usuSenha").value = gerarSenha(); });
