@@ -332,6 +332,13 @@
   .usu-filtros select{ background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:7px 10px; max-width:240px; }
   .modal-box textarea{ width:100%; box-sizing:border-box; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font:inherit; font-size:13px; line-height:1.5; padding:9px 11px; resize:vertical; }
   .modal-box .field input[type=text]{ width:100%; box-sizing:border-box; }
+  .usu-lote{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:9px 12px; margin-bottom:10px; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface-2); font-size:13px; }
+  .usu-lote span{ font-weight:600; margin-right:auto; }
+  #usuTbody td.sel, .usu-th-sel{ width:28px; padding-right:0; }
+  .el-lista{ border:1px solid var(--border); border-radius:8px; max-height:300px; overflow:auto; margin:10px 0; }
+  .el-lista div{ display:flex; justify-content:space-between; gap:10px; padding:6px 10px; font-size:12.5px; border-bottom:1px solid var(--border); }
+  .el-lista div:last-child{ border-bottom:0; }
+  .el-lista small{ color:var(--text-faint); }
   .usu-contagem{ font-size:12px; color:var(--text-faint); margin-left:auto; }
   .usu-deptos-t{ font-size:12.5px; font-weight:600; margin-bottom:6px; }
   .func-sub{ display:block; font-size:10.5px; font-weight:400; color:var(--text-faint); line-height:1.25; margin-top:1px; }
@@ -679,12 +686,12 @@
     <div class="tabpane" id="tab-usuarios">
       <div class="panel" id="usuFormPanel">
         <p class="panel-title" id="usuTitulo">Cadastrar usuário</p>
-        <p class="panel-hint">Quem é cadastrado aqui entra com este e-mail e senha e só enxerga as empresas marcadas. Setor DP pode importar e editar; os demais setores só consultam. A senha fica guardada de forma criptografada e não pode ser consultada depois — para trocar, informe uma nova.</p>
+        <p class="panel-hint">Quem é cadastrado aqui entra com este e-mail e senha e só enxerga as empresas marcadas. Setor DP pode importar e editar; os demais setores só consultam. Deixe a senha em branco para a pessoa entrar com a senha padrão (ela pode trocar depois em "Trocar minha senha"); preencha só se quiser uma senha própria, que fica guardada de forma criptografada e não pode ser consultada depois.</p>
         <div class="usuario-form">
           <div class="field"><label for="usuNome">Nome</label><input type="text" id="usuNome" autocomplete="off"></div>
           <div class="field"><label for="usuEmail">E-mail</label><input type="email" id="usuEmail" placeholder="nome@rioave.com.br" autocomplete="off"></div>
           <div class="field"><label for="usuSenha">Senha</label>
-            <div style="display:flex;gap:6px;"><input type="text" id="usuSenha" placeholder="mín. 6 caracteres" autocomplete="off"><button class="btn-ghost btn-sm" id="usuGerar" type="button">Gerar</button></div></div>
+            <div style="display:flex;gap:6px;"><input type="text" id="usuSenha" placeholder="em branco = senha padrão" autocomplete="off"><button class="btn-ghost btn-sm" id="usuGerar" type="button">Gerar</button></div></div>
           <div class="field"><label for="usuSetor">Setor</label>
             <select id="usuSetor"><option value="DP">DP</option><option value="Engenharia">Engenharia</option><option value="Outro">Outro</option></select></div>
         </div>
@@ -711,10 +718,14 @@
           <select id="usuFiltroSetor"><option value="">Todos os setores</option><option value="DP">DP</option><option value="Engenharia">Engenharia</option><option value="Outro">Outro</option></select>
           <select id="usuFiltroEmpresa"><option value="">Todas as empresas</option></select>
           <select id="usuFiltroStatus"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="desativado">Desativado</option><option value="antiga">Lista antiga</option></select>
+          <button class="btn-ghost btn-sm" id="usuSelPendentes" type="button" title="Marca, entre os usuários listados, quem ainda não recebeu o e-mail de acesso">Selecionar quem ainda não recebeu</button>
           <span id="usuContagem" class="usu-contagem"></span>
         </div>
+        <div class="usu-lote" id="usuLote" style="display:none;"><span id="usuLoteTxt"></span>
+          <button class="btn btn-sm" id="usuLoteEnviar" type="button">Enviar e-mail de acesso</button>
+          <button class="btn-ghost btn-sm" id="usuLoteLimpar" type="button">Limpar seleção</button></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Empresas</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th class="usu-th-sel"><input type="checkbox" id="usuSelTodos" title="Selecionar todos os listados"></th><th>Nome</th><th>E-mail</th><th>Setor</th><th>Empresas</th><th>Status</th><th></th></tr></thead>
           <tbody id="usuTbody"></tbody>
         </table></div>
       </div>
@@ -787,6 +798,21 @@
 </div>
 
 <!-- ================= MODAL: E-MAIL DE ACESSO (administração) ================= -->
+<!-- ================= MODAL: ENVIO DE E-MAILS DE ACESSO EM LOTE ================= -->
+<div class="modal-backdrop" id="modalEmailLote">
+  <div class="modal-box wide" style="max-width:580px;max-height:92vh;overflow:auto;">
+    <h3>Enviar e-mails de acesso</h3>
+    <p class="modal-sub" id="elSub"></p>
+    <div class="el-lista" id="elLista"></div>
+    <div class="panel-hint" style="margin:0;">Cada pessoa recebe o texto padrão com o link, o e-mail de acesso e a senha padrão. O robô do PC envia pelo Outlook, em nome da conta do DP, em até 5 minutos. Quem tem senha própria fica de fora: envie individualmente.</div>
+    <div class="login-error" id="elErro"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="elCancelar">Cancelar</button>
+      <button class="btn" id="elConfirmar">Confirmar envio</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modalEmailAcesso">
   <div class="modal-box wide" style="max-width:660px;max-height:92vh;overflow:auto;">
     <h3>E-mail de acesso</h3>
@@ -1812,7 +1838,7 @@
     if(!legado && !cadastrado){ falha("Esse e-mail não está cadastrado. Peça ao administrador para te incluir em Usuários e acessos."); return; }
     if(u && u.ativo === false){ falha("Este usuário está desativado. Fale com o administrador."); return; }
     var hash = await sha256Hex(senha);
-    var esperado = (u && u.senhaHash) ? u.senhaHash : (legado ? GATE_PASSWORD_HASH : null);
+    var esperado = (u && u.senhaHash) ? u.senhaHash : ((legado || cadastrado) ? GATE_PASSWORD_HASH : null);
     if(!esperado){ falha("Este usuário ainda não tem senha definida. Peça ao administrador."); return; }
     if(hash !== esperado){ falha("Senha incorreta."); return; }
     try{ sessionStorage.setItem(LOGIN_STORAGE_KEY, email); }catch(e){}
@@ -4632,7 +4658,7 @@
   }
 
   // ================= USUÁRIOS E ACESSOS (só administração) =================
-  var usu = {map:{}, unsub:null, unsubEnv:null, envios:{}, editando:null, empresas:{}, deptos:{}, confirmaDel:null};
+  var usu = {map:{}, unsub:null, unsubEnv:null, envios:{}, sel:{}, visiveis:[], editando:null, empresas:{}, deptos:{}, confirmaDel:null};
   function nomeBonito(email){
     return String(email).split("@")[0].split(/[._-]+/).map(function(p){ return p.charAt(0).toUpperCase()+p.slice(1); }).join(" ");
   }
@@ -4683,6 +4709,57 @@
       });
     });
   }
+  // ---- Envio em lote: motivo pelo qual a pessoa não entra no lote ("" = pode) ----
+  function motivoForaDoLote(email){
+    var u = usu.map[email];
+    if(!u || !(u.setor || u.empresas)) return "não cadastrado em Usuários e acessos";
+    if(u.ativo === false) return "usuário desativado";
+    if(u.senhaHash) return "tem senha própria: envie individualmente";
+    var env = usu.envios[email];
+    if(env && (env.status === "pendente" || env.status === "andamento")) return "já está na fila de envio";
+    return "";
+  }
+  function selecionadosLote(){
+    return Object.keys(usu.sel).filter(function(e){ return usu.sel[e] && usu.map[e] && !motivoForaDoLote(e); });
+  }
+  function renderLoteBar(){
+    var n = selecionadosLote().length;
+    $("usuLote").style.display = n ? "flex" : "none";
+    $("usuLoteTxt").textContent = n + " usuário(s) selecionado(s)";
+    var el = $("usuSelTodos"), elegiveis = usu.visiveis.filter(function(e){ return !motivoForaDoLote(e); });
+    var marcados = elegiveis.filter(function(e){ return usu.sel[e]; }).length;
+    el.checked = elegiveis.length > 0 && marcados === elegiveis.length;
+    el.indeterminate = marcados > 0 && marcados < elegiveis.length;
+  }
+  function abrirLote(){
+    var lista = selecionadosLote(); if(!lista.length) return;
+    $("elErro").classList.remove("show");
+    $("elSub").textContent = lista.length + " e-mail(s) de acesso serão enviados:";
+    $("elLista").innerHTML = lista.sort(function(a, b){ return String(usu.map[a].nome || a).localeCompare(String(usu.map[b].nome || b)); }).map(function(e){
+      var env = usu.envios[e], ja = env && env.status === "enviado" ? '<small>já recebeu em ' + escapeHtml(fmtDataHora(env.enviadoEm)) + ' — será reenviado</small>' : "";
+      return '<div><span>' + escapeHtml(usu.map[e].nome || nomeBonito(e)) + ' · ' + escapeHtml(e) + '</span>' + ja + '</div>';
+    }).join("");
+    $("modalEmailLote").classList.add("show");
+  }
+  async function confirmarLote(){
+    var lista = selecionadosLote(), erro = $("elErro"); erro.classList.remove("show");
+    if(!lista.length || !state.db || !isAdmin()) return;
+    $("elConfirmar").disabled = true;
+    var ok = 0, falhas = [];
+    for(var i = 0; i < lista.length; i++){
+      try{
+        await state.db.collection("envio_email").doc(lista[i]).set({email:lista[i], status:"pendente", senha:null, pedidoPor:state.email,
+          pedidoEm:new Date().toISOString(), msg:"Na fila: o robô envia em até 5 minutos."});
+        ok++; delete usu.sel[lista[i]];
+      }catch(e){ falhas.push(lista[i]); }
+    }
+    $("elConfirmar").disabled = false;
+    if(falhas.length){ erro.textContent = ok + " pedido(s) registrado(s); falhou para: " + falhas.join(", "); erro.classList.add("show"); renderUsuarios(); return; }
+    $("modalEmailLote").classList.remove("show");
+    var m = $("usuMsg"); m.className = "status-msg show ok";
+    m.textContent = ok + " pedido(s) de envio registrado(s). O robô envia em até 5 minutos; o andamento aparece na linha de cada usuário.";
+    renderUsuarios();
+  }
   function renderUsuarios(){
     if(!isAdmin() || !$("usuEmpresas")) return;
     var ops = opcoesEmpresas();
@@ -4716,8 +4793,10 @@
       return true;
     });
     $("usuContagem").textContent = emails.length === todos.length ? todos.length + " usuário(s)" : emails.length + " de " + todos.length + " usuário(s)";
+    usu.visiveis = emails.slice();
     $("usuTbody").innerHTML = emails.length ? emails.map(function(email){
       var u = usu.map[email], cad = !!(u.setor || u.empresas);
+      var motivo = motivoForaDoLote(email);
       var emp = (u.empresas||[]);
       var empTxt = emp.length ? emp.slice(0,2).map(escapeHtml).join("<br>") + (emp.length>2 ? '<br><span style="color:var(--text-faint);">+ '+(emp.length-2)+' empresa(s)</span>' : "") : "—";
       var deps = []; Object.keys(u.departamentos || {}).forEach(function(k){ deps = deps.concat(u.departamentos[k] || []); });
@@ -4732,12 +4811,16 @@
           : "e-mail na fila…";
         status += '<div style="font-size:11px;margin-top:3px;color:var(--'+(env.status === "enviado" ? "good" : env.status === "erro" ? "bad" : "text-faint")+');">'+escapeHtml(envTxt)+'</div>';
       }
-      return '<tr><td class="nome">'+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(email)+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+status+'</td>'+
+      return '<tr><td class="sel"><input type="checkbox" data-usu-sel="'+escapeHtml(email)+'"'+(usu.sel[email] && !motivo ? ' checked' : '')+(motivo ? ' disabled title="'+escapeHtml(motivo)+'"' : '')+'></td><td class="nome">'+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(email)+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+status+'</td>'+
         '<td style="white-space:nowrap;"><button class="btn-ghost btn-sm" data-usu-edit="'+escapeHtml(email)+'">Editar</button> '+
         (cad ? '<button class="btn-ghost btn-sm" data-usu-mail="'+escapeHtml(email)+'" title="Enviar o e-mail de confirmação de cadastro e acesso">E-mail</button> ' : "")+
         (cad ? '<button class="btn-ghost btn-sm" data-usu-ativo="'+escapeHtml(email)+'">'+(u.ativo===false?"Ativar":"Desativar")+'</button> ' : "")+
         '<button class="btn-ghost btn-sm" data-usu-del="'+escapeHtml(email)+'">'+(usu.confirmaDel===email?"Confirmar exclusão":"Excluir")+'</button></td></tr>';
-    }).join("") : '<tr class="empty-row"><td colspan="6">'+(todos.length ? "Nenhum usuário encontrado com esses filtros." : "Nenhum usuário cadastrado ainda.")+'</td></tr>';
+    }).join("") : '<tr class="empty-row"><td colspan="7">'+(todos.length ? "Nenhum usuário encontrado com esses filtros." : "Nenhum usuário cadastrado ainda.")+'</td></tr>';
+    Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-sel]"), function(el){
+      el.addEventListener("change", function(){ usu.sel[el.getAttribute("data-usu-sel")] = el.checked; renderLoteBar(); });
+    });
+    renderLoteBar();
     Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-edit]"), function(el){
       el.addEventListener("click", function(){ editarUsuario(el.getAttribute("data-usu-edit")); });
     });
@@ -4849,7 +4932,7 @@
     ["usuNome","usuEmail","usuSenha"].forEach(function(id){ $(id).value = ""; });
     $("usuEmail").disabled = false; $("usuSetor").value = "DP";
     $("usuTitulo").textContent = "Cadastrar usuário"; $("usuSalvar").textContent = "Salvar usuário";
-    $("usuCancelar").style.display = "none"; $("usuSenha").placeholder = "mín. 6 caracteres";
+    $("usuCancelar").style.display = "none"; $("usuSenha").placeholder = "em branco = senha padrão";
     $("usuErro").classList.remove("show");
     renderUsuarios();
   }
@@ -4885,7 +4968,6 @@
     var existente = usu.map[email] || null, editando = usu.editando === email;
     if(!editando && existente && (existente.setor || existente.empresas)){ falha("Já existe um usuário com este e-mail — use o botão Editar na lista."); return; }
     if(senha && senha.length < 6){ falha("A senha precisa ter pelo menos 6 caracteres."); return; }
-    if(!senha && !(existente && existente.senhaHash) && !(allEmpresaEmails().indexOf(email) >= 0)){ falha("Defina uma senha (mín. 6 caracteres)."); return; }
     if(!empresas.length){ falha("Marque ao menos uma empresa de acesso."); return; }
     var agora = new Date().toISOString();
     var departamentos = {};
@@ -4901,10 +4983,11 @@
     try{
       await gravarUsuario(email, campos);
       var msg = $("usuMsg"); msg.className = "status-msg show ok";
-      msg.textContent = (editando ? "Usuário atualizado: " : "Usuário cadastrado: ") + nome + " (" + email + ")." + (senha && !editando ? " Passe a senha para a pessoa — ela não poderá ser consultada depois." : "");
+      msg.textContent = (editando ? "Usuário atualizado: " : "Usuário cadastrado: ") + nome + " (" + email + ")." + (senha && !editando ? " Passe a senha para a pessoa — ela não poderá ser consultada depois." : (!senha && !editando ? " Entra com a senha padrão." : ""));
       limparFormUsuario();
       $("usuMsg").className = "status-msg show ok"; $("usuMsg").textContent = msg.textContent;
       if(senha) abrirEmailAcesso(email, senha, campos, true);
+      else if(!editando) abrirEmailAcesso(email, "", campos, false);
     }catch(e){ falha("Erro ao salvar: " + (e && (e.code || e.message) || "tente de novo.")); }
   }
   async function importarUsuariosLista(){
@@ -4941,6 +5024,23 @@
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
   $("usuSalvar").addEventListener("click", salvarUsuario);
   $("usuBusca").addEventListener("input", renderUsuarios);
+  $("usuSelTodos").addEventListener("change", function(){
+    var marcar = this.checked;
+    usu.visiveis.forEach(function(e){ if(!motivoForaDoLote(e)) usu.sel[e] = marcar; });
+    renderUsuarios();
+  });
+  $("usuSelPendentes").addEventListener("click", function(){
+    usu.visiveis.forEach(function(e){
+      var env = usu.envios[e];
+      if(!motivoForaDoLote(e) && !(env && env.status === "enviado")) usu.sel[e] = true;
+    });
+    renderUsuarios();
+  });
+  $("usuLoteLimpar").addEventListener("click", function(){ usu.sel = {}; renderUsuarios(); });
+  $("usuLoteEnviar").addEventListener("click", abrirLote);
+  $("elCancelar").addEventListener("click", function(){ $("modalEmailLote").classList.remove("show"); });
+  $("modalEmailLote").addEventListener("click", function(ev){ if(ev.target === this) this.classList.remove("show"); });
+  $("elConfirmar").addEventListener("click", confirmarLote);
   $("emFechar").addEventListener("click", fecharEmailAcesso);
   $("modalEmailAcesso").addEventListener("click", function(ev){ if(ev.target === this) fecharEmailAcesso(); });
   $("emAbrir").addEventListener("click", abrirNoEmail);
