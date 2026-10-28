@@ -795,13 +795,15 @@
     <div class="field"><label for="emSenha">Senha que vai no e-mail</label><input type="text" id="emSenha" autocomplete="off" placeholder="digite a senha que a pessoa vai usar">
       <div class="panel-hint" id="emSenhaDica" style="margin:4px 0 0;"></div></div>
     <div class="field"><label for="emAssunto">Assunto</label><input type="text" id="emAssunto" autocomplete="off"></div>
-    <div class="field"><label for="emCorpo">Mensagem</label><textarea id="emCorpo" rows="15"></textarea></div>
+    <div class="field"><label for="emCorpo">Mensagem</label><textarea id="emCorpo" rows="15"></textarea>
+      <div class="panel-hint" style="margin:4px 0 0;"><b>Enviar agora</b> usa o texto padrão acima: o robô do PC envia pelo Outlook em até 5 minutos, em nome da conta do DP. Edições na mensagem valem só para <b>Abrir no Outlook</b> e <b>Copiar texto</b>.</div></div>
     <div class="login-error" id="emErro"></div>
     <div class="status-msg" id="emMsg"></div>
     <div class="modal-actions">
       <button class="btn-ghost" id="emFechar">Fechar</button>
       <button class="btn-ghost" id="emCopiar">Copiar texto</button>
-      <button class="btn" id="emAbrir">Abrir no e-mail</button>
+      <button class="btn-ghost" id="emAbrir">Abrir no Outlook</button>
+      <button class="btn" id="emEnviar">Enviar agora</button>
     </div>
   </div>
 </div>
@@ -4630,7 +4632,7 @@
   }
 
   // ================= USUÁRIOS E ACESSOS (só administração) =================
-  var usu = {map:{}, unsub:null, editando:null, empresas:{}, deptos:{}, confirmaDel:null};
+  var usu = {map:{}, unsub:null, unsubEnv:null, envios:{}, editando:null, empresas:{}, deptos:{}, confirmaDel:null};
   function nomeBonito(email){
     return String(email).split("@")[0].split(/[._-]+/).map(function(p){ return p.charAt(0).toUpperCase()+p.slice(1); }).join(" ");
   }
@@ -4650,6 +4652,12 @@
         usu.map = {}; snap.docs.forEach(function(d){ usu.map[d.id] = d.data(); });
         renderUsuarios();
       });
+    }
+    if(!usu.unsubEnv){
+      usu.unsubEnv = state.db.collection("envio_email").onSnapshot(function(snap){
+        usu.envios = {}; snap.docs.forEach(function(d){ usu.envios[d.id] = d.data(); });
+        renderUsuarios();
+      }, function(){});
     }
     renderUsuarios();
   }
@@ -4717,6 +4725,13 @@
       var status = u.ativo === false ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Desativado</span>'
         : (cad ? '<span class="pill pill-presente">Ativo</span>' : '<span class="pill" style="background:var(--surface-2);color:var(--text-dim)">Lista antiga</span>');
       status += '<div style="font-size:11px;color:var(--text-faint);margin-top:3px;">'+(u.senhaHash ? "senha própria" : "senha padrão")+'</div>';
+      var env = usu.envios[email];
+      if(env && env.status){
+        var envTxt = env.status === "enviado" ? "e-mail enviado em " + fmtDataHora(env.enviadoEm)
+          : env.status === "erro" ? "e-mail com erro: " + (env.msg || "")
+          : "e-mail na fila…";
+        status += '<div style="font-size:11px;margin-top:3px;color:var(--'+(env.status === "enviado" ? "good" : env.status === "erro" ? "bad" : "text-faint")+');">'+escapeHtml(envTxt)+'</div>';
+      }
       return '<tr><td class="nome">'+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(email)+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+status+'</td>'+
         '<td style="white-space:nowrap;"><button class="btn-ghost btn-sm" data-usu-edit="'+escapeHtml(email)+'">Editar</button> '+
         (cad ? '<button class="btn-ghost btn-sm" data-usu-mail="'+escapeHtml(email)+'" title="Enviar o e-mail de confirmação de cadastro e acesso">E-mail</button> ' : "")+
@@ -4750,7 +4765,7 @@
   // não fica guardada em lugar nenhum (nem a padrão, que só existe como hash): quem envia a digita aqui; ao cadastrar
   // um usuário com senha nova, ela já vem preenchida.
   var APP_URL = "https://dprioave.github.io/Apontamento-Diario/";
-  var em = {email:"", u:null, editado:false};
+  var em = {email:"", u:null, editado:false, propria:false};
   function montarEmailAcesso(u, email, senha){
     var primeiro = String(u.nome || nomeBonito(email)).trim().split(/\s+/)[0];
     var emp = u.empresas || [], deps = [];
@@ -4775,9 +4790,10 @@
     $("emPara").value = email;
     $("emSenha").value = senha || "";
     var tem = propria !== undefined ? propria : !!u.senhaHash;
+    em.propria = tem;
     $("emSenhaDica").textContent = tem
       ? "Esta pessoa tem senha própria. Informe a senha que você definiu para ela (o sistema não guarda a senha em texto)."
-      : "Esta pessoa entra com a senha padrão (compartilhada). Por segurança ela não fica guardada no sistema: digite-a aqui.";
+      : "Esta pessoa entra com a senha padrão. Em \"Enviar agora\" o robô já inclui a senha padrão (guardada só no PC dele): deixe em branco. Para \"Abrir no Outlook\" ou \"Copiar texto\", digite-a aqui.";
     $("emAssunto").value = "Acesso ao Apontamento Diário — Rio Ave";
     $("emErro").classList.remove("show"); $("emMsg").className = "status-msg";
     atualizarCorpoEmail();
@@ -4789,6 +4805,25 @@
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($("emPara").value.trim())){ erro.textContent = "Informe um e-mail de destino válido."; erro.classList.add("show"); return false; }
     if(!$("emSenha").value.trim() && $("emCorpo").value.indexOf("[informe a senha]") >= 0){ erro.textContent = "Digite a senha que vai no e-mail."; erro.classList.add("show"); return false; }
     return true;
+  }
+  async function enviarAgora(){
+    var erro = $("emErro"); erro.classList.remove("show");
+    if(!state.db || !isAdmin()) return;
+    var para = normEmail($("emPara").value);
+    if(para !== em.email){ erro.textContent = "O envio direto vai para o e-mail cadastrado do usuário (" + em.email + "). Para outro destino, use \"Abrir no Outlook\"."; erro.classList.add("show"); return; }
+    var senha = $("emSenha").value.trim();
+    if(em.propria && !senha){ erro.textContent = "Esta pessoa tem senha própria: digite a senha que vai no e-mail."; erro.classList.add("show"); return; }
+    $("emEnviar").disabled = true;
+    try{
+      await state.db.collection("envio_email").doc(em.email).set({email:em.email, status:"pendente", senha:senha || null, pedidoPor:state.email,
+        pedidoEm:new Date().toISOString(), msg:"Na fila: o robô envia em até 5 minutos."});
+      fecharEmailAcesso();
+      var m = $("usuMsg"); m.className = "status-msg show ok";
+      m.textContent = "Pedido de envio registrado para " + em.email + ". O robô envia em até 5 minutos; o andamento aparece na linha do usuário.";
+    }catch(e){
+      erro.textContent = "Não consegui registrar o pedido: " + ((e && (e.code || e.message)) || "tente de novo."); erro.classList.add("show");
+    }
+    $("emEnviar").disabled = false;
   }
   function abrirNoEmail(){
     if(!validarEmail()) return;
@@ -4909,6 +4944,7 @@
   $("emFechar").addEventListener("click", fecharEmailAcesso);
   $("modalEmailAcesso").addEventListener("click", function(ev){ if(ev.target === this) fecharEmailAcesso(); });
   $("emAbrir").addEventListener("click", abrirNoEmail);
+  $("emEnviar").addEventListener("click", enviarAgora);
   $("emCopiar").addEventListener("click", copiarEmail);
   $("emSenha").addEventListener("input", atualizarCorpoEmail);
   $("emCorpo").addEventListener("input", function(){ em.editado = true; });
