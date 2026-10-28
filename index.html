@@ -884,7 +884,7 @@
   var $ = function(id){ return document.getElementById(id); };
 
   // ---------- Login gate (deterrent only, NOT real security — see login-note in the HTML) ----------
-  // Shared password is "Rioave@2026"; stored as SHA-256 so it's not sitting in plaintext in the source.
+  // Senha padrão compartilhada: guardada só como SHA-256, nunca em texto no código.
   // To change it: hash the new password (e.g. in a browser console) and replace the hex string below.
   var GATE_PASSWORD_HASH = "952dc2d36c52ec57a021941595ad98dc7bdceae62d92e9850aad8e926b7daaf3";
   var LOGIN_STORAGE_KEY = "apontamento-diario:login-email";
