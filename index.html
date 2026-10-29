@@ -1240,6 +1240,7 @@
     (header||[]).forEach(function(h, i){
       if(typeof h !== "string") return;
       var u = stripAccents(h).toUpperCase().replace(/\s+/g," ").trim();
+      if(u === "FALTAS") map.ft = i;
       var mE = u.match(/^ENTRADA (\d)/), mS = u.match(/^SAIDA (\d)/);
       if(mE){ (map.ent = map.ent || {})[mE[1]] = i; return; }
       if(mS){ (map.sai = map.sai || {})[mS[1]] = i; return; }
@@ -1249,6 +1250,14 @@
       else if(/^ATRASO|^SAIDA ANT|^SAI\.? ?ANT|^FALTAS$/.test(u)) (map.atr = map.atr || []).push(i);
     });
     return map;
+  }
+  // Subholding/Equipamentos: dia SEM nenhuma marcação e com tempo em FALTAS é falta de dia inteiro, mesmo sem a palavra
+  // FALTA no relatório. O dia de hoje fica de fora (a pessoa ainda pode bater o ponto).
+  function faltaDeDiaInteiro(dr, map, iso){
+    if(!map || map.ft == null || !iso || iso >= todayIso()) return false;
+    var cols = Object.keys(map.ent || {}).map(function(n){ return map.ent[n]; }).concat(Object.keys(map.sai || {}).map(function(n){ return map.sai[n]; }));
+    for(var k=0;k<cols.length;k++){ var v = dr[cols[k]]; if(v != null && String(v).trim() !== "") return false; }
+    return minDeCelula(dr[map.ft]) > 0;
   }
   function temColunasHoras(map){ return !!map && (map.t != null || !!(map.ex || map.sab || map.atr)); }
   function minDeMarca(v){
@@ -1317,6 +1326,7 @@
           if(!isIgnoredStatus(dr[ci])) motivoDesconhecido = dr[ci].trim();
         }
       }
+      if(!codigo && faltaDeDiaInteiro(dr, colH, dataDetectada)) codigo = "F";
       var matriculaLinha = String(dr[0]||"").trim();
       pessoas.push({nome:nome, matricula:matriculaLinha, codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colH)});
       if(codigo){
@@ -1381,6 +1391,7 @@
           if(!isIgnoredStatus(dr[ci])) motivoDesconhecido = dr[ci].trim();
         }
       }
+      if(!codigo && faltaDeDiaInteiro(dr, colHP, iso)) codigo = "F";
       dia.pessoas.push({nome:nome, matricula:"", codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colHP)});
       if(codigo) dia.ausencias.push({matricula:"", nome:nome, codigo:codigo});
       else if(motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
