@@ -907,6 +907,22 @@
   // nesta lista vê o link no gate — não é uma permissão por empresa, é global ao app inteiro.
   var ADMIN_EMAILS = ["gabrielle.santos@rioave.com.br"];
   function isAdmin(){ return ADMIN_EMAILS.indexOf(state.email)>=0; }
+  // Sincronização automática = quem importa é o login do robô do Secullum. Nela o ponto prevalece sobre ajuste manual:
+  // só vale o ajuste manual feito HOJE (amanhã a sincronização o substitui pelo ponto). A importação de arquivo feita
+  // por uma pessoa do DP continua mantendo todos os lançamentos manuais.
+  var ROBO_EMAIL = "robo.secullum@rioave.com.br";
+  function importAutomatico(){ return state.email === ROBO_EMAIL; }
+  function isoLocalDe(iso){
+    var d = new Date(iso || "");
+    if(isNaN(d.getTime())) return "";
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  // O lançamento manual da ausência "a" (origem manual) deve ser mantido nesta importação?
+  function manualVale(a){
+    if(!a || a.origem !== "manual") return false;
+    if(!importAutomatico()) return true;
+    return isoLocalDe(a.atualizadoEm) >= todayIso();
+  }
   // Source of truth: Empresas.xlsx — DP tem 2 papéis (Analista/Assistente) e Engenharia tem 2 papéis
   // (Gerente/Auxiliares); ambos os papéis de cada área viram uma lista única dp[]/eng[] por empresa.
   // Quem consta em qualquer papel passa da tela de entrada, e isso também sugere a lista de acesso
@@ -2313,7 +2329,7 @@
       html += '<div class="sync-linha"><b>Última sincronização automática:</b> '+fmtDataHora(u.em)+
         ' <span class="sync-pill '+cls+'">'+rot+'</span> '+
         '<span style="color:var(--text-faint)">dias '+fmtDateBR(u.de).slice(0,5)+' a '+fmtDateBR(u.ate).slice(0,5)+' · '+(u.diasOk||0)+' de '+(u.diasTotal||0)+' importados'+(u.msg ? " · "+escapeHtml(u.msg) : "")+'</span></div>';
-      if(idade > 30) html += '<div class="sync-linha"><span class="sync-pill sync-warn">sem sincronizar há '+Math.floor(idade)+' h</span> <span style="color:var(--text-faint)">o robô deveria rodar todo dia de manhã — confira se o PC dele está ligado.</span></div>';
+      if(idade > 30) html += '<div class="sync-linha"><span class="sync-pill sync-warn">sem sincronizar há '+Math.floor(idade)+' h</span> <span style="color:var(--text-faint)">o robô deveria rodar todo dia às 9h — confira se o PC dele está ligado.</span></div>';
     } else {
       html += '<div class="sync-linha"><span class="sync-pill sync-info">sem registro</span> <span style="color:var(--text-faint)">o robô ainda não registrou uma sincronização para esta obra.</span></div>';
     }
@@ -2341,7 +2357,7 @@
     $("btnSyncPeriodo").textContent = "⟳ Sincronizar período";
     // sugestão inicial: o fechamento em andamento (16 até hoje); depois respeita o que a pessoa digitar
     if(!$("syncDe").value && !$("syncAte").value){ $("syncDe").value = b.ini; $("syncAte").value = hoje; }
-    $("syncHint").textContent = ro ? "" : "O robô do PC da DP atende o pedido em até uns 5 minutos e a tela se atualiza sozinha. Ele reimporta o ponto do Secullum; lançamentos manuais são mantidos.";
+    $("syncHint").textContent = ro ? "" : "O robô do PC da DP atende o pedido em até uns 5 minutos e a tela se atualiza sozinha. Ele reimporta o ponto do Secullum: ajustes manuais feitos hoje são mantidos e, a partir da sincronização de amanhã, o ponto prevalece.";
   }
   function pedirSync(tipo){
     if(!state.db || isReadOnly() || !state.obraId) return;
@@ -3157,7 +3173,7 @@
 
   // Reimportação de um dia que já tem importação salva (ex.: o ponto foi corrigido depois — atestado
   // entregue, funcionário chegou atrasado): compara o que está salvo com o que o arquivo traz ANTES de
-  // gravar. Reflete exatamente o que montarPayloadDia() vai fazer: entradas manuais são sempre mantidas,
+  // gravar. Reflete exatamente o que montarPayloadDia() vai fazer: entradas manuais são mantidas (na sincronização automática, só as feitas hoje),
   // o resto é substituído.
   function diffDia(pend, iso){
     var doc = state.dias[iso];
@@ -3174,7 +3190,7 @@
       if(!batePonto(fid)) return;
       var o = doc.ausencias[fid] && doc.ausencias[fid].codigo ? doc.ausencias[fid] : null;
       var n = novo[fid] || null;
-      if(o && o.origem==="manual"){
+      if(o && manualVale(o)){
         if(n && n!==o.codigo) manuais.push({fid:fid, manual:o.codigo, ponto:n});
         return;
       }
@@ -3225,10 +3241,10 @@
   function montarPayloadDia(pend, iso, opts){
     var existingDoc = state.dias[iso] || {};
     var ausencias = {};
-    // preserve manual-origin entries already saved for this day
+    // mantém lançamentos manuais já salvos neste dia (na sincronização automática, só os feitos hoje: ver manualVale)
     if(existingDoc.ausencias){
       Object.keys(existingDoc.ausencias).forEach(function(fid){
-        if(existingDoc.ausencias[fid].origem === "manual") ausencias[fid] = existingDoc.ausencias[fid];
+        if(manualVale(existingDoc.ausencias[fid])) ausencias[fid] = existingDoc.ausencias[fid];
       });
     }
     pend.ausencias.forEach(function(a){
@@ -3374,7 +3390,7 @@
       '<p class="lote-resumo"><b>Importação em lote</b> — '+resumo+'</p>'+
       (cadastroVazio ? '<div class="status-msg show warn" style="margin:0 0 12px;">Muitos nomes destes arquivos não estão no cadastro desta obra — as ausências deles NÃO são gravadas (só aparecem em "Não encontrados"). Confira se escolheu a obra certa ou importe o cadastro antes (aba Cadastro).</div>' : '')+
       '<div class="lote-wrap"><table><thead><tr><th></th><th>Arquivo</th><th>Dia</th><th>Ausências</th><th>Não encontrados</th><th>Situação</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'+
-      '<p class="panel-hint" style="margin-bottom:12px;">Cada dia é salvo como na importação normal: lançamentos manuais são mantidos e o resto é substituído pelo ponto. Em dias anteriores, quem foi admitido depois da data não conta como "sumiu do ponto" e quem hoje está inativo não é sugerido para reativação. Os avisos de cada dia (não encontrados, sumiram do ponto) ficam salvos e aparecem ao abrir o dia.</p>'+
+      '<p class="panel-hint" style="margin-bottom:12px;">Cada dia é salvo como na importação normal: lançamentos manuais são mantidos e o resto é substituído pelo ponto (na sincronização automática do robô, só os lançamentos manuais feitos no próprio dia são mantidos). Em dias anteriores, quem foi admitido depois da data não conta como "sumiu do ponto" e quem hoje está inativo não é sugerido para reativação. Os avisos de cada dia (não encontrados, sumiram do ponto) ficam salvos e aparecem ao abrir o dia.</p>'+
       '<div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn" id="btnSalvarLote"'+((!validos || bloqueio) ? ' disabled' : '')+'>Salvar '+validos+' dia(s)</button>'+
       '<button class="btn-ghost" id="btnCancelarLote">Cancelar</button></div>'+
       (bloqueio ? '<p class="panel-hint" style="margin:10px 0 0;color:var(--bad);">Corrija as datas em vermelho (ou desmarque o arquivo) para poder salvar.</p>' : '');
