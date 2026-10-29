@@ -325,7 +325,11 @@
   .grade-toolbar-titulo{ font-size:12.5px; font-weight:600; color:var(--text-dim); }
   .grade-toolbar input[type=search]{ width:320px; max-width:100%; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:8px; color:var(--text); font-size:13px; padding:7px 11px; }
   .grade-toolbar input[type=search]:focus{ outline:none; border-color:var(--accent); }
-  #buscaGradeInfo{ font-size:11px; color:var(--text-faint); }
+  #buscaGradeInfo, #buscaResumoInfo{ font-size:11px; color:var(--text-faint); }
+  .kpis.kpis-mini{ grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:8px; margin-bottom:16px; }
+  .kpis-mini .kpi{ padding:7px 10px 6px; border-radius:8px; }
+  .kpis-mini .kpi-label{ font-size:9px; line-height:1.2; min-height:2.4em; margin-bottom:2px; letter-spacing:.04em; }
+  .kpis-mini .kpi-value{ font-size:17px; }
   #cadastroTbody td.mat{ font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--text-dim); white-space:nowrap; }
   .dept-bar{ display:flex; align-items:center; gap:8px; padding-top:6px; }
   .dept-bar label{ font-size:12px; color:var(--text-dim); font-weight:600; }
@@ -638,7 +642,12 @@
       <p class="panel-hint" id="avisoResumo" style="display:none;"></p>
       <div class="kpis" id="cargaKpisResumo"></div>
       <p class="panel-hint" id="hintHorasResumo"></p>
-      <div class="kpis" id="mensalKpis"></div>
+      <div class="kpis kpis-mini" id="mensalKpis"></div>
+      <div class="grade-toolbar">
+        <label for="buscaResumo" class="grade-toolbar-titulo">Funcionários</label>
+        <input type="search" id="buscaResumo" placeholder="Buscar por nome ou função…" autocomplete="off">
+        <span id="buscaResumoInfo"></span>
+      </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Funcionário</th><th>Faltas</th><th>Atest.</th><th>Férias</th><th>Susp.</th><th>Lic.</th><th>Just.</th><th>Abon.</th><th>Av. Pr.</th><th>Ex. Per.</th><th>Total dias</th><th>Total horas</th><th>Carga (h)</th><th>% da carga</th></tr></thead>
@@ -2681,7 +2690,7 @@
   }
 
   async function exportResumoMensalExcel(){
-    var dados = computeResumoMensal();
+    var dados = computeResumoMensal(true);
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Resumo Mensal");
@@ -2761,7 +2770,7 @@
   }
 
   function exportResumoMensalPdf(){
-    var dados = computeResumoMensal();
+    var dados = computeResumoMensal(true);
     var obraNome = (state.obras[state.obraId]||{}).nome || "";
     var jsPdf = window.jspdf.jsPDF;
     var doc = new jsPdf({orientation:"landscape", unit:"pt", format:"a4"});
@@ -2801,7 +2810,7 @@
     doc.save("Resumo Mensal - "+obraNome+" - "+dados.ym+".pdf");
   }
 
-  function computeResumoMensal(){
+  function computeResumoMensal(semBusca){
     var p = periodo("Resumo");
     avisoPeriodo("Resumo", p);
     var ativos = ativosPonto();
@@ -2836,7 +2845,12 @@
       cargaGeral += carga;
       return {fid:fid, nome:funcName(fid), funcao:fmtFuncao(f.funcao)||"—", t:t, h:th, soma:soma, somaH:somaH, carga:carga};
     }).filter(function(r){ return r.soma>0; }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
-    return {ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, totalsH:totalsH, rows:rows, somaTotal:somaTotal, somaTotalH:somaTotalH, cargaGeral:cargaGeral, periodo:p};
+    var rowsTotal = rows.length;
+    if(!semBusca){
+      var ok = {}; filtrarPorBusca(rows.map(function(r){ return r.fid; }), "buscaResumo").forEach(function(f){ ok[f] = true; });
+      rows = rows.filter(function(r){ return ok[r.fid]; });
+    }
+    return {rowsTotal:rowsTotal, ym:p.key, label:p.label, ehMes:p.ehMes, ativos:ativos, totals:totals, totalsH:totalsH, rows:rows, somaTotal:somaTotal, somaTotalH:somaTotalH, cargaGeral:cargaGeral, periodo:p};
   }
 
   async function exportDiarioJpg(){
@@ -3417,8 +3431,9 @@
   }
 
   // Filtro da caixa "Buscar" (nome ou função, sem acento e sem diferenciar maiúsculas)
-  function filtrarBuscaGrade(ids){
-    var q = normName(($("buscaGrade") || {}).value || "");
+  function filtrarBuscaGrade(ids){ return filtrarPorBusca(ids, "buscaGrade"); }
+  function filtrarPorBusca(ids, inputId){
+    var q = normName(($(inputId) || {}).value || "");
     if(!q) return ids;
     return ids.filter(function(fid){
       var f = state.funcionarios[fid] || {};
@@ -3676,8 +3691,9 @@
     $("hintHorasResumo").textContent = textoRegraHoras(dados.periodo) + " Folgas não entram no Resumo Mensal: são ausências esperadas, não ocorrências. O cartão \"% de horas ausentes\" divide o total de horas pela carga de todos os funcionários que batem ponto (quem não bate ponto ou está fora do escopo fica de fora).";
 
     var tbody = $("mensalTbody");
+    $("buscaResumoInfo").textContent = dados.rows.length !== dados.rowsTotal ? dados.rows.length + " de " + dados.rowsTotal + " funcionários" : "";
     if(!dados.rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(1+CODES_RESUMO.length+4)+'">Nenhuma ausência registrada em '+dados.label+'.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+(1+CODES_RESUMO.length+4)+'">'+(dados.rowsTotal ? "Nenhum funcionário encontrado para a busca." : "Nenhuma ausência registrada em "+dados.label+".")+'</td></tr>';
     } else {
       tbody.innerHTML = dados.rows.map(function(r){
         var cells = CODES_RESUMO.map(function(c){
@@ -5104,6 +5120,7 @@
   $("modoResumo").addEventListener("change", renderMensal);
   $("modoGrade").addEventListener("change", renderGrade);
   $("buscaGrade").addEventListener("input", renderGrade);
+  $("buscaResumo").addEventListener("input", renderMensal);
   ["ini","fim"].forEach(function(k){
     $(k+"Grade").addEventListener("change", function(){ sincronizarMes("Grade"); renderGrade(); });
     $(k+"Resumo").addEventListener("change", function(){ sincronizarMes("Resumo"); renderMensal(); });
