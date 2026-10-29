@@ -1231,27 +1231,49 @@
     var m = String(v).trim().match(/^(\d{1,3}):(\d{2})/);
     return m ? (+m[1])*60 + (+m[2]) : 0;
   }
+  // Dois layouts do Secullum:
+  //  - obras (e Investimentos): ... FALTAS DIA | ATRASO | EX.70% | SAB 70% | SAB. 100% | EX NOT | TRABALHADA;
+  //  - Subholding/Equipamentos: ... [BSALDO BTOTAL BCRED. BDEB.] | FALTAS | EX.70% | EX.100% — sem TRABALHADA, e "FALTAS"
+  //    (sem "DIA") é o tempo de atraso. Nesse layout as horas trabalhadas saem das marcações (entrada/saída).
   function acharColunasHoras(header){
     var map = {};
     (header||[]).forEach(function(h, i){
       if(typeof h !== "string") return;
       var u = stripAccents(h).toUpperCase().replace(/\s+/g," ").trim();
+      var mE = u.match(/^ENTRADA (\d)/), mS = u.match(/^SAIDA (\d)/);
+      if(mE){ (map.ent = map.ent || {})[mE[1]] = i; return; }
+      if(mS){ (map.sai = map.sai || {})[mS[1]] = i; return; }
       if(/^TRABALHADA/.test(u)) map.t = i;
       else if(/^SAB/.test(u)) (map.sab = map.sab || []).push(i);
       else if(/^EX/.test(u)) (map.ex = map.ex || []).push(i);
-      else if(/^ATRASO|^SAIDA ANT|^SAI\.? ?ANT/.test(u)) (map.atr = map.atr || []).push(i);
+      else if(/^ATRASO|^SAIDA ANT|^SAI\.? ?ANT|^FALTAS$/.test(u)) (map.atr = map.atr || []).push(i);
     });
     return map;
   }
+  function temColunasHoras(map){ return !!map && (map.t != null || !!(map.ex || map.sab || map.atr)); }
+  function minDeMarca(v){
+    if(typeof v === "number") return (v > 0 && v < 1) ? Math.round(v*1440) : null;
+    var m = String(v == null ? "" : v).trim().match(/^(\d{1,2}):(\d{2})$/);
+    return m ? (+m[1])*60 + (+m[2]) : null;
+  }
+  // soma dos pares entrada/saída completos (texto como FALTA/ATESTADO/FÉRIAS não conta)
+  function trabalhadaPelasMarcacoes(dr, map){
+    var tot = 0;
+    Object.keys(map.ent || {}).forEach(function(n){
+      var a = minDeMarca(dr[map.ent[n]]), b = (map.sai || {})[n] != null ? minDeMarca(dr[map.sai[n]]) : null;
+      if(a != null && b != null && b > a) tot += b - a;
+    });
+    return tot;
+  }
   // {t: trabalhadas, e: extras (EX* + SAB*), s: horas de sábado} em minutos — null se o arquivo não tem a coluna.
   function horasDaLinha(dr, map){
-    if(!map || map.t == null) return null;
+    if(!map || (map.t == null && !(map.ex || map.sab || map.atr))) return null;
     var e = 0, s2 = 0;
     (map.ex||[]).forEach(function(i){ e += minDeCelula(dr[i]); });
     (map.sab||[]).forEach(function(i){ var m = minDeCelula(dr[i]); e += m; s2 += m; });
     var at = 0;
     (map.atr||[]).forEach(function(i){ at += minDeCelula(dr[i]); });
-    return {t:minDeCelula(dr[map.t]), e:e, s:s2, a:at};
+    return {t:(map.t != null ? minDeCelula(dr[map.t]) : trabalhadaPelasMarcacoes(dr, map)), e:e, s:s2, a:at};
   }
 
   // ---------- Secullum XLSX parser ----------
@@ -1303,7 +1325,7 @@
         naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
       }
     }
-    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:naoMapeados, todosNomes:todosNomes, pessoas:pessoas, temHoras:colH.t != null};
+    return {empresa:empresaNome, data:dataDetectada, ausencias:ausencias, naoMapeados:naoMapeados, todosNomes:todosNomes, pessoas:pessoas, temHoras:temColunasHoras(colH)};
   }
 
   // ---------- Relatório por PERÍODO (vários dias num arquivo só) ----------
@@ -1346,7 +1368,7 @@
       if(!nome || !/[A-Za-zÀ-ÿ]/.test(nome)) continue;
       var dia = porDia[iso];
       if(!dia){
-        dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], temHoras:colHP.t != null};
+        dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], temHoras:temColunasHoras(colHP)};
         ordem.push(iso);
       }
       dia.todosNomes.push(nome);
