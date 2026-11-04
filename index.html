@@ -443,6 +443,22 @@
   .usu-emp input{ accent-color:var(--accent); }
   #app.tab-global .topbar, #app.tab-global .legend-box{ display:none; }
   /* Aba Solicitações de abonos */
+  .xl-btn{ margin-left:6px; background:var(--surface-2); border:1px solid var(--border-strong); color:var(--text-dim); border-radius:4px; font-size:11px; line-height:1; padding:3px 6px; cursor:pointer; vertical-align:middle; }
+  .xl-btn:hover{ border-color:var(--border-strong); color:var(--text); }
+  .xl-btn.on{ color:var(--accent); border-color:var(--accent); background:var(--accent-soft, rgba(224,90,76,.12)); }
+  .xl-pop{ position:fixed; z-index:90; display:none; width:250px; background:var(--surface-solid); border:1px solid var(--border-strong); border-radius:9px; box-shadow:0 12px 32px rgba(0,0,0,.45); padding:8px; font-size:13px; }
+  .xl-pop.show{ display:block; }
+  .xl-pop button.xl-op{ display:block; width:100%; text-align:left; background:transparent; border:0; color:var(--text-dim); padding:6px 8px; border-radius:6px; font-size:13px; cursor:pointer; font-family:inherit; }
+  .xl-pop button.xl-op:hover:not(:disabled){ background:var(--surface-2); color:var(--text); }
+  .xl-pop button.xl-op:disabled{ opacity:.4; cursor:default; }
+  .xl-pop hr{ border:0; border-top:1px solid var(--border); margin:6px 0; }
+  .xl-pop input[type=search]{ width:100%; box-sizing:border-box; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); padding:7px 10px; font-size:13px; font-family:inherit; margin-bottom:6px; }
+  .xl-pop input[type=search]:focus{ outline:none; border-color:var(--accent); }
+  .xl-list{ max-height:210px; overflow:auto; border:1px solid var(--border); border-radius:7px; padding:4px 6px; background:var(--surface-2); }
+  .xl-list label{ display:flex; align-items:center; gap:8px; padding:4px 2px; color:var(--text-dim); cursor:pointer; text-transform:none; letter-spacing:0; font-size:12.5px; }
+  .xl-list input{ accent-color:var(--accent); width:auto; margin:0; }
+  .xl-list .xl-n{ margin-left:auto; color:var(--text-faint); font-size:11px; }
+  .xl-acoes{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
   .combo-pop{ position:fixed; z-index:90; display:none; flex-direction:column; background:var(--surface-solid); border:1px solid var(--border-strong); border-radius:9px; box-shadow:0 12px 32px rgba(0,0,0,.45); }
   .combo-pop.show{ display:flex; }
   .combo-pop input, .multi-busca{ margin:8px; width:calc(100% - 16px); box-sizing:border-box; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); padding:7px 10px; font-size:13px; font-family:inherit; }
@@ -484,6 +500,8 @@
   .abn-topo{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
   .abn-topo h2{ font-size:clamp(22px,3.4vw,28px); margin:0 0 4px; letter-spacing:-.01em; }
   .abn-topo p{ margin:0; color:var(--text-dim); font-size:13.5px; max-width:64ch; }
+  .abn-lanc{ color:var(--good) !important; }
+  .abn-nlanc{ color:var(--warn) !important; }
   .abn-filtros{ display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin:0 0 14px; }
   .abn-filtros .field{ min-width:150px; }
   .abn-filtros input[type=search]{ min-width:220px; }
@@ -633,6 +651,7 @@
           <label for="diaSelecionado">Dia</label>
           <input type="date" id="diaSelecionado">
         </div>
+        <button class="btn-ghost btn-sm" id="diaLimparFiltros" type="button" style="display:none;"></button>
         <button class="btn-ghost" id="btnExportDiarioJpg">⬇ Exportar JPG</button>
       </div>
 
@@ -644,7 +663,7 @@
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Funcionário</th><th>Função</th><th>Status</th><th>Origem</th><th></th></tr></thead>
+          <thead><tr><th>Funcionário<button class="xl-btn" data-xl="nome" type="button" title="Filtrar / ordenar">▾</button></th><th>Função<button class="xl-btn" data-xl="funcao" type="button" title="Filtrar / ordenar">▾</button></th><th>Status<button class="xl-btn" data-xl="status" type="button" title="Filtrar / ordenar">▾</button></th><th>Origem<button class="xl-btn" data-xl="origem" type="button" title="Filtrar / ordenar">▾</button></th><th></th></tr></thead>
           <tbody id="diaTbody"></tbody>
         </table>
       </div>
@@ -794,6 +813,8 @@
         <div class="field"><label for="fimAbonos">Até</label><input type="date" id="fimAbonos"></div>
         <div class="field"><label for="abnFiltroStatus">Situação</label>
           <select id="abnFiltroStatus"><option value="">Todas</option><option value="pendente_eng">Aguardando 1ª aprovação</option><option value="pendente_ger">Aguardando 2ª aprovação</option><option value="aprovado">Aprovadas</option><option value="reprovado">Reprovadas</option><option value="cancelado">Canceladas</option></select></div>
+        <div class="field" id="abnFiltroPontoWrap" style="display:none;"><label for="abnFiltroPonto">Lançamento no ponto</label>
+          <select id="abnFiltroPonto"><option value="">Todos</option><option value="alancar">Aprovados a lançar</option><option value="lancado">Já lançados</option></select></div>
         <div class="field"><label for="abnFiltroTipo">Tipo</label>
           <select id="abnFiltroTipo"><option value="">Todos</option><option value="falta">Falta</option><option value="atraso">Atraso</option><option value="saida">Saída antecipada</option></select></div>
         <div class="field"><label for="abnBusca">Buscar</label><input type="search" id="abnBusca" placeholder="Código, colaborador, data, motivo, situação, aprovador…"></div>
@@ -936,7 +957,8 @@
       <input type="search" id="abnFuncBusca" placeholder="Pesquisar por nome ou função…" autocomplete="off">
       <select id="abnFunc" aria-label="Colaborador"></select>
       <span class="abn-sub" id="abnFuncInfo"></span></div>
-    <div class="field"><label>Faltas e atrasos dele (clique no dia do abono)</label><div class="abn-ocorr" id="abnOcorr"></div></div>
+    <div class="field"><label>Faltas e atrasos dele (clique no dia do abono)</label><div class="abn-ocorr" id="abnOcorr"></div>
+      <span class="abn-sub" id="abnPrazoInfo"></span></div>
     <div class="field-row" style="margin:0 0 12px;">
       <div class="field" style="flex:1;min-width:150px;"><label for="abnTipo">Tipo</label>
         <select id="abnTipo"><option value="falta">Falta</option><option value="atraso">Atraso</option><option value="saida">Saída antecipada</option></select></div>
@@ -2658,9 +2680,11 @@
     return q.split(/\s+/).every(function(t){ return !t || txt.indexOf(t) >= 0; });
   }
   function abnListaFiltrada(){
-    var st = $("abnFiltroStatus").value, tp = $("abnFiltroTipo").value, q = normName($("abnBusca").value || "");
+    var st = $("abnFiltroStatus").value, tp = $("abnFiltroTipo").value, q = normName($("abnBusca").value || ""), pt = abnEhDP() ? $("abnFiltroPonto").value : "";
     return abnNoPeriodo(abnVisiveis()).filter(function(a){
       if(st && abnStatusDe(a) !== st) return false;
+      if(pt === "alancar" && !(abnStatusDe(a) === "aprovado" && !a.lancadoPonto)) return false;
+      if(pt === "lancado" && !a.lancadoPonto) return false;
       if(tp && a.tipo !== tp) return false;
       if(q && !abnCasaBusca(a, q)) return false;
       return true;
@@ -2670,28 +2694,45 @@
     var corpo = $("abnTbody"); if(!corpo || !state.obraId) return;
     abnAtualizarBadge();
     var todosPeriodos = abnVisiveis(), todos = abnNoPeriodo(todosPeriodos);
-    var fora = todosPeriodos.filter(function(a){ var st = abnStatusDe(a); return todos.indexOf(a) < 0 && (st === "pendente_eng" || st === "pendente_ger"); }).length;
+    var foraLista = todosPeriodos.filter(function(a){ var st = abnStatusDe(a); return todos.indexOf(a) < 0 && (st === "pendente_eng" || st === "pendente_ger"); });
+    var fora = foraLista.length;
     var avisoFora = $("abnForaPeriodo");
     avisoFora.style.display = fora ? "block" : "none";
-    avisoFora.textContent = fora ? "Há " + fora + " solicitação(ões) pendente(s) fora deste período. Ajuste o período para vê-las." : "";
+    if(fora){
+      var codigos = foraLista.slice(0, 3).map(function(a){ return a.id + " (" + fmtDateBR(a.data) + ")"; }).join(", ") + (fora > 3 ? " e mais " + (fora - 3) : "");
+      avisoFora.innerHTML = "Há " + fora + " solicitação(ões) pendente(s) fora deste período: " + escapeHtml(codigos) + ". <button class=\"btn-ghost btn-sm\" id=\"abnVerFora\" type=\"button\">Mostrar no período</button>";
+      $("abnVerFora").addEventListener("click", function(){
+        var p = abnLimites(), datas = foraLista.map(function(a){ return a.data; }).filter(function(d){ return d; });
+        if(!datas.length) return;
+        var mn = datas.slice().sort()[0], mx = datas.slice().sort().pop();
+        $("iniAbonos").value = (p.ini && p.ini < mn) ? p.ini : mn;
+        $("fimAbonos").value = (p.fim && p.fim > mx) ? p.fim : mx;
+        sincronizarMes("Abonos"); renderAbonos();
+      });
+    } else avisoFora.textContent = "";
     var n = function(st){ return todos.filter(function(a){ return abnStatusDe(a) === st; }).length; };
-    $("abnKpis").innerHTML = [kpiCard("Aguardando 1ª aprovação", n("pendente_eng"), n("pendente_eng") ? "bad" : ""), kpiCard("Aguardando 2ª aprovação", n("pendente_ger"), n("pendente_ger") ? "bad" : ""), kpiCard("Aprovadas", n("aprovado"), "good"), kpiCard("Reprovadas", n("reprovado"), "")].join("");
+    $("abnKpis").innerHTML = [kpiCard("Aguardando 1ª aprovação", n("pendente_eng"), n("pendente_eng") ? "bad" : ""), kpiCard("Aguardando 2ª aprovação", n("pendente_ger"), n("pendente_ger") ? "bad" : ""), kpiCard("Aprovadas", n("aprovado"), "good"), kpiCard("Reprovadas", n("reprovado"), "")].concat(abnEhDP() ? [kpiCard("Aprovadas a lançar no ponto", todos.filter(function(a){ return abnStatusDe(a) === "aprovado" && !a.lancadoPonto; }).length, todos.some(function(a){ return abnStatusDe(a) === "aprovado" && !a.lancadoPonto; }) ? "bad" : "")] : []).join("");
     var vinc = abnVeTudo() ? -1 : Object.keys(abnMeusFuncIds()).length;
     $("abnNivelInfo").textContent = "Seu nível: " + (abnNivel() === "admin" ? "Administração (todas as etapas)" : ABN_NIVEL_ROTULO[abnNivel()]) +
       (state.perfil && state.perfil.aprovadores && state.perfil.aprovadores.length && !isAdmin() ? " · suas solicitações são aprovadas por " + state.perfil.aprovadores.map(function(p){ return p.nome; }).join(" → ") : "") +
       (abnVeTudo() ? "" : vinc ? " — você vê " + vinc + " colaborador" + (vinc === 1 ? "" : "es") + " sob a sua liderança." : " — você ainda não está vinculado a nenhum colaborador (o DP faz isso em Cadastro > Liderança).");
+    $("abnFiltroPontoWrap").style.display = abnEhDP() ? "" : "none";
     var lista = abnListaFiltrada(), dp = abnEhDP();
     corpo.innerHTML = lista.length ? lista.map(function(a){
       var tipo = ABN_TIPOS[a.tipo] || a.tipo, min = a.minutos ? ' <span class="abn-sub">' + a.minutos + " min</span>" : "";
       var st = abnStatusDe(a);
       var etapa = function(rot, por, em, obs, ok){ return a[por] ? '<span class="abn-etapa">' + rot + ": " + (ok ? "✓ " : "✗ ") + escapeHtml(a[por + "Nome"] || nomeBonito(a[por])) + " · " + escapeHtml(fmtDataHora(a[em])) + (a[obs] ? " · " + escapeHtml(a[obs]) : "") + "</span>" : ""; };
       var dec = (a.aprov1 && (st === "pendente_eng" || st === "pendente_ger") ? '<span class="abn-etapa">Aprovação: ' + escapeHtml(abnAprovadoresTxt(a)) + "</span>" : "") + etapa("1ª aprovação", "engPor", "engEm", "engObs", a.engResultado !== "reprovado") + etapa("2ª aprovação", "gerPor", "gerEm", "gerObs", a.gerResultado !== "reprovado") +
-        (a.status === "pendente" && a.decididoPor ? '<span class="abn-etapa">' + escapeHtml(nomeBonito(a.decididoPor)) + "</span>" : "") + (st === "cancelado" && a.obsDecisao ? '<span class="abn-etapa">' + escapeHtml(a.obsDecisao) + "</span>" : "");
+        (a.status === "pendente" && a.decididoPor ? '<span class="abn-etapa">' + escapeHtml(nomeBonito(a.decididoPor)) + "</span>" : "") + (st === "cancelado" && a.obsDecisao ? '<span class="abn-etapa">' + escapeHtml(a.obsDecisao) + "</span>" : "") +
+        (st === "aprovado" ? (a.lancadoPonto ? '<span class="abn-etapa abn-lanc">✓ Lançado no ponto · ' + escapeHtml(a.lancadoPorNome || nomeBonito(a.lancadoPor)) + " · " + escapeHtml(fmtDataHora(a.lancadoEm)) + "</span>" : '<span class="abn-etapa abn-nlanc">Falta lançar no ponto</span>') : "");
       var acoes = "";
       if(st === "pendente_eng" || st === "pendente_ger"){
         if(abnPodeDecidirEtapa(a)) acoes += '<button class="btn btn-sm" data-abn="aprovado" data-id="' + escapeHtml(a.id) + '">Aprovar</button><button class="btn-ghost btn-sm" data-abn="reprovado" data-id="' + escapeHtml(a.id) + '">Reprovar</button>';
         if(dp || normEmail(a.solicitadoPor) === state.email) acoes += '<button class="btn-ghost btn-sm" data-abn="cancelado" data-id="' + escapeHtml(a.id) + '">Cancelar</button>';
       }
+      if(dp && st === "aprovado") acoes += a.lancadoPonto
+        ? '<button class="btn-ghost btn-sm" data-abn="deslancar" data-id="' + escapeHtml(a.id) + '" title="Desfaz a marcação de lançado no ponto">Desmarcar lançamento</button>'
+        : '<button class="btn btn-sm" data-abn="lancar" data-id="' + escapeHtml(a.id) + '" title="Marque depois de lançar o abono no sistema de ponto">Marcar lançado no ponto</button>';
       if(isAdmin()) acoes += '<button class="btn-ghost btn-sm" data-abn="excluir" data-id="' + escapeHtml(a.id) + '" title="Apaga a solicitação definitivamente">Excluir</button>';
       return "<tr><td class=\"num\">" + escapeHtml(a.id) + "</td><td class=\"num\">" + escapeHtml(fmtDateBR(a.data)) + "</td>" +
         "<td class=\"nome\">" + escapeHtml(a.funcNome || "—") + '<span class="abn-sub">' + escapeHtml(fmtFuncao(a.funcFuncao) || "") + "</span></td>" +
@@ -2701,12 +2742,32 @@
         '<td><div class="abn-acoes">' + acoes + "</div></td></tr>";
     }).join("") : '<tr class="empty-row"><td colspan="8">' + (todos.length ? "Nenhuma solicitação com esses filtros." : (todosPeriodos.length ? "Nenhuma solicitação neste período." : "Nenhuma solicitação de abono nesta obra ainda.")) + "</td></tr>";
     Array.prototype.forEach.call(corpo.querySelectorAll("[data-abn]"), function(b){
-      b.addEventListener("click", function(){ abrirDecisaoAbono(b.getAttribute("data-id"), b.getAttribute("data-abn")); });
+      b.addEventListener("click", function(){
+        var ac = b.getAttribute("data-abn"), id = b.getAttribute("data-id");
+        if(ac === "lancar" || ac === "deslancar") abnMarcarLancado(id, ac === "lancar"); else abrirDecisaoAbono(id, ac);
+      });
     });
   }
   // Faltas (F) e atrasos do colaborador, vindos do ponto/Diário, até ontem e nos últimos 62 dias. Atraso só em dia sem código de ausência.
+  // Prazo para quem não é DP/administração: o período de fechamento (16 a 15) pode receber solicitações até o dia 21 do mês em que fecha.
+  // Ex.: período 16/10 a 15/11 aceita até 21/11; depois disso só vale o período seguinte. Dentro do prazo, o período anterior ainda aparece.
+  function abnLimitado(){ return !isAdmin() && !abnEhDP(); }
+  function abnPrazo(){
+    var hoje = todayIso(), mc = mesDoFechamento(hoje), y = +mc.slice(0, 4), m = +mc.slice(5, 7);
+    var mp = m === 1 ? (y - 1) + "-12" : y + "-" + String(m - 1).padStart(2, "0");
+    var corteAnt = mp + "-21", corteAtual = mc + "-21";
+    var anteriorAberto = hoje <= corteAnt;
+    return {ini: anteriorAberto ? mesBounds(mp).ini : mesBounds(mc).ini, corteAnterior: corteAnt, anteriorAberto: anteriorAberto, corteAtual: corteAtual, perAtual: mesBounds(mc), perAnt: mesBounds(mp)};
+  }
+  function abnPrazoTexto(){
+    var p = abnPrazo();
+    return "Período aberto para solicitação: a partir de " + fmtDateBR(p.ini) + ". " +
+      (p.anteriorAberto ? "O período " + fmtDateBR(p.perAnt.ini).slice(0, 5) + " a " + fmtDateBR(p.perAnt.fim).slice(0, 5) + " aceita solicitações até " + fmtDateBR(p.corteAnterior).slice(0, 5) + ". " : "") +
+      "O período atual (" + fmtDateBR(p.perAtual.ini).slice(0, 5) + " a " + fmtDateBR(p.perAtual.fim).slice(0, 5) + ") aceita até " + fmtDateBR(p.corteAtual).slice(0, 5) + ".";
+  }
   function abnOcorrencias(fid){
     var hoje = todayIso(), lim = addDaysIso(hoje, -62), out = [];
+    if(abnLimitado()){ var pz = abnPrazo().ini; if(pz > lim) lim = pz; }
     Object.keys(state.dias).forEach(function(iso){
       if(iso >= hoje || iso < lim) return;
       var d = state.dias[iso] || {}, a = d.ausencias && d.ausencias[fid], h = d.horas && d.horas[fid];
@@ -2726,7 +2787,7 @@
     var box = $("abnOcorr"), fid = $("abnFunc").value;
     if(!fid){ box.innerHTML = '<div class="abn-oc-vazio">Escolha o colaborador.</div>'; return; }
     var lista = abnOcorrencias(fid);
-    if(!lista.length){ box.innerHTML = '<div class="abn-oc-vazio">Nenhuma falta ou atraso nos últimos 60 dias. Se for um caso fora do ponto, informe a data abaixo.</div>'; return; }
+    if(!lista.length){ box.innerHTML = '<div class="abn-oc-vazio">' + (abnLimitado() ? "Nenhuma falta ou atraso dele no período aberto para solicitação." : "Nenhuma falta ou atraso nos últimos 60 dias. Se for um caso fora do ponto, informe a data abaixo.") + "</div>"; return; }
     var dataSel = $("abnData").value, tipoSel = $("abnTipo").value === "falta" ? "falta" : "atraso";
     box.innerHTML = lista.map(function(o){
       var ja = abnJaSolicitado(fid, o.iso, o.tipo), sem = new Date(o.iso + "T12:00:00").toLocaleDateString("pt-BR", {weekday:"short"}).replace(".", "");
@@ -2766,6 +2827,8 @@
     $("abnObraSub").textContent = (state.obras[state.obraId] || {}).nome || "";
     $("abnTipo").value = "falta"; $("abnData").value = todayIso(); $("abnMin").value = ""; $("abnMotivo").value = "";
     $("abnMinWrap").style.display = "none"; $("abnErro").classList.remove("show");
+    $("abnData").min = abnLimitado() ? abnPrazo().ini : "";
+    $("abnPrazoInfo").textContent = abnLimitado() ? abnPrazoTexto() : "";
     abnRenderOcorr();
     $("modalAbono").classList.add("show");
   }
@@ -2777,6 +2840,7 @@
     if(!fid) return falha(abnVeTudo() ? "Escolha o colaborador." : "Nenhum colaborador sob a sua liderança — peça ao DP para vincular em Cadastro > Liderança.");
     if(!abnVeTudo() && !abnMeusFuncIds()[fid]) return falha("Este colaborador não está sob a sua liderança.");
     if(!data) return falha("Informe a data.");
+    if(abnLimitado() && data < abnPrazo().ini) return falha("Fora do prazo: só é possível solicitar abonos de ocorrências a partir de " + fmtDateBR(abnPrazo().ini) + " (as solicitações de cada período vão até o dia 21). Fale com o DP.");
     if(tipo !== "falta" && !(min > 0)) return falha("Informe os minutos de " + (tipo === "atraso" ? "atraso" : "saída antecipada") + ".");
     if(!motivo){ $("abnMotivo").focus(); return falha("O motivo é obrigatório."); }
     if(motivo.length < 5){ $("abnMotivo").focus(); return falha("Explique melhor o motivo (pelo menos algumas palavras)."); }
@@ -2798,6 +2862,16 @@
       abnMsg("Solicitação " + id + " enviada para aprovação" + (doc.aprov1 ? " de " + abnAprovadoresTxt(doc) : "") + ".");
     }catch(e){ falha("Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo.")); }
     $("abnSalvar").disabled = false;
+  }
+  // DP: marca (ou desmarca) que o abono aprovado já foi lançado no sistema de ponto.
+  async function abnMarcarLancado(id, lancar){
+    var a = state.abonos[id]; if(!a || !abnEhDP() || abnStatusDe(a) !== "aprovado") return;
+    try{
+      await state.db.collection("obras/" + state.obraId + "/abonos").doc(id).update(lancar
+        ? {lancadoPonto:true, lancadoPor:state.email, lancadoPorNome:abnNomeUsuario(), lancadoEm:new Date().toISOString()}
+        : {lancadoPonto:false, lancadoPor:null, lancadoPorNome:null, lancadoEm:null});
+      abnMsg(id + (lancar ? ": marcado como lançado no ponto." : ": lançamento desmarcado."));
+    }catch(e){ abnMsg("Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo."), "error"); }
   }
   var abnDec = {id:null, acao:null};
   function abrirDecisaoAbono(id, acao){
@@ -3045,6 +3119,106 @@
     });
   }
 
+  // ===== Filtro estilo Excel (tabela do Diário) =====
+  var dia = {rowsTodas:[], iso:"", filtros:{}, ordem:null, col:null};
+  var DIA_COLS = {nome:"Funcionário", funcao:"Função", status:"Status", origem:"Origem"};
+  // Linhas depois de aplicar os filtros de todas as colunas (menos "exceto"); com ordenação quando é a lista final.
+  function diaAplicar(exceto){
+    var out = dia.rowsTodas.filter(function(r){
+      return Object.keys(dia.filtros).every(function(k){ return k === exceto || !dia.filtros[k] || dia.filtros[k][r[k]]; });
+    });
+    var o = dia.ordem && !exceto ? dia.ordem : {col:"nome", dir:1};
+    if(!exceto) out = out.slice().sort(function(x, y){ return o.dir * String(x[o.col]).localeCompare(String(y[o.col]), "pt-BR") || x.nome.localeCompare(y.nome, "pt-BR"); });
+    return out;
+  }
+  function diaAtualizarCabecalho(){
+    var n = 0;
+    Array.prototype.forEach.call(document.querySelectorAll(".xl-btn[data-xl]"), function(b){
+      var k = b.getAttribute("data-xl"), on = !!dia.filtros[k] || !!(dia.ordem && dia.ordem.col === k);
+      b.classList.toggle("on", on);
+      b.textContent = dia.ordem && dia.ordem.col === k ? (dia.ordem.dir > 0 ? "▲" : "▼") : (dia.filtros[k] ? "⧩" : "▾");
+      if(dia.filtros[k]) n++;
+    });
+    var bl = $("diaLimparFiltros"); bl.style.display = (n || dia.ordem) ? "" : "none"; bl.textContent = "✕ Limpar filtros" + (n ? " (" + n + ")" : "");
+  }
+  var xl = {pop:null, aberto:0};
+  function xlMontar(){
+    if(xl.pop) return;
+    var p = document.createElement("div"); p.className = "xl-pop";
+    p.innerHTML = '<button type="button" class="xl-op" data-op="asc">⬆ Ordenar de A a Z</button><button type="button" class="xl-op" data-op="desc">⬇ Ordenar de Z a A</button><hr>' +
+      '<button type="button" class="xl-op" data-op="limpar">✕ Limpar filtro</button><hr>' +
+      '<input type="search" placeholder="Pesquisar…" autocomplete="off"><div class="xl-list"></div>' +
+      '<div class="xl-acoes"><button type="button" class="btn-ghost btn-sm" data-op="cancelar">Cancelar</button><button type="button" class="btn btn-sm" data-op="ok">OK</button></div>';
+    document.body.appendChild(p); xl.pop = p;
+    p.addEventListener("mousedown", function(ev){ ev.stopPropagation(); });
+    p.querySelector("input[type=search]").addEventListener("input", xlRenderLista);
+    p.querySelector("input[type=search]").addEventListener("keydown", function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); xlAplicar(); } else if(ev.key === "Escape"){ ev.stopPropagation(); xlFechar(); } });
+    p.addEventListener("click", function(ev){
+      var b = ev.target.closest("[data-op]"); if(!b || b.disabled) return;
+      var op = b.getAttribute("data-op");
+      if(op === "asc" || op === "desc"){ dia.ordem = {col:dia.col, dir:op === "asc" ? 1 : -1}; xlFechar(); renderDiario(); }
+      else if(op === "limpar"){ delete dia.filtros[dia.col]; if(dia.ordem && dia.ordem.col === dia.col) dia.ordem = null; xlFechar(); renderDiario(); }
+      else if(op === "cancelar") xlFechar();
+      else if(op === "ok") xlAplicar();
+    });
+    p.querySelector(".xl-list").addEventListener("change", function(ev){
+      var t = ev.target;
+      if(t.hasAttribute("data-todos")){ Array.prototype.forEach.call(p.querySelectorAll(".xl-list [data-v]"), function(c){ if(c.closest("label").style.display !== "none") c.checked = t.checked; }); }
+      xlSincronizarTodos();
+    });
+  }
+  function xlSincronizarTodos(){
+    var cs = Array.prototype.filter.call(xl.pop.querySelectorAll(".xl-list [data-v]"), function(c){ return c.closest("label").style.display !== "none"; });
+    var t = xl.pop.querySelector("[data-todos]"); if(!t) return;
+    t.checked = cs.length > 0 && cs.every(function(c){ return c.checked; });
+    t.indeterminate = !t.checked && cs.some(function(c){ return c.checked; });
+  }
+  function xlRenderLista(){
+    var col = dia.col, q = normName(xl.pop.querySelector("input[type=search]").value), cont = {}, atual = dia.filtros[col];
+    diaAplicar(col).forEach(function(r){ cont[r[col]] = (cont[r[col]] || 0) + 1; });
+    var vals = Object.keys(cont).sort(function(a, b){ return a.localeCompare(b, "pt-BR"); });
+    var html = '<label><input type="checkbox" data-todos> <b>(Selecionar tudo)</b></label>' + vals.map(function(v){
+      var marcado = !atual || atual[v];
+      return '<label' + (q && normName(v).indexOf(q) < 0 ? ' style="display:none"' : "") + '><input type="checkbox" data-v="' + escapeHtml(v) + '"' + (marcado ? " checked" : "") + "> <span>" + escapeHtml(v) + '</span><span class="xl-n">' + cont[v] + "</span></label>";
+    }).join("");
+    xl.pop.querySelector(".xl-list").innerHTML = html || '<div class="abn-oc-vazio">Sem valores</div>';
+    xlSincronizarTodos();
+  }
+  function xlAplicar(){
+    var col = dia.col, cs = xl.pop.querySelectorAll(".xl-list [data-v]"), marc = {}, total = 0, nm = 0;
+    Array.prototype.forEach.call(cs, function(c){ total++; if(c.checked){ nm++; marc[c.getAttribute("data-v")] = true; } });
+    if(!total) { xlFechar(); return; }
+    if(nm === total) delete dia.filtros[col]; else dia.filtros[col] = marc;     // tudo marcado = sem filtro
+    xlFechar(); renderDiario();
+  }
+  function xlAbrir(btn){
+    xlMontar(); dia.col = btn.getAttribute("data-xl");
+    var p = xl.pop, r = btn.getBoundingClientRect();
+    p.querySelector("input[type=search]").value = "";
+    xlRenderLista();
+    p.classList.add("show");
+    p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 258)) + "px";
+    var alt = p.offsetHeight, abaixo = window.innerHeight - r.bottom - 8;
+    p.style.top = (abaixo >= alt || r.top < alt ? Math.min(r.bottom + 4, Math.max(8, window.innerHeight - alt - 8)) : r.top - alt - 4) + "px";
+    xl.aberto = Date.now(); xl.btn = btn;
+    p.querySelector("input[type=search]").focus({preventScroll:true});
+  }
+  function xlFechar(){ if(xl.pop) xl.pop.classList.remove("show"); xl.btn = null; }
+  document.addEventListener("mousedown", function(ev){
+    if(!xl.pop || !xl.pop.classList.contains("show")) return;
+    if(xl.pop.contains(ev.target) || (ev.target.closest && ev.target.closest(".xl-btn"))) return;
+    xlFechar();
+  }, true);
+  document.addEventListener("click", function(ev){
+    var b = ev.target.closest && ev.target.closest(".xl-btn[data-xl]"); if(!b) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if(xl.pop && xl.pop.classList.contains("show") && xl.btn === b){ xlFechar(); return; }
+    xlAbrir(b);
+  });
+  window.addEventListener("scroll", function(ev){ if(xl.pop && xl.pop.classList.contains("show") && Date.now() - xl.aberto > 400 && !xl.pop.contains(ev.target)) xlFechar(); }, true);
+  window.addEventListener("resize", xlFechar);
+  document.addEventListener("keydown", function(ev){ if(ev.key === "Escape" && xl.pop && xl.pop.classList.contains("show")) xlFechar(); });
+
   function renderDiario(){
     var iso = $("diaSelecionado").value || todayIso();
     var readOnly = isReadOnly();
@@ -3068,14 +3242,17 @@
     ].join("");
 
     var tbody = $("diaTbody");
-    var rows = ativos.map(function(id){
-      var a = getAusenciaDoDia(iso, id);
-      return {id:id, a:a, nome:funcName(id)};
-    }).filter(function(r){ return r.a && r.a.codigo; })
-      .sort(function(x,y){ return x.nome.localeCompare(y.nome); });
+    // Filtros estilo Excel nos títulos das colunas (valores marcados por coluna + ordenação)
+    var rowsTodas = ativos.map(function(id){
+      var a = getAusenciaDoDia(iso, id), f = state.funcionarios[id] || {};
+      return {id:id, a:a, nome:funcName(id), funcao:(fmtFuncao(f.funcao) || "—"), status:((CODE_META[a && a.codigo] || {label:(a && a.codigo)}).label || ""), origem:((a && a.origem === "manual") ? "Manual" : "Importado")};
+    }).filter(function(r){ return r.a && r.a.codigo; });
+    dia.rowsTodas = rowsTodas; dia.iso = iso;
+    var rows = diaAplicar(null);
+    diaAtualizarCabecalho();
 
     if(!rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhuma ausência registrada para '+fmtDateBR(iso)+'.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">'+(rowsTodas.length ? "Nenhuma ausência com esses filtros." : 'Nenhuma ausência registrada para '+fmtDateBR(iso)+'.')+'</td></tr>';
     } else {
       tbody.innerHTML = rows.map(function(r){
         var f = state.funcionarios[r.id] || {};
@@ -5985,7 +6162,8 @@
   });
   $("btnMenu").addEventListener("click", function(){ document.body.classList.toggle("menu-open"); });
   $("sideBackdrop").addEventListener("click", function(){ document.body.classList.remove("menu-open"); });
-  $("diaSelecionado").addEventListener("change", renderAll);
+  $("diaSelecionado").addEventListener("change", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderAll(); });
+  $("diaLimparFiltros").addEventListener("click", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderDiario(); });
   $("deptFiltro").addEventListener("change", function(){ state.deptFiltro = this.value; renderAll(); });
   $("chkForaEscopo").addEventListener("change", renderCadastro);
   $("chkDesligAntigos").addEventListener("change", renderCadastro);
@@ -6056,7 +6234,7 @@
   $("abnData").addEventListener("change", abnRenderOcorr);
   $("abnDecVoltar").addEventListener("click", function(){ $("modalAbonoDecisao").classList.remove("show"); });
   $("abnDecConfirmar").addEventListener("click", confirmarDecisaoAbono);
-  ["abnFiltroStatus", "abnFiltroTipo"].forEach(function(id){ $(id).addEventListener("change", renderAbonos); });
+  ["abnFiltroStatus", "abnFiltroTipo", "abnFiltroPonto"].forEach(function(id){ $(id).addEventListener("change", renderAbonos); });
   $("abnBusca").addEventListener("input", renderAbonos);
   $("modalCancelar").addEventListener("click", closeModal);
   $("modalSalvar").addEventListener("click", salvarModal);
