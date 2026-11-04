@@ -434,10 +434,85 @@
   .usuario-form{ display:grid; grid-template-columns:1.3fr 1.5fr 1.4fr 1fr; gap:10px; align-items:flex-end; }
   @media (max-width:900px){ .usuario-form{ grid-template-columns:1fr 1fr; } }
   .usuario-form input, .usuario-form select{ width:100%; }
+  .usu-modal-box{ max-width:880px; max-height:92vh; overflow:auto; }
+  .usu-modal-box .panel-title{ font-size:16px; }
+  .usu-form2{ grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); }
+  .usu-sec{ margin:20px 0 8px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); border-top:1px solid var(--border); padding-top:12px; }
   .empresas-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:6px 16px; margin:6px 0 8px; }
   .usu-emp{ display:flex; gap:8px; align-items:center; font-size:12.5px; color:var(--text-dim); cursor:pointer; }
   .usu-emp input{ accent-color:var(--accent); }
   #app.tab-global .topbar, #app.tab-global .legend-box{ display:none; }
+  /* Aba Solicitações de abonos */
+  .combo-pop{ position:fixed; z-index:90; display:none; flex-direction:column; background:var(--surface-solid); border:1px solid var(--border-strong); border-radius:9px; box-shadow:0 12px 32px rgba(0,0,0,.45); }
+  .combo-pop.show{ display:flex; }
+  .combo-pop input, .multi-busca{ margin:8px; width:calc(100% - 16px); box-sizing:border-box; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); padding:7px 10px; font-size:13px; font-family:inherit; }
+  .combo-pop input:focus, .multi-busca:focus{ outline:none; border-color:var(--accent); }
+  .multi-busca{ margin:0 0 8px; width:100%; position:sticky; top:0; }
+  .combo-list{ overflow:auto; padding:0 4px 6px; }
+  .combo-opt{ padding:7px 10px; border-radius:6px; font-size:13px; color:var(--text-dim); cursor:pointer; }
+  .combo-opt.ativo{ background:var(--surface-2); color:var(--text); }
+  .combo-opt.sel{ color:var(--accent); font-weight:600; }
+  .combo-opt.off{ opacity:.4; cursor:not-allowed; }
+  .combo-vazio{ padding:10px; font-size:12.5px; color:var(--text-faint); }
+  .multi-dd{ position:relative; }
+  .multi-dd summary{ list-style:none; cursor:pointer; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:8px 32px 8px 10px; position:relative; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .multi-dd summary::-webkit-details-marker{ display:none; }
+  .multi-dd summary::after{ content:"▾"; position:absolute; right:11px; top:50%; transform:translateY(-50%); color:var(--text-faint); }
+  .multi-dd[open] summary{ border-color:var(--accent); }
+  .multi-painel{ position:absolute; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(680px,92vw); max-height:320px; overflow:auto; background:var(--surface-solid); border:1px solid var(--border-strong); border-radius:9px; padding:10px 12px; box-shadow:0 12px 32px rgba(0,0,0,.45); z-index:30; }
+  .multi-painel label.usu-emp{ padding:5px 2px; text-transform:none; letter-spacing:0; font-size:12.5px; color:var(--text-dim); justify-content:flex-start; text-align:left; width:auto; }
+  .multi-painel input[type=checkbox]{ width:auto; flex:none; padding:0; margin:0; }
+  .panel:has(.multi-dd[open]){ position:relative; z-index:40; }
+  .nav-badge{ margin-left:auto; min-width:21px; height:21px; padding:0 6px; border-radius:11px; background:var(--accent); color:#1C0806; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+  .usu-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:9px; vertical-align:middle; background:var(--text-faint); }
+  .usu-dot.ativo{ background:var(--good); }
+  .usu-dot.desativado{ background:var(--bad); }
+  .usu-leg{ display:inline-flex; align-items:center; margin-left:12px; }
+  .usu-leg .usu-dot{ margin-right:5px; }
+  .abn-nivel{ font-size:11px; color:var(--text-faint); display:block; margin-top:3px; }
+  .abn-etapa{ display:block; font-size:11px; color:var(--text-faint); margin-top:3px; }
+  .abn-status.pendente_eng, .abn-status.pendente_ger{ background:var(--warn-soft); color:var(--warn); }
+  .lid-lista{ max-height:300px; overflow:auto; border:1px solid var(--border); border-radius:9px; background:var(--surface-2); margin:6px 0 12px; }
+  .lid-item{ display:flex; gap:10px; align-items:flex-start; padding:9px 12px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13px; }
+  .lid-item:last-child{ border-bottom:0; }
+  .lid-item input{ accent-color:var(--accent); margin-top:3px; }
+  .lid-item small{ display:block; color:var(--text-faint); font-size:11.5px; margin-top:2px; }
+  .lid-nomes{ display:flex; flex-wrap:wrap; gap:4px; }
+  .lid-chip{ font-size:11px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:2px 8px; white-space:nowrap; }
+  .cad-lote{ display:none; gap:10px; align-items:center; flex-wrap:wrap; padding:9px 12px; margin:0 0 10px; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface-2); font-size:13px; }
+  .cad-lote span{ font-weight:600; margin-right:auto; }
+  .abn-topo{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .abn-topo h2{ font-size:clamp(22px,3.4vw,28px); margin:0 0 4px; letter-spacing:-.01em; }
+  .abn-topo p{ margin:0; color:var(--text-dim); font-size:13.5px; max-width:64ch; }
+  .abn-filtros{ display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin:0 0 14px; }
+  .abn-filtros .field{ min-width:150px; }
+  .abn-filtros input[type=search]{ min-width:220px; }
+  .abn-status{ display:inline-block; font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  .abn-status.pendente{ background:var(--warn-soft); color:var(--warn); }
+  .abn-status.aprovado{ background:var(--good-soft); color:var(--good); }
+  .abn-status.reprovado{ background:var(--bad-soft); color:var(--bad); }
+  .abn-status.cancelado{ background:var(--code-fo-soft); color:var(--code-fo); }
+  .abn-ocorr{ max-height:196px; overflow:auto; border:1px solid var(--border); border-radius:9px; background:var(--surface-2); }
+  .abn-oc{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; text-align:left; padding:8px 12px; background:none; border:0; border-left:3px solid transparent; border-bottom:1px solid var(--border); color:var(--text); font-size:12.5px; cursor:pointer; }
+  .abn-oc:last-child{ border-bottom:0; }
+  .abn-oc:hover:not(:disabled){ background:rgba(255,255,255,.05); }
+  .abn-oc.sel{ background:var(--accent-soft); border-left-color:var(--accent); }
+  .abn-oc:disabled{ opacity:.55; cursor:not-allowed; }
+  .abn-oc b{ font-family:"IBM Plex Mono",monospace; font-weight:600; margin-right:10px; }
+  .abn-oc .t-falta{ color:var(--bad); font-weight:600; }
+  .abn-oc .t-atraso{ color:var(--warn); font-weight:600; }
+  .abn-oc-vazio{ padding:12px; font-size:12.5px; color:var(--text-faint); }
+  .abn-sub{ display:block; font-size:11px; color:var(--text-faint); margin-top:3px; }
+  .abn-motivo{ max-width:300px; white-space:normal; color:var(--text-dim); }
+  .abn-acoes{ display:flex; gap:6px; flex-wrap:wrap; }
+  .abn-quem{ margin-top:6px; }
+  .abn-quem summary{ cursor:pointer; font-weight:600; font-size:13.5px; }
+  .abn-quem .abn-hint{ margin:10px 0 4px; color:var(--text-faint); font-size:12.5px; }
+  .abn-row{ display:grid; grid-template-columns:minmax(150px,230px) 1fr; gap:6px 28px; padding:12px 0; border-top:1px solid var(--border); }
+  .abn-row dt{ font-weight:600; }
+  .abn-row dd{ margin:0; color:var(--text-dim); }
+  .modal-box textarea{ width:100%; min-height:84px; resize:vertical; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:8px 10px; font-family:inherit; }
+  @media (max-width:560px){ .abn-row{ grid-template-columns:1fr; } }
   .db-banner{ background:var(--warn-soft); color:var(--warn); border:1px solid rgba(224,174,95,.3); border-radius:9px; padding:10px 14px; font-size:12.5px; margin-bottom:20px; }
 
   footer{ margin-top:36px; font-size:11.5px; color:var(--text-faint); line-height:1.6; }
@@ -463,7 +538,7 @@
       <img class="login-logo" src="data:image/png;base64,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" alt="Rio Ave">
       <h1>Apontamento Diário</h1>
       <p class="subtitle">Entre com seu e-mail Rio Ave para acessar o painel.</p>
-      <div class="field"><input type="email" id="loginEmail" list="loginEmailList" placeholder="seu.nome@rioave.com.br" autocomplete="off"><datalist id="loginEmailList"></datalist></div>
+      <div class="field"><input type="text" id="loginEmail" list="loginEmailList" placeholder="e-mail ou CPF" autocomplete="off"><datalist id="loginEmailList"></datalist></div>
       <div class="field"><input type="password" id="loginSenha" placeholder="Senha"></div>
       <button class="btn" id="btnLogin">Entrar</button>
       <div class="login-error" id="loginError"></div>
@@ -491,6 +566,7 @@
         <button class="tab-btn" data-tab="grade"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Grade do Mês</button>
         <button class="tab-btn" data-tab="mensal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Resumo Mensal</button>
         <button class="tab-btn" data-tab="cadastro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Cadastro</button>
+        <button class="tab-btn" data-tab="abonos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 14l2 2 4-4"/></svg>Solicitações de abonos<span class="nav-badge" id="navAbonosBadge" style="display:none;"></span></button>
         <button class="tab-btn" data-tab="usuarios" id="navUsuarios" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>Usuários e acessos</button>
       </nav>
       <div class="side-foot">
@@ -688,50 +764,117 @@
       </div>
 
       <div class="search-box" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."><label class="chk-fora" id="lblForaEscopo" style="display:none;" title="Pessoas dos departamentos que não são acompanhados: ficam escondidas de todas as telas, menos daqui"><input type="checkbox" id="chkForaEscopo"> <span id="txtForaEscopo"></span></label><label class="chk-fora" id="lblDesligAntigos" style="display:none;" title="Pessoas que saíram antes do mês atual ficam escondidas do Cadastro"><input type="checkbox" id="chkDesligAntigos"> <span id="txtDesligAntigos"></span></label></div>
+      <div class="cad-lote" id="cadLote"><span id="cadLoteTxt"></span>
+        <button class="btn btn-sm" id="cadLoteLider" type="button">Definir liderança</button>
+        <button class="btn-ghost btn-sm" id="cadLoteLimpar" type="button">Limpar seleção</button></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th title="Matrícula (últimos 6 dígitos)">Matrícula</th><th>Nome</th><th>Função</th><th id="thDeptoCad" style="display:none;">Departamento</th><th>Admissão</th><th>Demissão</th><th>Status</th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto</th><th></th></tr></thead>
+          <thead><tr><th class="cad-th-sel" style="width:28px;"><input type="checkbox" id="cadSelTodos" title="Selecionar todos os listados"></th><th title="Matrícula (últimos 6 dígitos)">Matrícula</th><th>Nome</th><th>Função</th><th id="thDeptoCad" style="display:none;">Departamento</th><th title="Quem lidera este colaborador (vê e solicita os abonos dele)">Liderança</th><th>Admissão</th><th>Demissão</th><th>Status</th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto</th><th></th></tr></thead>
           <tbody id="cadastroTbody"></tbody>
         </table>
       </div>
     </div>
 
     <!-- ---- TAB: USUÁRIOS E ACESSOS (só administração) ---- -->
+    <!-- ---- TAB: SOLICITAÇÕES DE ABONOS ---- -->
+    <div class="tabpane" id="tab-abonos">
+      <div class="abn-topo">
+        <div>
+          <h2>Solicitações de abonos</h2>
+          <p>Solicite, aprove e acompanhe abonos de falta, atraso e saída antecipada desta obra. Fluxo: solicitação → aprovação da engenharia → aprovação da gerência.</p>
+          <p class="abn-nivel" id="abnNivelInfo"></p>
+        </div>
+        <button class="btn" id="btnNovoAbono" type="button">+ Nova solicitação</button>
+      </div>
+      <div class="kpis" id="abnKpis"></div>
+      <p class="panel-hint" id="abnForaPeriodo" style="display:none;"></p>
+      <div class="abn-filtros">
+        <div class="field"><label for="mesAbonos" title="Fechamento de 16 do mês anterior a 15 do mês escolhido">Mês (fechamento 16 a 15)</label><input type="month" id="mesAbonos"></div>
+        <div class="field"><label for="iniAbonos">De</label><input type="date" id="iniAbonos"></div>
+        <div class="field"><label for="fimAbonos">Até</label><input type="date" id="fimAbonos"></div>
+        <div class="field"><label for="abnFiltroStatus">Situação</label>
+          <select id="abnFiltroStatus"><option value="">Todas</option><option value="pendente_eng">Aguardando 1ª aprovação</option><option value="pendente_ger">Aguardando 2ª aprovação</option><option value="aprovado">Aprovadas</option><option value="reprovado">Reprovadas</option><option value="cancelado">Canceladas</option></select></div>
+        <div class="field"><label for="abnFiltroTipo">Tipo</label>
+          <select id="abnFiltroTipo"><option value="">Todos</option><option value="falta">Falta</option><option value="atraso">Atraso</option><option value="saida">Saída antecipada</option></select></div>
+        <div class="field"><label for="abnBusca">Buscar</label><input type="search" id="abnBusca" placeholder="Código, colaborador, data, motivo, situação, aprovador…"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Código</th><th>Data</th><th>Colaborador</th><th>Tipo</th><th>Motivo</th><th>Situação</th><th>Solicitação</th><th></th></tr></thead>
+          <tbody id="abnTbody"></tbody>
+        </table>
+      </div>
+      <div class="status-msg" id="abnMsg"></div>
+      <details class="panel abn-quem">
+        <summary>Quem faz o quê</summary>
+        <p class="abn-hint">Cada pessoa vê apenas as solicitações das obras às quais tem acesso, com o mesmo login do Apontamento Diário.</p>
+        <dl style="margin:0;">
+          <div class="abn-row"><dt>Quem solicita</dt><dd>Encarregados, mestres e líderes pedem o abono de quem trabalha na sua equipe e acompanham se foi aprovado.</dd></div>
+          <div class="abn-row"><dt>Quem aprova</dt><dd>É definido no cadastro de cada solicitante, em 1 ou 2 etapas. A 1ª aprova (segue para a 2ª, se existir) ou reprova; a última aprovação conclui o pedido.</dd></div>
+          <div class="abn-row"><dt>Visualização total (DP)</dt><dd>Acompanha todos os abonos de todas as etapas e pode cancelar solicitações pendentes.</dd></div>
+        </dl>
+      </details>
+    </div>
+
     <div class="tabpane" id="tab-usuarios">
-      <div class="panel" id="usuFormPanel">
-        <p class="panel-title" id="usuTitulo">Cadastrar usuário</p>
-        <p class="panel-hint">Quem é cadastrado aqui entra com este e-mail e senha e só enxerga as empresas marcadas. Setor DP pode importar e editar; os demais setores só consultam. Deixe a senha em branco para a pessoa entrar com a senha padrão (ela pode trocar depois em "Trocar minha senha"); preencha só se quiser uma senha própria, que fica guardada de forma criptografada e não pode ser consultada depois.</p>
+      <div class="modal-backdrop" id="usuModal"><div class="modal-box usu-modal-box" id="usuFormPanel">
+        <p class="panel-title" id="usuTitulo">Novo cadastro</p>
+        <p class="panel-hint">Só entra no painel quem está cadastrado aqui. Senha em branco = senha padrão (a pessoa troca depois em "Trocar minha senha"); se preencher, ela fica guardada criptografada e não pode ser consultada depois.</p>
+
+        <p class="usu-sec">1 · Dados da pessoa</p>
         <div class="usuario-form">
           <div class="field"><label for="usuNome">Nome</label><input type="text" id="usuNome" autocomplete="off"></div>
-          <div class="field"><label for="usuEmail">E-mail</label><input type="email" id="usuEmail" placeholder="nome@rioave.com.br" autocomplete="off"></div>
+          <div class="field"><label for="usuEmail">E-mail ou CPF (login)</label><input type="text" id="usuEmail" placeholder="nome@rioave.com.br ou 000.000.000-00" autocomplete="off"></div>
           <div class="field"><label for="usuSenha">Senha</label>
             <div style="display:flex;gap:6px;"><input type="text" id="usuSenha" placeholder="em branco = senha padrão" autocomplete="off"><button class="btn-ghost btn-sm" id="usuGerar" type="button">Gerar</button></div></div>
-          <div class="field"><label for="usuSetor">Setor</label>
-            <select id="usuSetor"><option value="DP">DP</option><option value="Engenharia">Engenharia</option><option value="Outro">Outro</option></select></div>
+          <div class="field"><label for="usuSetor" title="DP importa e edita; Engenharia só consulta">Setor</label>
+            <select id="usuSetor"><option value="Engenharia">Engenharia</option><option value="DP">DP</option></select></div>
         </div>
-        <div class="field" style="margin-top:14px;"><label>Empresas de acesso</label>
-          <div class="empresas-grid" id="usuEmpresas"></div>
-          <div style="display:flex;gap:8px;"><button class="btn-ghost btn-sm" id="usuMarcarTodas" type="button">Marcar todas</button><button class="btn-ghost btn-sm" id="usuLimpar" type="button">Limpar</button></div>
-          <div id="usuDeptos"></div>
+
+        <p class="usu-sec">2 · O que a pessoa acessa</p>
+        <div class="usuario-form usu-form2">
+          <div class="field"><label>Abas liberadas</label>
+            <details class="multi-dd" id="ddAbas"><summary id="usuAbasResumo">Todas as abas</summary><div class="multi-painel"><input type="search" class="multi-busca" placeholder="Pesquisar…" autocomplete="off"><div id="usuAbas"></div></div></details></div>
+          <div class="field"><label>Empresas de acesso</label>
+            <details class="multi-dd" id="ddEmpresas"><summary id="usuEmpresasResumo">Selecionar empresas…</summary>
+              <div class="multi-painel">
+                <input type="search" class="multi-busca" placeholder="Pesquisar empresa…" autocomplete="off">
+                <div class="empresas-grid" id="usuEmpresas"></div>
+                <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn-ghost btn-sm" id="usuMarcarTodas" type="button">Marcar todas</button><button class="btn-ghost btn-sm" id="usuLimpar" type="button">Limpar</button></div>
+              </div></details></div>
+          <div class="field"><label for="usuVisaoDiario" title="Vale para Diário, Grade, Resumo e Cadastro. Liderados = funcionários marcados em Cadastro › Liderança">Funcionários no Diário</label>
+            <select id="usuVisaoDiario"><option value="todos">Todos os funcionários</option><option value="lideranca">Só os liderados dele(a)</option></select></div>
         </div>
+        <div id="usuDeptos"></div>
+
+        <p class="usu-sec">3 · Solicitações de abonos</p>
+        <div class="usuario-form usu-form2">
+          <div class="field"><label for="usuNivel">Função nos abonos</label>
+            <select id="usuNivel"><option value="solicitacao">Solicita e acompanha</option><option value="dp">Visualização total (DP)</option></select></div>
+          <div class="field"><label for="usuVisao" title="Liderados = funcionários marcados em Cadastro › Liderança">Funcionários que enxerga</label>
+            <select id="usuVisao"><option value="lideranca">Só os liderados dele(a)</option><option value="todos">Todos os funcionários</option></select></div>
+          <div class="field"><label for="usuAprov1">Quem aprova — 1ª etapa</label><select id="usuAprov1"></select></div>
+          <div class="field"><label for="usuAprov2">Quem aprova — 2ª etapa (opcional)</label><select id="usuAprov2"></select></div>
+        </div>
+        <p class="panel-hint" id="usuAprovDica" style="margin:6px 0 0;">As solicitações desta pessoa são decididas só por quem for escolhido aqui. Informe pelo menos uma etapa; com as duas, a 2ª só decide depois da 1ª aprovar. Quem aprova precisa ter a aba Solicitações de abonos liberada.</p>
         <div class="login-error" id="usuErro"></div>
-        <div class="status-msg" id="usuMsg"></div>
-        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:flex-end;">
+          <button class="btn-ghost" id="usuCancelar" type="button">Cancelar</button>
           <button class="btn" id="usuSalvar">Salvar usuário</button>
-          <button class="btn-ghost" id="usuCancelar" style="display:none;">Cancelar edição</button>
         </div>
-      </div>
+      </div></div>
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div><p class="panel-title">Usuários cadastrados</p>
-          <p class="panel-hint" style="margin-bottom:12px;">Quem ainda não aparece aqui continua entrando pela lista de acesso antiga, com a senha padrão ou a que já trocou.</p></div>
-          <button class="btn-ghost btn-sm" id="usuImportar">Importar da lista de acesso atual</button>
+          <p class="panel-hint" style="margin-bottom:12px;">Só entra no painel quem está cadastrado aqui.<span class="usu-leg"><span class="usu-dot ativo"></span>ativo</span><span class="usu-leg"><span class="usu-dot desativado"></span>desativado</span></p></div>
+          <button class="btn" id="usuNovo" type="button">＋ Novo cadastro</button>
         </div>
+        <div class="status-msg" id="usuMsg"></div>
         <div class="usu-filtros">
-          <input type="text" id="usuBusca" placeholder="Buscar por nome ou e-mail..." autocomplete="off">
-          <select id="usuFiltroSetor"><option value="">Todos os setores</option><option value="DP">DP</option><option value="Engenharia">Engenharia</option><option value="Outro">Outro</option></select>
+          <input type="text" id="usuBusca" placeholder="Buscar por nome, e-mail ou CPF..." autocomplete="off">
+          <select id="usuFiltroSetor"><option value="">Todos os setores</option><option value="Engenharia">Engenharia</option><option value="DP">DP</option></select>
           <select id="usuFiltroEmpresa"><option value="">Todas as empresas</option></select>
-          <select id="usuFiltroStatus"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="desativado">Desativado</option><option value="antiga">Lista antiga</option></select>
+          <select id="usuFiltroStatus"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="desativado">Desativado</option></select>
           <button class="btn-ghost btn-sm" id="usuSelPendentes" type="button" title="Marca, entre os usuários listados, quem ainda não recebeu o e-mail de acesso">Selecionar quem ainda não recebeu</button>
           <span id="usuContagem" class="usu-contagem"></span>
         </div>
@@ -739,7 +882,7 @@
           <button class="btn btn-sm" id="usuLoteEnviar" type="button">Enviar e-mail de acesso</button>
           <button class="btn-ghost btn-sm" id="usuLoteLimpar" type="button">Limpar seleção</button></div>
         <div class="table-wrap"><table>
-          <thead><tr><th class="usu-th-sel"><input type="checkbox" id="usuSelTodos" title="Selecionar todos os listados"></th><th>Nome</th><th>E-mail</th><th>Setor</th><th>Empresas</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th class="usu-th-sel"><input type="checkbox" id="usuSelTodos" title="Selecionar todos os listados"></th><th>Nome</th><th>E-mail / CPF</th><th>Setor</th><th>Empresas</th><th>Acesso</th><th></th></tr></thead>
           <tbody id="usuTbody"></tbody>
         </table></div>
       </div>
@@ -766,6 +909,63 @@
 </div>
 
 <!-- ---- MODAL: editar ausência ---- -->
+<!-- ================= MODAL: DEFINIR LIDERANÇA ================= -->
+<div class="modal-backdrop" id="modalLideranca">
+  <div class="modal-box wide" style="max-width:560px;max-height:92vh;overflow:auto;">
+    <h3 id="lidTitulo">Definir liderança</h3>
+    <p class="modal-sub" id="lidSub"></p>
+    <div class="field"><label for="lidBusca">Pessoas com acesso a esta obra</label><input type="search" id="lidBusca" placeholder="Pesquisar por nome…" autocomplete="off"></div>
+    <div class="lid-lista" id="lidLista"></div>
+    <div class="field" id="lidModoWrap" style="display:none;"><label>Para os colaboradores selecionados</label>
+      <label class="usu-emp"><input type="radio" name="lidModo" value="substituir" checked> Substituir a liderança atual por esta seleção</label>
+      <label class="usu-emp"><input type="radio" name="lidModo" value="adicionar"> Acrescentar às lideranças que já existem</label></div>
+    <div class="login-error" id="lidErro"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="lidCancelar" type="button">Cancelar</button>
+      <button class="btn" id="lidSalvar" type="button">Salvar liderança</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: NOVA SOLICITAÇÃO DE ABONO ================= -->
+<div class="modal-backdrop" id="modalAbono">
+  <div class="modal-box wide" style="max-width:520px;max-height:92vh;overflow:auto;">
+    <h3>Nova solicitação de abono</h3>
+    <p class="modal-sub" id="abnObraSub"></p>
+    <div class="field"><label for="abnFuncBusca">Colaborador</label>
+      <input type="search" id="abnFuncBusca" placeholder="Pesquisar por nome ou função…" autocomplete="off">
+      <select id="abnFunc" aria-label="Colaborador"></select>
+      <span class="abn-sub" id="abnFuncInfo"></span></div>
+    <div class="field"><label>Faltas e atrasos dele (clique no dia do abono)</label><div class="abn-ocorr" id="abnOcorr"></div></div>
+    <div class="field-row" style="margin:0 0 12px;">
+      <div class="field" style="flex:1;min-width:150px;"><label for="abnTipo">Tipo</label>
+        <select id="abnTipo"><option value="falta">Falta</option><option value="atraso">Atraso</option><option value="saida">Saída antecipada</option></select></div>
+      <div class="field" style="flex:1;min-width:150px;"><label for="abnData">Data</label><input type="date" id="abnData"></div>
+      <div class="field" id="abnMinWrap" style="flex:1;min-width:130px;display:none;"><label for="abnMin">Minutos</label><input type="number" id="abnMin" min="1" max="600" step="5" placeholder="ex.: 30"></div>
+    </div>
+    <div class="field"><label for="abnMotivo">Motivo <span style="color:var(--accent);">* obrigatório</span></label><textarea id="abnMotivo" required placeholder="Explique o motivo do abono (obrigatório)"></textarea></div>
+    <div class="login-error" id="abnErro"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="abnCancelar" type="button">Cancelar</button>
+      <button class="btn" id="abnSalvar" type="button">Enviar solicitação</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: DECISÃO (aprovar, reprovar, cancelar) ================= -->
+<div class="modal-backdrop" id="modalAbonoDecisao">
+  <div class="modal-box" style="max-width:460px;">
+    <h3 id="abnDecTitulo">Decisão</h3>
+    <p class="modal-sub" id="abnDecSub"></p>
+    <div class="field"><label for="abnDecObs" id="abnDecObsLabel">Observação</label><textarea id="abnDecObs" placeholder="Opcional"></textarea></div>
+    <div class="login-error" id="abnDecErro"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="abnDecVoltar" type="button">Voltar</button>
+      <button class="btn" id="abnDecConfirmar" type="button">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modalAusencia">
   <div class="modal-box">
     <h3 id="modalAusenciaTitulo">Editar dia</h3>
@@ -907,6 +1107,50 @@
   // nesta lista vê o link no gate — não é uma permissão por empresa, é global ao app inteiro.
   var ADMIN_EMAILS = ["gabrielle.santos@rioave.com.br"];
   function isAdmin(){ return ADMIN_EMAILS.indexOf(state.email)>=0; }
+  // Quem não tem e-mail institucional entra com o CPF (11 dígitos). O "id" do usuário é o e-mail em minúsculas ou os 11 dígitos do CPF.
+  function soDigitos(t){ return String(t || "").replace(/\D+/g, ""); }
+  function ehCpfTexto(t){ t = String(t || "").trim(); return /^[\d.\-\s]+$/.test(t) && soDigitos(t).length === 11; }
+  function ehCpfId(id){ return /^\d{11}$/.test(String(id || "")); }
+  function normId(t){ return ehCpfTexto(t) ? soDigitos(t) : normEmail(t); }
+  function fmtCpf(c){ return String(c).replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4"); }
+  function idLegivel(id){ return ehCpfId(id) ? fmtCpf(id) : String(id || ""); }
+  function cpfValido(c){
+    c = soDigitos(c);
+    if(c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+    for(var t = 9; t < 11; t++){
+      var soma = 0; for(var i = 0; i < t; i++) soma += (+c.charAt(i)) * (t + 1 - i);
+      var dv = ((soma * 10) % 11) % 10; if(dv !== +c.charAt(t)) return false;
+    }
+    return true;
+  }
+  // Nível de acesso ao painel = abas liberadas (campo abas do usuário). Sem o campo: acesso "abonos" = só abonos; senão todas.
+  var ABAS_TODAS = [["diario","Diário"], ["grade","Grade do Mês"], ["mensal","Resumo Mensal"], ["cadastro","Cadastro"], ["abonos","Solicitações de abonos"]];
+  function abasDe(u){
+    if(u && Array.isArray(u.abas)) return u.abas.filter(function(k){ return ABAS_TODAS.some(function(a){ return a[0] === k; }); });
+    return u && u.acesso === "abonos" ? ["abonos"] : ABAS_TODAS.map(function(a){ return a[0]; });
+  }
+  function abaPermitida(tab){
+    if(tab === "usuarios") return isAdmin();
+    if(isAdmin() || !state.perfil) return true;
+    return abasDe(state.perfil).indexOf(tab) >= 0;
+  }
+  function aplicarAbas(){
+    ABAS_TODAS.forEach(function(a){
+      var b = document.querySelector('.tab-btn[data-tab="' + a[0] + '"]'); if(b) b.style.display = abaPermitida(a[0]) ? "" : "none";
+    });
+  }
+  // Se a aba aberta não é permitida (ex.: só abonos), abre a primeira permitida.
+  function garantirAbaPermitida(){
+    var at = document.querySelector(".tab-btn.active");
+    if(at && abaPermitida(at.getAttribute("data-tab"))) return;
+    var alvo = ABAS_TODAS.map(function(a){ return a[0]; }).filter(abaPermitida)[0];
+    var b = alvo && document.querySelector('.tab-btn[data-tab="' + alvo + '"]'); if(b) b.click();
+  }
+  // Visualização de funcionários nos abonos: "todos" ou "lideranca". Sem o campo, vale o padrão do nível (Solicitação = liderança).
+  function visaoDe(u){
+    if(abnNivelDe(u) !== "solicitacao") return "todos";      // aprovação engenharia / gerência / DP veem todos os funcionários
+    return u && u.visaoFunc === "todos" ? "todos" : "lideranca";
+  }
   // Sincronização automática = quem importa é o login do robô do Secullum. Nela o ponto prevalece sobre ajuste manual:
   // só vale o ajuste manual feito HOJE (amanhã a sincronização o substitui pelo ponto). A importação de arquivo feita
   // por uma pessoa do DP continua mantendo todos os lançamentos manuais.
@@ -1685,6 +1929,12 @@
     dias: {},              // "YYYY-MM-DD" -> data
     unsubFuncionarios: null,
     unsubDias: null,
+    unsubAbonos: null,
+    cadSel: {},
+    cadVisiveis: [],
+    usuariosCad: {},
+    unsubUsuariosCad: null,
+    abonos: {},
     pendingImport: null,
     modalMode: null,       // "existing" | "new"
     modalFuncId: null,
@@ -1775,9 +2025,13 @@
     }
     return null;
   }
+  // Usuário com "Funcionários no Diário = só os liderados": todas as abas de funcionários mostram apenas quem ele lidera (Cadastro > Liderança).
+  function visaoDiarioDe(u){ return u && u.visaoDiario === "lideranca" ? "lideranca" : "todos"; }
+  function diarioRestrito(){ return !isAdmin() && usaCadastroDeUsuario() && visaoDiarioDe(state.perfil) === "lideranca"; }
   function visivelNaVisao(fid, todos){
     var f = state.funcionarios[fid];
     if(!f || f.foraEscopo === true) return false;
+    if(diarioRestrito() && !abnMeusFuncIds()[fid]) return false;
     if(todos) return true;
     var dk = deptKey(f.departamento), perm = deptsPermitidosDoUsuario();
     if(perm && perm.indexOf(dk) < 0) return false;
@@ -1793,6 +2047,7 @@
     Object.keys(state.funcionarios).forEach(function(id){
       var f = state.funcionarios[id];
       if(f.inativo || f.foraEscopo === true || !f.departamento) return;
+      if(diarioRestrito() && !abnMeusFuncIds()[id]) return;
       var k = deptKey(f.departamento);
       if(perm && perm.indexOf(k) < 0) return;
       if(!por[k]){ por[k] = {k:k, nome:f.departamento, n:0}; lista.push(por[k]); }
@@ -1856,9 +2111,15 @@
     return false;
   }
 
+  // Rodapé do menu: nome de quem está acessando (o login fica na dica ao passar o mouse).
+  function atualizarQuemAcessa(){
+    var n = $("loggedAsNote"); if(!n) return;
+    var nome = (state.perfil && state.perfil.nome) || nomeBonito(state.email);
+    n.textContent = "Conectado como " + nome; n.title = idLegivel(state.email);
+  }
   function enterApp(email){
-    state.email = normEmail(email);
-    $("loggedAsNote").textContent = "Conectado como " + state.email;
+    state.email = normId(email);
+    atualizarQuemAcessa();
     $("btnAdminSenhas").style.display = isAdmin() ? "block" : "none";
     $("btnBaseGeral").style.display = isAdmin() ? "block" : "none";
     $("loginGate").style.display = "none";
@@ -1868,6 +2129,7 @@
     state.perfil = null;
     state.dbReady.then(function(db){ return lerUsuario(db, state.email); })
       .then(function(u){ state.perfil = u; }, function(){ state.perfil = null; })
+      .then(function(){ aplicarAbas(); atualizarQuemAcessa(); })
       .then(startBoot);
   }
 
@@ -1884,7 +2146,7 @@
   }
 
   async function doLogin(){
-    var email = normEmail($("loginEmail").value);
+    var email = normId($("loginEmail").value);
     var senha = $("loginSenha").value;
     var errEl = $("loginError");
     errEl.classList.remove("show");
@@ -1896,10 +2158,10 @@
     var db = await state.dbReady;
     var u = null;
     try{ u = await lerUsuario(db, email); }catch(e){}
-    var legado = allEmpresaEmails().indexOf(email) >= 0;          // lista de acesso antiga (Empresas.xlsx)
+    var legado = ADMIN_EMAILS.indexOf(email) >= 0;                  // administração entra sempre; os demais precisam estar cadastrados
     var cadastrado = !!(u && (u.setor || u.empresas));              // cadastrado em "Usuários e acessos"
     var falha = function(msg){ errEl.textContent = msg; errEl.classList.add("show"); };
-    if(!legado && !cadastrado){ falha("Esse e-mail não está cadastrado. Peça ao administrador para te incluir em Usuários e acessos."); return; }
+    if(!legado && !cadastrado){ falha("Esse e-mail ou CPF não está cadastrado. Peça ao administrador para te incluir em Usuários e acessos."); return; }
     if(u && u.ativo === false){ falha("Este usuário está desativado. Fale com o administrador."); return; }
     var hash = await sha256Hex(senha);
     var esperado = (u && u.senhaHash) ? u.senhaHash : ((legado || cadastrado) ? GATE_PASSWORD_HASH : null);
@@ -2141,9 +2403,12 @@
     state.obraId = obraId;
     state.funcionarios = {};
     state.dias = {};
+    state.abonos = {};
+    state.cadSel = {};
     state.deptFiltro = "";
     if(state.unsubFuncionarios) state.unsubFuncionarios();
     if(state.unsubDias) state.unsubDias();
+    if(state.unsubAbonos) state.unsubAbonos();
 
     // Trocar de obra no menu lateral: descarta qualquer prévia de importação da obra anterior
     // (senão o "Salvar importação" gravaria o arquivo na obra errada).
@@ -2161,7 +2426,8 @@
     $("diaSelecionado").value = todayIso();
     $("mesGrade").value = mesDoFechamento(todayIso());
     $("mesResumo").value = mesDoFechamento(todayIso());
-    aplicarMes("Grade"); aplicarMes("Resumo");
+    $("mesAbonos").value = mesDoFechamento(todayIso());
+    aplicarMes("Grade"); aplicarMes("Resumo"); aplicarMes("Abonos");
     renderLegend();
     ajustarLarguraPagina();
 
@@ -2184,8 +2450,402 @@
       }, function(err){
         showDbBanner("Histórico de dias indisponível (" + err.code + ").");
       });
+      state.unsubAbonos = state.db.collection("obras/" + obraId + "/abonos").onSnapshot(function(snap){
+        var out = {};
+        snap.docs.forEach(function(d){ out[d.id] = d.data(); });
+        state.abonos = out;
+        renderAbonos();
+      }, function(){ /* sem acesso à coleção de abonos: a aba mostra vazio */ });
     }
     renderAll();
+    if(!isReadOnly()) assinarUsuariosCad();
+    aplicarAbas(); garantirAbaPermitida();
+  }
+
+  // ================= CADASTRO: LIDERANÇA =================
+  // Cada colaborador tem uma lista de lideranças (pessoas do sistema, id = e-mail ou CPF): funcionarios/<id>.liderancas = [{id, nome}].
+  var lid = {ids:[], sel:{}};
+  function assinarUsuariosCad(){
+    if(!state.db || isReadOnly() || state.unsubUsuariosCad) return;
+    state.unsubUsuariosCad = state.db.collection("usuarios").onSnapshot(function(snap){
+      var out = {};
+      snap.docs.forEach(function(d){ var u = d.data() || {}; out[d.id] = {nome:u.nome, empresas:u.empresas, ativo:u.ativo, setor:u.setor, abonoNivel:u.abonoNivel, acesso:u.acesso}; });
+      state.usuariosCad = out;
+    }, function(){});
+  }
+  function cadAtualizarLote(){
+    var n = Object.keys(state.cadSel).filter(function(k){ return state.cadSel[k] && state.funcionarios[k]; }).length;
+    $("cadLote").style.display = n ? "flex" : "none";
+    $("cadLoteTxt").textContent = n + " colaborador(es) selecionado(s)";
+    var el = $("cadSelTodos"), vis = state.cadVisiveis || [], marc = vis.filter(function(k){ return state.cadSel[k]; }).length;
+    el.checked = vis.length > 0 && marc === vis.length; el.indeterminate = marc > 0 && marc < vis.length;
+  }
+  function lidCandidatos(){
+    var obra = (state.obras[state.obraId] || {}).nome || "", q = normName($("lidBusca").value || "");
+    return Object.keys(state.usuariosCad).filter(function(id){
+      var u = state.usuariosCad[id];
+      if(u.ativo === false || !(u.setor || u.empresas)) return false;
+      if(!(u.empresas || []).some(function(n){ return mesmaEmpresa(n, obra); })) return false;
+      return !q || normName((u.nome || "") + " " + idLegivel(id)).indexOf(q) >= 0;
+    }).sort(function(a, b){ return String(state.usuariosCad[a].nome || a).localeCompare(String(state.usuariosCad[b].nome || b)); });
+  }
+  function lidRender(){
+    var lista = lidCandidatos(), marcados = Object.keys(lid.sel).filter(function(k){ return lid.sel[k]; });
+    // quem já está marcado mas saiu do filtro continua marcado (só não aparece)
+    $("lidLista").innerHTML = lista.length ? lista.map(function(id){
+      var u = state.usuariosCad[id], niv = ABN_NIVEL_ROTULO[abnNivelDe(u)] || "";
+      return '<label class="lid-item"><input type="checkbox" data-lid="' + escapeHtml(id) + '"' + (lid.sel[id] ? " checked" : "") + "><span>" + escapeHtml(u.nome || idLegivel(id)) + "<small>" + escapeHtml(niv) + " · " + escapeHtml(idLegivel(id)) + "</small></span></label>";
+    }).join("") : '<div class="abn-oc-vazio">Nenhuma pessoa cadastrada com acesso a esta obra' + ($("lidBusca").value ? " para essa pesquisa" : "") + ". Cadastre em Usuários e acessos.</div>";
+    Array.prototype.forEach.call($("lidLista").querySelectorAll("[data-lid]"), function(el){
+      el.addEventListener("change", function(){ lid.sel[el.getAttribute("data-lid")] = el.checked; lidRodape(); });
+    });
+    lidRodape();
+  }
+  function lidRodape(){
+    var n = Object.keys(lid.sel).filter(function(k){ return lid.sel[k]; }).length;
+    $("lidSalvar").textContent = n ? "Salvar liderança (" + n + ")" : "Salvar sem liderança";
+  }
+  function abrirLideranca(ids){
+    if(!state.db || isReadOnly()) return;
+    assinarUsuariosCad();
+    lid.ids = ids.slice(); lid.sel = {};
+    if(ids.length === 1) ((state.funcionarios[ids[0]] || {}).liderancas || []).forEach(function(l){ lid.sel[l.id] = true; });
+    $("lidTitulo").textContent = ids.length === 1 ? "Liderança de " + funcName(ids[0]) : "Definir liderança de " + ids.length + " colaboradores";
+    $("lidSub").textContent = "Marque uma ou mais pessoas. Elas passam a ver e solicitar os abonos destes colaboradores.";
+    $("lidModoWrap").style.display = ids.length > 1 ? "" : "none";
+    $("lidBusca").value = ""; $("lidErro").classList.remove("show");
+    lidRender();
+    $("modalLideranca").classList.add("show");
+  }
+  async function salvarLideranca(){
+    var erro = $("lidErro"); erro.classList.remove("show");
+    var escolhidos = Object.keys(lid.sel).filter(function(k){ return lid.sel[k]; }).map(function(id){ var u = state.usuariosCad[id] || {}; return {id:id, nome:u.nome || idLegivel(id)}; });
+    var adicionar = lid.ids.length > 1 && document.querySelector('input[name="lidModo"]:checked').value === "adicionar";
+    $("lidSalvar").disabled = true;
+    try{
+      for(var i = 0; i < lid.ids.length; i++){
+        var fid = lid.ids[i], atuais = (state.funcionarios[fid] || {}).liderancas || [], lista = escolhidos;
+        if(adicionar){
+          lista = atuais.slice();
+          escolhidos.forEach(function(e){ if(!lista.some(function(l){ return l.id === e.id; })) lista.push(e); });
+        }
+        await state.db.collection("obras/" + state.obraId + "/funcionarios").doc(fid).update({liderancas:lista, liderancasEm:new Date().toISOString(), liderancasPor:state.email});
+      }
+      $("modalLideranca").classList.remove("show");
+      state.cadSel = {};
+      renderCadastro();
+    }catch(e){ erro.textContent = "Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo."); erro.classList.add("show"); }
+    $("lidSalvar").disabled = false;
+  }
+
+  // ================= TAB: SOLICITAÇÕES DE ABONOS =================
+  // Dados em obras/<obra>/abonos/<código>. Quem solicita: qualquer pessoa com acesso à obra. Quem decide: Engenharia, DP e administração.
+  // As regras de quem pode o quê valem na tela (como no resto do painel; o banco não tem login próprio).
+  var ABN_TIPOS = {falta:"Falta", atraso:"Atraso", saida:"Saída antecipada"};
+  var ABN_STATUS = {pendente_eng:"Aguardando 1ª aprovação", pendente_ger:"Aguardando 2ª aprovação", aprovado:"Aprovado", reprovado:"Reprovado", cancelado:"Cancelado"};
+  // Níveis de liberação nos abonos (campo abonoNivel do usuário; sem ele vale o padrão do setor):
+  //  solicitacao = solicita e vê só as suas; engenharia = aprova a 1ª etapa; gerencia = aprova a 2ª etapa (final); dp = visualização total.
+  var ABN_NIVEL_ROTULO = {solicitacao:"Solicita", engenharia:"Aprovação engenharia (antigo)", gerencia:"Aprovação gerência (antigo)", dp:"Visualização total (DP)"};
+  function abnNivelDe(u){
+    if(u && u.abonoNivel) return u.abonoNivel;
+    return u && u.setor === "DP" ? "dp" : (u && u.setor === "Engenharia" ? "engenharia" : "solicitacao");
+  }
+  function abnStatusDe(a){ return a.status === "pendente" ? "pendente_eng" : a.status; }   // pedidos antigos (1 etapa) entram na engenharia
+  function abnNivel(){
+    if(isAdmin()) return "admin";
+    if(usaCadastroDeUsuario()) return abnNivelDe(state.perfil);
+    var o = state.obras[state.obraId] || {};
+    if((o.dpEmails || []).map(normEmail).indexOf(state.email) >= 0) return "dp";
+    if((o.engEmails || []).map(normEmail).indexOf(state.email) >= 0) return "engenharia";
+    return "solicitacao";
+  }
+  // Quem vê todos os colaboradores e solicitações da obra: depende da "Visualização de funcionários" do usuário (todos ou só os
+  // selecionados como liderança, mais os pedidos que ele mesmo fez). Administração vê tudo.
+  function abnVeTudo(){
+    if(isAdmin()) return true;
+    if(usaCadastroDeUsuario()) return visaoDe(state.perfil) === "todos";
+    return abnNivel() !== "solicitacao";
+  }
+  var _lidCache = {src:null, email:null, ids:{}};
+  function abnMeusFuncIds(){
+    if(_lidCache.src === state.funcionarios && _lidCache.email === state.email) return _lidCache.ids;
+    var out = {};
+    Object.keys(state.funcionarios).forEach(function(id){
+      if(((state.funcionarios[id] || {}).liderancas || []).some(function(l){ return l.id === state.email; })) out[id] = true;
+    });
+    _lidCache = {src:state.funcionarios, email:state.email, ids:out};
+    return out;
+  }
+  function abnEhDP(){ var n = abnNivel(); return n === "dp" || n === "admin"; }
+  // Pode decidir este pedido AGORA? (engenharia na 1ª etapa, gerência na 2ª; administração em ambas)
+  // Pedidos novos guardam aprov1/aprov2 (escolhidos no cadastro de quem solicita): só essas pessoas decidem a etapa. Pedidos antigos
+  // (sem aprov1) seguem a regra por nível. A administração decide qualquer etapa.
+  function abnPodeDecidirEtapa(a){
+    var n = abnNivel(), st = abnStatusDe(a);
+    if(n === "admin") return st === "pendente_eng" || st === "pendente_ger";
+    if(a.aprov1){
+      if(st === "pendente_eng") return normEmail(a.aprov1) === state.email;
+      if(st === "pendente_ger") return !!a.aprov2 && normEmail(a.aprov2) === state.email;
+      return false;
+    }
+    if(st === "pendente_eng") return n === "engenharia";
+    if(st === "pendente_ger") return n === "gerencia";
+    return false;
+  }
+  function abnSouAprovador(a){ return !!state.email && (normEmail(a.aprov1) === state.email || normEmail(a.aprov2) === state.email); }
+  function abnAprovadoresTxt(a){
+    if(!a.aprov1) return "";
+    return (a.aprov1Nome || nomeBonito(a.aprov1)) + (a.aprov2 ? " → " + (a.aprov2Nome || nomeBonito(a.aprov2)) : "");
+  }
+  // Notificações do menu: aprovadores veem quantos pedidos esperam a decisão deles; DP vê todos os pendentes;
+  // quem só solicita vê quantas das suas solicitações foram decididas desde a última vez que abriu a aba.
+  function abnChaveVisto(){ return "apontamento-diario:abn-visto:" + state.email + ":" + state.obraId; }
+  function abnVistoEm(){ try{ return localStorage.getItem(abnChaveVisto()) || ""; }catch(e){ return ""; } }
+  function abnMarcarVisto(){ try{ localStorage.setItem(abnChaveVisto(), new Date().toISOString()); }catch(e){} }
+  function abnDecisaoEm(a){ return (abnStatusDe(a) === "aprovado" || a.gerResultado === "reprovado") ? (a.gerEm || a.decididoEm || "") : (a.engEm || a.decididoEm || ""); }
+  function abnAtualizarBadge(){
+    var b = $("navAbonosBadge"); if(!b) return;
+    var n = 0, tit = "", nivel = state.obraId ? abnNivel() : "", lista = state.obraId ? abnVisiveis() : [];
+    var cnt = function(st){ return lista.filter(function(a){ return abnStatusDe(a) === st; }).length; };
+    if(nivel === "admin" || nivel === "dp"){ n = cnt("pendente_eng") + cnt("pendente_ger"); tit = n + " solicitação(ões) pendente(s) de aprovação"; }
+    else {
+      var esperam = lista.filter(abnPodeDecidirEtapa).length;
+      var ativa = document.querySelector(".tab-btn.active");
+      if(ativa && ativa.getAttribute("data-tab") === "abonos") abnMarcarVisto();   // está olhando a aba: nada novo
+      var visto = abnVistoEm();
+      var decididas = lista.filter(function(a){ var st = abnStatusDe(a); return normEmail(a.solicitadoPor) === state.email && (st === "aprovado" || st === "reprovado") && abnDecisaoEm(a) > visto; }).length;
+      n = esperam + decididas;
+      tit = (esperam ? esperam + " solicitação(ões) aguardando a sua aprovação" : "") + (esperam && decididas ? " · " : "") + (decididas ? decididas + " das suas solicitações foram decididas" : "");
+    }
+    b.textContent = n > 99 ? "99+" : String(n); b.title = tit; b.style.display = n ? "inline-flex" : "none";
+  }
+  function abnNomeUsuario(){ return (state.perfil && state.perfil.nome) || (isAdmin() ? "Administração" : nomeBonito(state.email)); }
+  function abnCodigo(){
+    var d = new Date(), p = function(n){ return String(n).padStart(2,"0"); };
+    var r = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return "ABO-" + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate()) + "-" + r;
+  }
+  function abnMsg(txt, cls){ var m = $("abnMsg"); m.className = "status-msg show " + (cls || "ok"); m.textContent = txt; }
+  function abnVisiveis(){
+    var ve = abnVeTudo(), meus = ve ? null : abnMeusFuncIds();
+    return Object.keys(state.abonos).map(function(id){ var a = state.abonos[id]; a.id = id; return a; }).filter(function(a){
+      return ve || normEmail(a.solicitadoPor) === state.email || abnSouAprovador(a) || !!meus[a.funcId];
+    });
+  }
+  // Período da aba (mesmo padrão das outras abas): vale para a DATA do abono (o dia da falta ou do atraso).
+  function abnLimites(){
+    var ini = $("iniAbonos").value, fim = $("fimAbonos").value;
+    if(ini && fim && ini > fim){ var t = ini; ini = fim; fim = t; }
+    return {ini:ini, fim:fim};
+  }
+  function abnNoPeriodo(lista){
+    var p = abnLimites();
+    return lista.filter(function(a){ return (!p.ini || a.data >= p.ini) && (!p.fim || a.data <= p.fim); });
+  }
+  // A busca olha tudo o que aparece na linha do pedido: código, data, colaborador, função, tipo, minutos, motivo, situação, quem solicitou,
+  // aprovadores, decisões e observações. Várias palavras = todas precisam aparecer (em qualquer coluna).
+  function abnTextoBusca(a){
+    var st = abnStatusDe(a), nm = function(id){ return id ? nomeBonito(id) : ""; };
+    return normName([
+      a.id, a.funcNome, a.funcFuncao, fmtFuncao(a.funcFuncao), ABN_TIPOS[a.tipo] || a.tipo, a.data, fmtDateBR(a.data), a.minutos ? a.minutos + " min" : "", a.motivo,
+      ABN_STATUS[st] || st, a.solicitadoPorNome || nm(a.solicitadoPor), a.solicitadoPor, fmtDataHora(a.solicitadoEm),
+      a.aprov1Nome || nm(a.aprov1), a.aprov2Nome || nm(a.aprov2),
+      a.engPorNome || nm(a.engPor), a.engObs, a.gerPorNome || nm(a.gerPor), a.gerObs, nm(a.decididoPor), a.obsDecisao
+    ].filter(function(x){ return x; }).join(" "));
+  }
+  function abnCasaBusca(a, q){
+    var txt = abnTextoBusca(a);
+    return q.split(/\s+/).every(function(t){ return !t || txt.indexOf(t) >= 0; });
+  }
+  function abnListaFiltrada(){
+    var st = $("abnFiltroStatus").value, tp = $("abnFiltroTipo").value, q = normName($("abnBusca").value || "");
+    return abnNoPeriodo(abnVisiveis()).filter(function(a){
+      if(st && abnStatusDe(a) !== st) return false;
+      if(tp && a.tipo !== tp) return false;
+      if(q && !abnCasaBusca(a, q)) return false;
+      return true;
+    }).sort(function(a, b){ return String(b.solicitadoEm || "").localeCompare(String(a.solicitadoEm || "")); });
+  }
+  function renderAbonos(){
+    var corpo = $("abnTbody"); if(!corpo || !state.obraId) return;
+    abnAtualizarBadge();
+    var todosPeriodos = abnVisiveis(), todos = abnNoPeriodo(todosPeriodos);
+    var fora = todosPeriodos.filter(function(a){ var st = abnStatusDe(a); return todos.indexOf(a) < 0 && (st === "pendente_eng" || st === "pendente_ger"); }).length;
+    var avisoFora = $("abnForaPeriodo");
+    avisoFora.style.display = fora ? "block" : "none";
+    avisoFora.textContent = fora ? "Há " + fora + " solicitação(ões) pendente(s) fora deste período. Ajuste o período para vê-las." : "";
+    var n = function(st){ return todos.filter(function(a){ return abnStatusDe(a) === st; }).length; };
+    $("abnKpis").innerHTML = [kpiCard("Aguardando 1ª aprovação", n("pendente_eng"), n("pendente_eng") ? "bad" : ""), kpiCard("Aguardando 2ª aprovação", n("pendente_ger"), n("pendente_ger") ? "bad" : ""), kpiCard("Aprovadas", n("aprovado"), "good"), kpiCard("Reprovadas", n("reprovado"), "")].join("");
+    var vinc = abnVeTudo() ? -1 : Object.keys(abnMeusFuncIds()).length;
+    $("abnNivelInfo").textContent = "Seu nível: " + (abnNivel() === "admin" ? "Administração (todas as etapas)" : ABN_NIVEL_ROTULO[abnNivel()]) +
+      (state.perfil && state.perfil.aprovadores && state.perfil.aprovadores.length && !isAdmin() ? " · suas solicitações são aprovadas por " + state.perfil.aprovadores.map(function(p){ return p.nome; }).join(" → ") : "") +
+      (abnVeTudo() ? "" : vinc ? " — você vê " + vinc + " colaborador" + (vinc === 1 ? "" : "es") + " sob a sua liderança." : " — você ainda não está vinculado a nenhum colaborador (o DP faz isso em Cadastro > Liderança).");
+    var lista = abnListaFiltrada(), dp = abnEhDP();
+    corpo.innerHTML = lista.length ? lista.map(function(a){
+      var tipo = ABN_TIPOS[a.tipo] || a.tipo, min = a.minutos ? ' <span class="abn-sub">' + a.minutos + " min</span>" : "";
+      var st = abnStatusDe(a);
+      var etapa = function(rot, por, em, obs, ok){ return a[por] ? '<span class="abn-etapa">' + rot + ": " + (ok ? "✓ " : "✗ ") + escapeHtml(a[por + "Nome"] || nomeBonito(a[por])) + " · " + escapeHtml(fmtDataHora(a[em])) + (a[obs] ? " · " + escapeHtml(a[obs]) : "") + "</span>" : ""; };
+      var dec = (a.aprov1 && (st === "pendente_eng" || st === "pendente_ger") ? '<span class="abn-etapa">Aprovação: ' + escapeHtml(abnAprovadoresTxt(a)) + "</span>" : "") + etapa("1ª aprovação", "engPor", "engEm", "engObs", a.engResultado !== "reprovado") + etapa("2ª aprovação", "gerPor", "gerEm", "gerObs", a.gerResultado !== "reprovado") +
+        (a.status === "pendente" && a.decididoPor ? '<span class="abn-etapa">' + escapeHtml(nomeBonito(a.decididoPor)) + "</span>" : "") + (st === "cancelado" && a.obsDecisao ? '<span class="abn-etapa">' + escapeHtml(a.obsDecisao) + "</span>" : "");
+      var acoes = "";
+      if(st === "pendente_eng" || st === "pendente_ger"){
+        if(abnPodeDecidirEtapa(a)) acoes += '<button class="btn btn-sm" data-abn="aprovado" data-id="' + escapeHtml(a.id) + '">Aprovar</button><button class="btn-ghost btn-sm" data-abn="reprovado" data-id="' + escapeHtml(a.id) + '">Reprovar</button>';
+        if(dp || normEmail(a.solicitadoPor) === state.email) acoes += '<button class="btn-ghost btn-sm" data-abn="cancelado" data-id="' + escapeHtml(a.id) + '">Cancelar</button>';
+      }
+      if(isAdmin()) acoes += '<button class="btn-ghost btn-sm" data-abn="excluir" data-id="' + escapeHtml(a.id) + '" title="Apaga a solicitação definitivamente">Excluir</button>';
+      return "<tr><td class=\"num\">" + escapeHtml(a.id) + "</td><td class=\"num\">" + escapeHtml(fmtDateBR(a.data)) + "</td>" +
+        "<td class=\"nome\">" + escapeHtml(a.funcNome || "—") + '<span class="abn-sub">' + escapeHtml(fmtFuncao(a.funcFuncao) || "") + "</span></td>" +
+        "<td>" + escapeHtml(tipo) + min + "</td><td class=\"abn-motivo\">" + escapeHtml(a.motivo || "") + "</td>" +
+        '<td><span class="abn-status ' + escapeHtml(st) + '">' + escapeHtml(ABN_STATUS[st] || st) + "</span>" + dec + "</td>" +
+        "<td>" + escapeHtml(a.solicitadoPorNome || nomeBonito(a.solicitadoPor)) + '<span class="abn-sub">' + escapeHtml(fmtDataHora(a.solicitadoEm)) + "</span></td>" +
+        '<td><div class="abn-acoes">' + acoes + "</div></td></tr>";
+    }).join("") : '<tr class="empty-row"><td colspan="8">' + (todos.length ? "Nenhuma solicitação com esses filtros." : (todosPeriodos.length ? "Nenhuma solicitação neste período." : "Nenhuma solicitação de abono nesta obra ainda.")) + "</td></tr>";
+    Array.prototype.forEach.call(corpo.querySelectorAll("[data-abn]"), function(b){
+      b.addEventListener("click", function(){ abrirDecisaoAbono(b.getAttribute("data-id"), b.getAttribute("data-abn")); });
+    });
+  }
+  // Faltas (F) e atrasos do colaborador, vindos do ponto/Diário, até ontem e nos últimos 62 dias. Atraso só em dia sem código de ausência.
+  function abnOcorrencias(fid){
+    var hoje = todayIso(), lim = addDaysIso(hoje, -62), out = [];
+    Object.keys(state.dias).forEach(function(iso){
+      if(iso >= hoje || iso < lim) return;
+      var d = state.dias[iso] || {}, a = d.ausencias && d.ausencias[fid], h = d.horas && d.horas[fid];
+      if(a && a.codigo){ if(a.codigo === "F") out.push({iso:iso, tipo:"falta"}); return; }
+      if(h && h.a > 0) out.push({iso:iso, tipo:"atraso", min:h.a});
+    });
+    return out.sort(function(x, y){ return y.iso.localeCompare(x.iso); });
+  }
+  function abnJaSolicitado(fid, iso, tipo){
+    var grupo = function(t){ return t === "falta" ? "f" : "a"; };
+    return Object.keys(state.abonos).map(function(k){ return state.abonos[k]; }).filter(function(a){
+      var st = abnStatusDe(a);
+      return a.funcId === fid && a.data === iso && grupo(a.tipo) === grupo(tipo) && (st === "pendente_eng" || st === "pendente_ger" || st === "aprovado");
+    })[0] || null;
+  }
+  function abnRenderOcorr(){
+    var box = $("abnOcorr"), fid = $("abnFunc").value;
+    if(!fid){ box.innerHTML = '<div class="abn-oc-vazio">Escolha o colaborador.</div>'; return; }
+    var lista = abnOcorrencias(fid);
+    if(!lista.length){ box.innerHTML = '<div class="abn-oc-vazio">Nenhuma falta ou atraso nos últimos 60 dias. Se for um caso fora do ponto, informe a data abaixo.</div>'; return; }
+    var dataSel = $("abnData").value, tipoSel = $("abnTipo").value === "falta" ? "falta" : "atraso";
+    box.innerHTML = lista.map(function(o){
+      var ja = abnJaSolicitado(fid, o.iso, o.tipo), sem = new Date(o.iso + "T12:00:00").toLocaleDateString("pt-BR", {weekday:"short"}).replace(".", "");
+      var rot = o.tipo === "falta" ? '<span class="t-falta">Falta</span>' : '<span class="t-atraso">Atraso ' + fmtHM(o.min) + "</span>";
+      return '<button type="button" class="abn-oc' + (dataSel === o.iso && tipoSel === o.tipo ? " sel" : "") + '" data-iso="' + o.iso + '" data-tipo="' + o.tipo + '" data-min="' + (o.min || "") + '"' + (ja ? " disabled" : "") + ">" +
+        "<span><b>" + escapeHtml(sem) + " " + escapeHtml(fmtDateBR(o.iso).slice(0, 5)) + "</b>" + rot + "</span>" +
+        (ja ? '<span class="abn-status ' + abnStatusDe(ja) + '">Já solicitado</span>' : "") + "</button>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".abn-oc"), function(b){
+      b.addEventListener("click", function(){
+        $("abnTipo").value = b.getAttribute("data-tipo");
+        $("abnMinWrap").style.display = $("abnTipo").value === "falta" ? "none" : "";
+        $("abnData").value = b.getAttribute("data-iso");
+        if(b.getAttribute("data-min")) $("abnMin").value = b.getAttribute("data-min");
+        abnRenderOcorr();
+      });
+    });
+  }
+  // Lista de colaboradores do modal, filtrada pela pesquisa (nome ou função). Mantém o escolhido se ele continua na lista.
+  function abnPreencherFuncs(){
+    var q = normName($("abnFuncBusca").value || ""), atual = $("abnFunc").value;
+    var todos = ativosPonto().filter(function(id){ return abnVeTudo() || abnMeusFuncIds()[id]; }).sort(function(a, b){ return funcName(a).localeCompare(funcName(b)); });
+    var ids = todos.filter(function(id){
+      var f = state.funcionarios[id] || {};
+      return !q || normName(funcName(id) + " " + (f.funcao || "") + " " + fmtFuncao(f.funcao)).indexOf(q) >= 0;
+    });
+    $("abnFunc").innerHTML = ids.length ? ids.map(function(id){ return '<option value="' + escapeHtml(id) + '">' + escapeHtml(funcName(id)) + "</option>"; }).join("")
+      : '<option value="">' + (todos.length ? "Nenhum colaborador encontrado" : (abnVeTudo() ? "Sem colaboradores ativos" : "Nenhum colaborador sob a sua liderança")) + "</option>";
+    if(ids.indexOf(atual) >= 0) $("abnFunc").value = atual;
+    $("abnFuncInfo").textContent = todos.length ? (q ? ids.length + " de " + todos.length + " colaborador" + (todos.length === 1 ? "" : "es") : todos.length + " colaborador" + (todos.length === 1 ? "" : "es")) : "";
+    abnRenderOcorr();
+  }
+  function abrirNovoAbono(){
+    if(!state.db || !state.obraId) return;
+    $("abnFuncBusca").value = "";
+    abnPreencherFuncs();
+    $("abnObraSub").textContent = (state.obras[state.obraId] || {}).nome || "";
+    $("abnTipo").value = "falta"; $("abnData").value = todayIso(); $("abnMin").value = ""; $("abnMotivo").value = "";
+    $("abnMinWrap").style.display = "none"; $("abnErro").classList.remove("show");
+    abnRenderOcorr();
+    $("modalAbono").classList.add("show");
+  }
+  async function salvarAbono(){
+    var erro = $("abnErro"); erro.classList.remove("show");
+    var fid = $("abnFunc").value, tipo = $("abnTipo").value, data = $("abnData").value, motivo = $("abnMotivo").value.trim();
+    var min = tipo === "falta" ? null : parseInt($("abnMin").value, 10);
+    var falha = function(t){ erro.textContent = t; erro.classList.add("show"); };
+    if(!fid) return falha(abnVeTudo() ? "Escolha o colaborador." : "Nenhum colaborador sob a sua liderança — peça ao DP para vincular em Cadastro > Liderança.");
+    if(!abnVeTudo() && !abnMeusFuncIds()[fid]) return falha("Este colaborador não está sob a sua liderança.");
+    if(!data) return falha("Informe a data.");
+    if(tipo !== "falta" && !(min > 0)) return falha("Informe os minutos de " + (tipo === "atraso" ? "atraso" : "saída antecipada") + ".");
+    if(!motivo){ $("abnMotivo").focus(); return falha("O motivo é obrigatório."); }
+    if(motivo.length < 5){ $("abnMotivo").focus(); return falha("Explique melhor o motivo (pelo menos algumas palavras)."); }
+    var dup = abnJaSolicitado(fid, data, tipo);
+    if(dup) return falha("Já existe a solicitação " + dup.id + " (" + ABN_STATUS[abnStatusDe(dup)].toLowerCase() + ") para este colaborador neste dia.");
+    var f = state.funcionarios[fid] || {};
+    var doc = {funcId:fid, funcNome:funcName(fid), funcFuncao:f.funcao || "", tipo:tipo, data:data, minutos:min, motivo:motivo, status:"pendente_eng",
+               solicitadoPor:state.email, solicitadoPorNome:abnNomeUsuario(), solicitadoEm:new Date().toISOString()};
+    var apr = (state.perfil && state.perfil.aprovadores) || [];
+    if(!isAdmin() && apr.length){
+      doc.aprov1 = apr[0].id; doc.aprov1Nome = apr[0].nome || "";
+      if(apr[1]){ doc.aprov2 = apr[1].id; doc.aprov2Nome = apr[1].nome || ""; }
+    }
+    var id = abnCodigo();
+    $("abnSalvar").disabled = true;
+    try{
+      await state.db.collection("obras/" + state.obraId + "/abonos").doc(id).set(doc);
+      $("modalAbono").classList.remove("show");
+      abnMsg("Solicitação " + id + " enviada para aprovação" + (doc.aprov1 ? " de " + abnAprovadoresTxt(doc) : "") + ".");
+    }catch(e){ falha("Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo.")); }
+    $("abnSalvar").disabled = false;
+  }
+  var abnDec = {id:null, acao:null};
+  function abrirDecisaoAbono(id, acao){
+    var a = state.abonos[id]; if(!a) return;
+    abnDec = {id:id, acao:acao};
+    var etp = abnStatusDe(a) === "pendente_ger" ? " (2ª etapa)" : " (1ª etapa)";
+    var tit = {aprovado:"Aprovar solicitação" + etp, reprovado:"Reprovar solicitação" + etp, cancelado:"Cancelar solicitação", excluir:"Excluir solicitação"}[acao];
+    $("abnDecTitulo").textContent = tit;
+    $("abnDecSub").textContent = id + " · " + (a.funcNome || "") + " · " + (ABN_TIPOS[a.tipo] || a.tipo) + " em " + fmtDateBR(a.data);
+    $("abnDecObsLabel").textContent = acao === "reprovado" ? "Motivo da reprovação (obrigatório)" : (acao === "excluir" ? "Esta solicitação será apagada definitivamente, sem como recuperar." : "Observação (opcional)");
+    $("abnDecObs").style.display = acao === "excluir" ? "none" : "";
+    $("abnDecObs").value = ""; $("abnDecErro").classList.remove("show");
+    $("abnDecConfirmar").textContent = acao === "aprovado" ? "Aprovar" : (acao === "reprovado" ? "Reprovar" : (acao === "excluir" ? "Excluir definitivamente" : "Cancelar solicitação"));
+    $("modalAbonoDecisao").classList.add("show");
+  }
+  async function confirmarDecisaoAbono(){
+    var a = state.abonos[abnDec.id], erro = $("abnDecErro"), obs = $("abnDecObs").value.trim();
+    if(abnDec.acao === "excluir"){
+      if(!a || !isAdmin()){ erro.textContent = "Só a administração pode excluir."; erro.classList.add("show"); return; }
+      $("abnDecConfirmar").disabled = true;
+      try{
+        await state.db.collection("obras/" + state.obraId + "/abonos").doc(abnDec.id).delete();
+        $("modalAbonoDecisao").classList.remove("show");
+        abnMsg(abnDec.id + " excluída.");
+      }catch(e){ erro.textContent = "Não consegui excluir: " + ((e && (e.code || e.message)) || "tente de novo."); erro.classList.add("show"); }
+      $("abnDecConfirmar").disabled = false;
+      return;
+    }
+    var st0 = a ? abnStatusDe(a) : "";
+    if(!a || (st0 !== "pendente_eng" && st0 !== "pendente_ger")){ $("modalAbonoDecisao").classList.remove("show"); return; }
+    if(abnDec.acao === "reprovado" && obs.length < 3){ erro.textContent = "Informe o motivo da reprovação."; erro.classList.add("show"); return; }
+    if(abnDec.acao !== "cancelado" && !abnPodeDecidirEtapa(a)){ erro.textContent = "Só quem foi escolhido como aprovador desta etapa pode decidir."; erro.classList.add("show"); return; }
+    if(abnDec.acao === "cancelado" && !(abnEhDP() || normEmail(a.solicitadoPor) === state.email)){ erro.textContent = "Só quem solicitou ou o DP pode cancelar."; erro.classList.add("show"); return; }
+    $("abnDecConfirmar").disabled = true;
+    try{
+      var agora = new Date().toISOString(), campos;
+      if(abnDec.acao === "cancelado") campos = {status:"cancelado", decididoPor:state.email, decididoEm:agora, obsDecisao:obs || null};
+      else {
+        var pref = st0 === "pendente_eng" ? "eng" : "ger", ok = abnDec.acao === "aprovado";
+        campos = {};
+        campos[pref + "Por"] = state.email; campos[pref + "PorNome"] = abnNomeUsuario(); campos[pref + "Em"] = agora; campos[pref + "Obs"] = obs || null; campos[pref + "Resultado"] = ok ? "aprovado" : "reprovado";
+        campos.status = !ok ? "reprovado" : ((pref === "eng" && (a.aprov1 ? !!a.aprov2 : true)) ? "pendente_ger" : "aprovado");
+      }
+      await state.db.collection("obras/" + state.obraId + "/abonos").doc(abnDec.id).update(campos);
+      $("modalAbonoDecisao").classList.remove("show");
+      abnMsg(abnDec.id + ": " + (ABN_STATUS[campos.status] || campos.status).toLowerCase() + ".");
+    }catch(e){ erro.textContent = "Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo."); erro.classList.add("show"); }
+    $("abnDecConfirmar").disabled = false;
   }
 
   // Página larga só quando uma obra está aberta nas abas Grade do Mês ou Resumo Mensal.
@@ -2291,6 +2951,7 @@
     renderGrade();
     renderMensal();
     renderCadastro();
+    renderAbonos();
   }
 
   // ================= TAB: DIÁRIO =================
@@ -3794,11 +4455,13 @@
     $("txtForaEscopo").textContent = "Mostrar fora do escopo (" + nFora + ")";
     var verFora = podeVerFora && $("chkForaEscopo").checked;
     $("thDeptoCad").style.display = temDept ? "" : "none";
-    var ncol = 8 + (temDept ? 1 : 0);
+    var ncol = 10 + (temDept ? 1 : 0);
+    var selCol = document.querySelectorAll(".cad-th-sel"); Array.prototype.forEach.call(selCol, function(th){ th.style.display = readOnly ? "none" : ""; });
+    state.cadVisiveis = [];
     var ids = Object.keys(state.funcionarios).filter(function(id){
       var fb = state.funcionarios[id], qd = busca.replace(/\D/g, "");
       if(!verAntigos && fb.inativo && fb.demissao && fb.demissao < corte) return false;
-      if(fb.foraEscopo === true){ if(!verFora) return false; }
+      if(fb.foraEscopo === true){ if(!verFora || diarioRestrito()) return false; }
       else if(!visivelNaVisao(id)) return false;
       return !busca || normName(fb.nome).indexOf(busca)>=0 || (qd.length >= 2 && matriculaCurta(fb.matricula).indexOf(qd) >= 0);
     }).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
@@ -3808,8 +4471,11 @@
       tbody.innerHTML = '<tr class="empty-row"><td colspan="'+ncol+'">Nenhum funcionário cadastrado.</td></tr>';
       return;
     }
+    state.cadVisiveis = ids.slice();
     tbody.innerHTML = ids.map(function(id){
       var f = state.funcionarios[id];
+      var lideres = (f.liderancas || []).map(function(l){ return '<span class="lid-chip">' + escapeHtml(l.nome || l.id) + "</span>"; }).join("");
+      var lidHtml = '<div class="lid-nomes">' + (lideres || '<span style="color:var(--text-faint);">—</span>') + "</div>" + (readOnly ? "" : '<button class="btn-ghost btn-sm" style="margin-top:4px;" data-lider="' + id + '">Definir</button>');
       var statusHtml = f.inativo ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inativo</span>' : '<span class="pill pill-presente">Ativo</span>';
       var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>" +
         (f.inativo ? ' <button class="btn-ghost btn-sm" data-edit-dem="'+id+'" title="Editar a data de demissão">Data</button>' : "");
@@ -3819,10 +4485,12 @@
         '<label class="bp"><input type="checkbox" data-bate-ponto="'+id+'"'+(bp?' checked':'')+'> '+(bp?"Sim":"Não")+'</label>' +
         (auto && !bp ? ' <span style="color:var(--text-faint);font-size:11px;" title="Definido automaticamente pela função">(pela função)</span>' : "");
       return "<tr>"+
+        '<td class="cad-sel"' + (readOnly ? ' style="display:none;"' : '') + '><input type="checkbox" data-cad-sel="' + id + '"' + (state.cadSel[id] ? " checked" : "") + "></td>"+
         '<td class="mat">'+escapeHtml(matriculaCurta(f.matricula) || "—")+"</td>"+
         '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(f.nome || id)+"</a></td>"+
         "<td>"+escapeHtml(fmtFuncao(f.funcao)||"—")+"</td>"+
         (temDept ? "<td>"+escapeHtml(f.departamento||"—")+"</td>" : "")+
+        "<td>" + lidHtml + "</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+(f.demissao ? fmtDateBR(f.demissao) : "—")+"</td>"+
         "<td>"+statusHtml+"</td>"+
@@ -3837,6 +4505,13 @@
           .catch(function(err){ alert("Erro: " + (err&&err.code||"erro")); });
       });
     });
+    Array.prototype.forEach.call(tbody.querySelectorAll("[data-cad-sel]"), function(el){
+      el.addEventListener("change", function(){ state.cadSel[el.getAttribute("data-cad-sel")] = el.checked; cadAtualizarLote(); });
+    });
+    Array.prototype.forEach.call(tbody.querySelectorAll("[data-lider]"), function(el){
+      el.addEventListener("click", function(){ abrirLideranca([el.getAttribute("data-lider")]); });
+    });
+    cadAtualizarLote();
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-toggle-inativo]"), function(el){
       el.addEventListener("click", function(){
         toggleInativo(el.getAttribute("data-toggle-inativo"));
@@ -3861,7 +4536,7 @@
     var dias = [];
     datas.forEach(function(iso){
       var a = getAusenciaDoDia(iso, fid);
-      if(a && a.codigo) dias.push({iso:iso, codigo:a.codigo, origem:a.origem});
+      if(a && a.codigo && a.codigo !== "FO") dias.push({iso:iso, codigo:a.codigo, origem:a.origem});   // folga não é ocorrência
     });
     var faixas = [], counts = {};
     dias.forEach(function(d){
@@ -4788,6 +5463,7 @@
   // ---- Envio em lote: motivo pelo qual a pessoa não entra no lote ("" = pode) ----
   function motivoForaDoLote(email){
     var u = usu.map[email];
+    if(ehCpfId(email)) return "entra com CPF (sem e-mail)";
     if(!u || !(u.setor || u.empresas)) return "não cadastrado em Usuários e acessos";
     if(u.ativo === false) return "usuário desativado";
     if(u.senhaHash) return "tem senha própria: envie individualmente";
@@ -4836,16 +5512,34 @@
     m.textContent = ok + " pedido(s) de envio registrado(s). O robô envia em até 5 minutos; o andamento aparece na linha de cada usuário.";
     renderUsuarios();
   }
+  function usuRenderAbas(){
+    var box = $("usuAbas"); if(!box) return;
+    box.innerHTML = ABAS_TODAS.map(function(a){ return '<label class="usu-emp"><input type="checkbox" data-usuaba="' + a[0] + '"' + (usu.abas[a[0]] ? " checked" : "") + "> " + escapeHtml(a[1]) + "</label>"; }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-usuaba]"), function(el){
+      el.addEventListener("change", function(){ usu.abas[el.getAttribute("data-usuaba")] = el.checked; usuRenderAbas(); });
+    });
+    multiFiltrarTodos();
+    var marc = ABAS_TODAS.filter(function(a){ return usu.abas[a[0]]; });
+    $("usuAbasResumo").textContent = !marc.length ? "Nenhuma aba (marque)" : (marc.length === ABAS_TODAS.length ? "Todas as abas" : marc.map(function(a){ return a[1]; }).join(", "));
+  }
+  function usuResumoEmpresas(){
+    multiFiltrarTodos();
+    var nomes = opcoesEmpresas().filter(function(n){ return usu.empresas[normCompanyName(n)]; });
+    $("usuEmpresasResumo").textContent = !nomes.length ? "Selecionar empresas…" : (nomes.length === 1 ? nomes[0] : nomes.length + " empresas: " + nomes.join(", "));
+  }
   function renderUsuarios(){
     if(!isAdmin() || !$("usuEmpresas")) return;
+    if(!usu.abas) { usu.abas = {}; ABAS_TODAS.forEach(function(a){ usu.abas[a[0]] = true; }); }
+    usuRenderAbas(); usuAtualizarVisao();
     var ops = opcoesEmpresas();
     $("usuEmpresas").innerHTML = ops.map(function(n){
       var k = normCompanyName(n);
       return '<label class="usu-emp"><input type="checkbox" data-usuemp="'+k+'"'+(usu.empresas[k]?' checked':'')+'> '+escapeHtml(n)+'</label>';
     }).join("");
     Array.prototype.forEach.call($("usuEmpresas").querySelectorAll("input[data-usuemp]"), function(el){
-      el.addEventListener("change", function(){ usu.empresas[el.getAttribute("data-usuemp")] = el.checked; renderUsuDeptos(); });
+      el.addEventListener("change", function(){ usu.empresas[el.getAttribute("data-usuemp")] = el.checked; renderUsuDeptos(); usuResumoEmpresas(); });
     });
+    usuResumoEmpresas();
     renderUsuDeptos();
     // filtros da lista: busca por nome/e-mail, setor, empresa e status
     var selEmp = $("usuFiltroEmpresa"), empAtual = selEmp.value;
@@ -4859,7 +5553,7 @@
     });
     var emails = todos.filter(function(email){
       var u = usu.map[email], cad = !!(u.setor || u.empresas);
-      if(fq && normName((u.nome||"") + " " + email).indexOf(fq) < 0) return false;
+      if(fq && normName((u.nome||"") + " " + idLegivel(email) + " " + email).indexOf(fq) < 0) return false;
       if(fSetor && u.setor !== fSetor) return false;
       if(fEmp && !(u.empresas||[]).some(function(n){ return mesmaEmpresa(n, fEmp); })) return false;
       if(fSt){
@@ -4877,19 +5571,11 @@
       var empTxt = emp.length ? emp.slice(0,2).map(escapeHtml).join("<br>") + (emp.length>2 ? '<br><span style="color:var(--text-faint);">+ '+(emp.length-2)+' empresa(s)</span>' : "") : "—";
       var deps = []; Object.keys(u.departamentos || {}).forEach(function(k){ deps = deps.concat(u.departamentos[k] || []); });
       if(deps.length) empTxt += '<br><span style="color:var(--text-faint);font-size:11.5px;">Departamentos: '+deps.map(escapeHtml).join(", ")+'</span>';
-      var status = u.ativo === false ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Desativado</span>'
-        : (cad ? '<span class="pill pill-presente">Ativo</span>' : '<span class="pill" style="background:var(--surface-2);color:var(--text-dim)">Lista antiga</span>');
-      status += '<div style="font-size:11px;color:var(--text-faint);margin-top:3px;">'+(u.senhaHash ? "senha própria" : "senha padrão")+'</div>';
-      var env = usu.envios[email];
-      if(env && env.status){
-        var envTxt = env.status === "enviado" ? "e-mail enviado em " + fmtDataHora(env.enviadoEm)
-          : env.status === "erro" ? "e-mail com erro: " + (env.msg || "")
-          : "e-mail na fila…";
-        status += '<div style="font-size:11px;margin-top:3px;color:var(--'+(env.status === "enviado" ? "good" : env.status === "erro" ? "bad" : "text-faint")+');">'+escapeHtml(envTxt)+'</div>';
-      }
-      return '<tr><td class="sel"><input type="checkbox" data-usu-sel="'+escapeHtml(email)+'"'+(usu.sel[email] && !motivo ? ' checked' : '')+(motivo ? ' disabled title="'+escapeHtml(motivo)+'"' : '')+'></td><td class="nome">'+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(email)+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+status+'</td>'+
+      var estado = u.ativo === false ? "desativado" : (cad ? "ativo" : "antiga");
+      var dot = '<span class="usu-dot ' + estado + '" title="' + (estado === "ativo" ? "Ativo" : (estado === "desativado" ? "Desativado" : "Sem cadastro completo")) + ' · ' + (u.senhaHash ? "senha própria" : "senha padrão") + '"></span>';
+      return '<tr><td class="sel"><input type="checkbox" data-usu-sel="'+escapeHtml(email)+'"'+(usu.sel[email] && !motivo ? ' checked' : '')+(motivo ? ' disabled title="'+escapeHtml(motivo)+'"' : '')+'></td><td class="nome">'+dot+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(idLegivel(email))+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+(abasDe(u).length === ABAS_TODAS.length ? "Todas as abas" : (abasDe(u).map(function(k){ return (ABAS_TODAS.filter(function(a){ return a[0] === k; })[0] || [0, k])[1]; }).join(", ") || "Nenhuma"))+(visaoDiarioDe(u) === "lideranca" ? '<span class="abn-nivel">Diário: só os liderados</span>' : "")+'<span class="abn-nivel">Abonos: '+escapeHtml(abnNivelDe(u) === "dp" ? "visualização total" : "solicita · vê " + (visaoDe(u) === "todos" ? "todos" : "só liderança"))+((u.aprovadores || []).length ? "<br>Aprovam: " + (u.aprovadores || []).map(function(p){ return escapeHtml(p.nome); }).join(" → ") : (abnNivelDe(u) === "dp" ? "" : '<br><b style="color:var(--warn);">sem aprovador definido</b>'))+'</span></td>'+
         '<td style="white-space:nowrap;"><button class="btn-ghost btn-sm" data-usu-edit="'+escapeHtml(email)+'">Editar</button> '+
-        (cad ? '<button class="btn-ghost btn-sm" data-usu-mail="'+escapeHtml(email)+'" title="Enviar o e-mail de confirmação de cadastro e acesso">E-mail</button> ' : "")+
+        (cad && !ehCpfId(email) ? '<button class="btn-ghost btn-sm" data-usu-mail="'+escapeHtml(email)+'" title="Enviar o e-mail de confirmação de cadastro e acesso">E-mail</button> ' : "")+
         (cad ? '<button class="btn-ghost btn-sm" data-usu-ativo="'+escapeHtml(email)+'">'+(u.ativo===false?"Ativar":"Desativar")+'</button> ' : "")+
         '<button class="btn-ghost btn-sm" data-usu-del="'+escapeHtml(email)+'">'+(usu.confirmaDel===email?"Confirmar exclusão":"Excluir")+'</button></td></tr>';
     }).join("") : '<tr class="empty-row"><td colspan="7">'+(todos.length ? "Nenhum usuário encontrado com esses filtros." : "Nenhum usuário cadastrado ainda.")+'</td></tr>';
@@ -5006,11 +5692,16 @@
   function limparFormUsuario(){
     usu.editando = null; usu.empresas = {}; usu.deptos = {};
     ["usuNome","usuEmail","usuSenha"].forEach(function(id){ $(id).value = ""; });
-    $("usuEmail").disabled = false; $("usuSetor").value = "DP";
-    $("usuTitulo").textContent = "Cadastrar usuário"; $("usuSalvar").textContent = "Salvar usuário";
-    $("usuCancelar").style.display = "none"; $("usuSenha").placeholder = "em branco = senha padrão";
+    $("usuEmail").disabled = false; $("usuSetor").value = "Engenharia"; usu.abas = {}; ABAS_TODAS.forEach(function(a){ usu.abas[a[0]] = true; }); usu.aprov = ["", ""]; $("usuNivel").value = "solicitacao"; $("usuVisao").value = "lideranca"; $("usuVisaoDiario").value = "todos"; usuAtualizarVisao();
+    $("usuTitulo").textContent = "Novo cadastro"; $("usuSalvar").textContent = "Salvar usuário";
+    $("usuSenha").placeholder = "em branco = senha padrão";
     $("usuErro").classList.remove("show");
     renderUsuarios();
+  }
+  function abrirUsuModal(){ $("usuModal").classList.add("show"); $("usuFormPanel").scrollTop = 0; setTimeout(function(){ try{ $(usu.editando ? "usuNome" : "usuNome").focus(); }catch(e){} }, 30); }
+  function fecharUsuModal(){
+    $("usuModal").classList.remove("show");
+    Array.prototype.forEach.call(document.querySelectorAll("#usuModal details.multi-dd[open]"), function(d){ d.removeAttribute("open"); });
   }
   function editarUsuario(email){
     var u = usu.map[email]; if(!u) return;
@@ -5019,13 +5710,14 @@
     Object.keys(u.departamentos || {}).forEach(function(k){
       usu.deptos[k] = {}; (u.departamentos[k] || []).forEach(function(d){ usu.deptos[k][deptKey(d)] = true; });
     });
-    $("usuNome").value = u.nome || nomeBonito(email); $("usuEmail").value = email; $("usuEmail").disabled = true;
+    $("usuNome").value = u.nome || nomeBonito(email); $("usuEmail").value = idLegivel(email); $("usuEmail").disabled = true;
+    usu.abas = {}; abasDe(u).forEach(function(k){ usu.abas[k] = true; }); usu.aprov = [((u.aprovadores || [])[0] || {}).id || "", ((u.aprovadores || [])[1] || {}).id || ""]; $("usuNivel").value = abnNivelDe(u) === "dp" ? "dp" : "solicitacao"; $("usuVisao").value = visaoDe(u); $("usuVisaoDiario").value = visaoDiarioDe(u); usuAtualizarVisao();
     $("usuSenha").value = ""; $("usuSenha").placeholder = "deixe em branco para manter a atual";
-    $("usuSetor").value = u.setor || "DP";
+    $("usuSetor").value = u.setor === "DP" ? "DP" : "Engenharia";
     $("usuTitulo").textContent = "Editar usuário"; $("usuSalvar").textContent = "Salvar alterações";
-    $("usuCancelar").style.display = "inline-block"; $("usuErro").classList.remove("show"); $("usuMsg").className = "status-msg";
+    $("usuErro").classList.remove("show"); $("usuMsg").className = "status-msg";
     renderUsuarios();
-    $("usuFormPanel").scrollIntoView({behavior:"smooth", block:"start"});
+    abrirUsuModal();
   }
   function gerarSenha(){
     var al = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789", b = new Uint32Array(10), s = "";
@@ -5037,14 +5729,29 @@
     var erro = $("usuErro"); erro.classList.remove("show");
     var falha = function(m){ erro.textContent = m; erro.classList.add("show"); };
     if(!isAdmin() || !state.db) return;
-    var nome = $("usuNome").value.trim(), email = normEmail($("usuEmail").value), senha = $("usuSenha").value, setor = $("usuSetor").value;
+    var nome = $("usuNome").value.trim(), email = normId($("usuEmail").value), senha = $("usuSenha").value, setor = $("usuSetor").value;
+    var abas = ABAS_TODAS.map(function(a){ return a[0]; }).filter(function(k){ return usu.abas[k]; }), nivel = $("usuNivel").value === "dp" ? "dp" : "solicitacao", visao = (nivel === "dp" || $("usuVisao").value === "todos") ? "todos" : "lideranca";
+    var ap = [$("usuAprov1").value, $("usuAprov2").value].filter(function(x){ return x; });
+    var acesso = (abas.length === 1 && abas[0] === "abonos") ? "abonos" : "completo";
     var empresas = opcoesEmpresas().filter(function(n){ return usu.empresas[normCompanyName(n)]; });
     if(!nome){ falha("Informe o nome."); return; }
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ falha("Informe um e-mail válido."); return; }
+    if(ehCpfId(email)){ if(!cpfValido(email)){ falha("CPF inválido — confira os 11 números."); return; } }
+    else if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ falha("Informe um e-mail válido ou um CPF."); return; }
     var existente = usu.map[email] || null, editando = usu.editando === email;
-    if(!editando && existente && (existente.setor || existente.empresas)){ falha("Já existe um usuário com este e-mail — use o botão Editar na lista."); return; }
+    if(!editando && existente && (existente.setor || existente.empresas)){ falha("Já existe um usuário com este e-mail/CPF — use o botão Editar na lista."); return; }
     if(senha && senha.length < 6){ falha("A senha precisa ter pelo menos 6 caracteres."); return; }
+    if(!abas.length){ falha("Marque ao menos uma aba no nível de acesso."); return; }
     if(!empresas.length){ falha("Marque ao menos uma empresa de acesso."); return; }
+    if(nivel !== "dp" && !ap.length){ falha("Escolha quem aprova as solicitações desta pessoa (pelo menos a 1ª etapa)."); return; }
+    if(ap.length === 2 && ap[0] === ap[1]){ falha("A 1ª e a 2ª etapa precisam ser pessoas diferentes."); return; }
+    if(ap.indexOf(email) >= 0){ falha("A pessoa não pode aprovar as próprias solicitações."); return; }
+    var aprovadores = [];
+    for(var q = 0; q < ap.length; q++){
+      var au = usu.map[ap[q]], isAd = ADMIN_EMAILS.map(normEmail).indexOf(ap[q]) >= 0;
+      if(!isAd && (!au || au.ativo === false)){ falha("O aprovador escolhido não está ativo no cadastro."); return; }
+      if(!isAd && abasDe(au).indexOf("abonos") < 0){ falha((au.nome || ap[q]) + " não tem a aba Solicitações de abonos liberada — ajuste o cadastro dessa pessoa antes."); return; }
+      aprovadores.push({id:ap[q], nome:isAd ? "Administração" : (au.nome || nomeBonito(ap[q]))});
+    }
     var agora = new Date().toISOString();
     var departamentos = {};
     DEPTOS_POR_EMPRESA.forEach(function(e){
@@ -5053,44 +5760,22 @@
       var marc = e.deptos.filter(function(d){ return (usu.deptos[ek] || {})[deptKey(d)]; });
       if(marc.length && marc.length < e.deptos.length) departamentos[ek] = marc;   // todos marcados = sem restrição
     });
-    var campos = {nome:nome, email:email, setor:setor, empresas:empresas, departamentos:departamentos, ativo:(existente && existente.ativo === false) ? false : true, atualizadoEm:agora, atualizadoPor:state.email};
+    var campos = {nome:nome, email:(ehCpfId(email) ? "" : email), cpf:(ehCpfId(email) ? email : ""), acesso:acesso, abas:abas, visaoFunc:visao, visaoDiario:($("usuVisaoDiario").value === "lideranca" ? "lideranca" : "todos"), abonoNivel:nivel, aprovadores:aprovadores, setor:setor, empresas:empresas, departamentos:departamentos, ativo:(existente && existente.ativo === false) ? false : true, atualizadoEm:agora, atualizadoPor:state.email};
     if(!existente || !existente.criadoEm){ campos.criadoEm = agora; campos.criadoPor = state.email; }
     if(senha) campos.senhaHash = await sha256Hex(senha);
     try{
       await gravarUsuario(email, campos);
       var msg = $("usuMsg"); msg.className = "status-msg show ok";
-      msg.textContent = (editando ? "Usuário atualizado: " : "Usuário cadastrado: ") + nome + " (" + email + ")." + (senha && !editando ? " Passe a senha para a pessoa — ela não poderá ser consultada depois." : (!senha && !editando ? " Entra com a senha padrão." : ""));
+      msg.textContent = (editando ? "Usuário atualizado: " : "Usuário cadastrado: ") + nome + " (" + idLegivel(email) + ")." + (senha && !editando ? " Passe a senha para a pessoa — ela não poderá ser consultada depois." : (!senha && !editando ? " Entra com a senha padrão." : ""));
       limparFormUsuario();
+      fecharUsuModal();
       $("usuMsg").className = "status-msg show ok"; $("usuMsg").textContent = msg.textContent;
-      if(senha) abrirEmailAcesso(email, senha, campos, true);
-      else if(!editando) abrirEmailAcesso(email, "", campos, false);
+      if(!ehCpfId(email)){
+        if(senha) abrirEmailAcesso(email, senha, campos, true);
+        else if(!editando) abrirEmailAcesso(email, "", campos, false);
+      }
     }catch(e){ falha("Erro ao salvar: " + (e && (e.code || e.message) || "tente de novo.")); }
   }
-  async function importarUsuariosLista(){
-    if(!isAdmin() || !state.db) return;
-    var por = {};
-    EMPRESAS_ACESSO.forEach(function(e){
-      [["DP", e.dp], ["Engenharia", e.eng]].forEach(function(par){
-        par[1].map(normEmail).forEach(function(m){
-          var o = por[m] = por[m] || {setor:"Engenharia", empresas:[]};
-          if(par[0] === "DP") o.setor = "DP";
-          if(o.empresas.indexOf(e.nome) < 0) o.empresas.push(e.nome);
-        });
-      });
-    });
-    var agora = new Date().toISOString(), novos = 0, ja = 0;
-    var msg = $("usuMsg");
-    for(var email in por){
-      if(email === normEmail(ADMIN_EMAILS[0])) continue;
-      var ex = usu.map[email];
-      if(ex && (ex.setor || ex.empresas)){ ja++; continue; }
-      await gravarUsuario(email, {nome:nomeBonito(email), email:email, setor:por[email].setor, empresas:por[email].empresas, ativo:true, origem:"lista-de-acesso", criadoEm:agora, criadoPor:state.email, atualizadoEm:agora, atualizadoPor:state.email});
-      novos++;
-    }
-    msg.className = "status-msg show ok";
-    msg.textContent = novos + " usuário(s) importado(s) da lista de acesso atual (senha padrão, até você definir uma senha própria)" + (ja ? "; " + ja + " já estavam cadastrados." : ".");
-  }
-
   // ================= EVENTS =================
   $("btnLogin").addEventListener("click", doLogin);
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
@@ -5099,6 +5784,143 @@
   $("modalOcorrencias").addEventListener("click", function(ev){ if(ev.target===this) closeOcorrencias(); });
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
   $("usuSalvar").addEventListener("click", salvarUsuario);
+  // Solicitação costuma ser encarregado/líder: sugere "só liderança" (dá para trocar)
+  function usuAtualizarVisao(){
+    var dp = $("usuNivel").value === "dp";
+    $("usuVisao").disabled = dp;
+    if(dp) $("usuVisao").value = "todos";
+    $("usuVisao").title = dp ? "A visualização total (DP) enxerga todos os funcionários." : "";
+    $("usuAprov1").previousElementSibling.textContent = "Quem aprova — 1ª etapa" + (dp ? " (opcional)" : "");
+    usuRenderAprovadores();
+  }
+  // Candidatos a aprovador: usuários ativos já cadastrados (menos a própria pessoa) e a administração.
+  function usuRenderAprovadores(){
+    if(!usu.aprov) usu.aprov = ["", ""];
+    var eu = usu.editando, cand = [];
+    Object.keys(usu.map).forEach(function(id){
+      var u = usu.map[id]; if(id === eu || u.ativo === false || !(u.setor || u.empresas)) return;
+      cand.push({id:id, nome:(u.nome || nomeBonito(id)), setor:u.setor || "", semAba:abasDe(u).indexOf("abonos") < 0});
+    });
+    ADMIN_EMAILS.forEach(function(e){ e = normEmail(e); if(e !== eu && !usu.map[e]) cand.push({id:e, nome:"Administração", setor:"", semAba:false}); });
+    cand.sort(function(a, b){ return a.nome.localeCompare(b.nome); });
+    [1, 2].forEach(function(n){
+      var sel = $("usuAprov" + n), atual = usu.aprov[n - 1] || "";
+      var ops = '<option value="">' + (n === 1 ? "Escolher…" : "Sem 2ª etapa") + "</option>";
+      ops += cand.map(function(c){ return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.nome) + (c.setor ? " · " + escapeHtml(c.setor) : "") + (c.semAba ? " (sem aba de abonos)" : "") + "</option>"; }).join("");
+      if(atual && !cand.some(function(c){ return c.id === atual; })) ops += '<option value="' + escapeHtml(atual) + '">' + escapeHtml(nomeBonito(atual)) + " (indisponível)</option>";
+      sel.innerHTML = ops; sel.value = atual;
+    });
+  }
+  ["usuAprov1", "usuAprov2"].forEach(function(id, i){ $(id).addEventListener("change", function(){ if(!usu.aprov) usu.aprov = ["", ""]; usu.aprov[i] = this.value; }); });
+  $("usuNivel").addEventListener("change", usuAtualizarVisao);
+  $("usuSetor").addEventListener("change", usuAtualizarVisao);
+  // ===== Pesquisa nas listas de marcação (abas / empresas) =====
+  function multiFiltrar(painel){
+    var inp = painel.querySelector(".multi-busca"); if(!inp) return;
+    var q = normName(inp.value);
+    Array.prototype.forEach.call(painel.querySelectorAll("label.usu-emp"), function(l){
+      l.style.display = (!q || normName(l.textContent).indexOf(q) >= 0) ? "" : "none";
+    });
+  }
+  function multiFiltrarTodos(){ Array.prototype.forEach.call(document.querySelectorAll(".multi-painel"), multiFiltrar); }
+  document.addEventListener("input", function(ev){ if(ev.target.classList && ev.target.classList.contains("multi-busca")) multiFiltrar(ev.target.closest(".multi-painel")); });
+  document.addEventListener("toggle", function(ev){
+    var d = ev.target; if(!d.classList || !d.classList.contains("multi-dd")) return;
+    var inp = d.querySelector(".multi-busca"); if(!inp) return;
+    if(d.open){ setTimeout(function(){ inp.focus(); }, 20); } else { inp.value = ""; multiFiltrar(d.querySelector(".multi-painel")); }
+  }, true);
+
+  // ===== Listas suspensas (<select>) com campo de pesquisa =====
+  // O <select> continua sendo o controle da tela (estilo, valor, desativado, opções refeitas pelo código); só interceptamos a abertura
+  // e mostramos uma lista própria com pesquisa. Ao escolher, o valor é aplicado e o evento "change" é disparado como no original.
+  var combo = {sel:null, pop:null, inp:null, list:null, itens:[], ativo:0};
+  function comboElegivel(t){ return t && t.tagName === "SELECT" && !t.multiple && !(t.size > 1) && !t.disabled && !t.classList.contains("no-combo"); }
+  function comboMontar(){
+    if(combo.pop) return;
+    var pop = document.createElement("div"); pop.className = "combo-pop";
+    pop.innerHTML = '<input type="search" placeholder="Pesquisar…" autocomplete="off"><div class="combo-list"></div>';
+    document.body.appendChild(pop);
+    combo.pop = pop; combo.inp = pop.querySelector("input"); combo.list = pop.querySelector(".combo-list");
+    combo.inp.addEventListener("input", function(){ comboRender(true); });
+    combo.inp.addEventListener("keydown", function(ev){
+      if(ev.key === "ArrowDown" || ev.key === "ArrowUp"){
+        ev.preventDefault(); var vis = combo.itens.filter(function(i){ return i.ok && !i.off; }); if(!vis.length) return;
+        var pos = vis.indexOf(combo.itens[combo.ativo]); pos = ev.key === "ArrowDown" ? Math.min(vis.length - 1, pos + 1) : Math.max(0, pos - 1);
+        combo.ativo = combo.itens.indexOf(vis[pos]); comboRender(false);
+        var el = combo.list.querySelector(".ativo"); if(el){ var t0 = el.offsetTop, h = combo.list.clientHeight; if(t0 < combo.list.scrollTop) combo.list.scrollTop = t0; else if(t0 + el.offsetHeight > combo.list.scrollTop + h) combo.list.scrollTop = t0 + el.offsetHeight - h; }
+      } else if(ev.key === "Enter"){
+        ev.preventDefault(); var it = combo.itens[combo.ativo]; if(it && it.ok && !it.off) comboEscolher(it.idx);
+      } else if(ev.key === "Escape"){ ev.preventDefault(); ev.stopPropagation(); comboFechar(true); }
+      else if(ev.key === "Tab"){ comboFechar(false); }
+    });
+    combo.list.addEventListener("mousedown", function(ev){ ev.preventDefault(); });
+    combo.list.addEventListener("click", function(ev){
+      var el = ev.target.closest(".combo-opt"); if(!el || el.classList.contains("off")) return;
+      comboEscolher(parseInt(el.getAttribute("data-i"), 10));
+    });
+  }
+  function comboRender(reiniciar){
+    var q = normName(combo.inp.value), primeiro = -1, html = "";
+    combo.itens.forEach(function(it, n){
+      it.ok = !q || normName(it.txt).indexOf(q) >= 0;
+      if(it.ok && primeiro < 0 && !it.off) primeiro = n;
+    });
+    if(reiniciar){ var a = combo.itens[combo.ativo]; if(!a || !a.ok || a.off) combo.ativo = primeiro < 0 ? 0 : primeiro; }
+    combo.itens.forEach(function(it, n){
+      if(!it.ok) return;
+      html += '<div class="combo-opt' + (n === combo.ativo ? " ativo" : "") + (it.sel ? " sel" : "") + (it.off ? " off" : "") + '" data-i="' + it.idx + '">' + escapeHtml(it.txt || "—") + "</div>";
+    });
+    combo.list.innerHTML = html || '<div class="combo-vazio">Nada encontrado</div>';
+  }
+  function comboAbrir(sel){
+    comboMontar();
+    combo.sel = sel;
+    combo.itens = Array.prototype.map.call(sel.options, function(o, i){ return {idx:i, txt:(o.textContent || "").trim(), off:o.disabled || o.hidden, sel:o.selected, ok:true}; });
+    var cur = combo.itens.filter(function(i){ return i.sel; })[0]; combo.ativo = cur ? combo.itens.indexOf(cur) : 0;
+    combo.inp.value = ""; combo.inp.placeholder = "Pesquisar" + (sel.getAttribute("aria-label") ? " — " + sel.getAttribute("aria-label").toLowerCase() : "…");
+    comboRender(false);
+    var r = sel.getBoundingClientRect(), larg = Math.max(r.width, 240), vh = window.innerHeight, abaixo = vh - r.bottom - 12, acima = r.top - 12, p = combo.pop;
+    var alt = Math.min(340, Math.max(abaixo, acima));
+    p.style.width = Math.min(larg, window.innerWidth - 16) + "px";
+    p.style.left = Math.max(8, Math.min(r.left, window.innerWidth - larg - 8)) + "px";
+    if(abaixo >= 220 || abaixo >= acima){ p.style.top = (r.bottom + 4) + "px"; p.style.bottom = "auto"; alt = Math.min(340, abaixo); }
+    else { p.style.bottom = (vh - r.top + 4) + "px"; p.style.top = "auto"; alt = Math.min(340, acima); }
+    p.style.maxHeight = Math.max(160, alt) + "px";
+    p.classList.add("show");
+    combo.list.style.maxHeight = (Math.max(160, alt) - 58) + "px";
+    combo.aberto = Date.now();
+    combo.inp.focus({preventScroll:true});
+    var el = combo.list.querySelector(".ativo"); if(el) combo.list.scrollTop = Math.max(0, el.offsetTop - 60);
+  }
+  function comboFechar(foco){
+    if(!combo.sel) return;
+    var sel = combo.sel; combo.sel = null; combo.pop.classList.remove("show");
+    if(foco){ try{ sel.focus(); }catch(e){} }
+  }
+  function comboEscolher(idx){
+    var sel = combo.sel; if(!sel) return;
+    var mudou = sel.selectedIndex !== idx;
+    sel.selectedIndex = idx;
+    comboFechar(true);
+    if(mudou){ sel.dispatchEvent(new Event("input", {bubbles:true})); sel.dispatchEvent(new Event("change", {bubbles:true})); }
+  }
+  document.addEventListener("mousedown", function(ev){
+    var t = ev.target;
+    if(combo.pop && combo.pop.contains(t)) return;
+    if(comboElegivel(t)){ ev.preventDefault(); if(combo.sel === t){ comboFechar(true); } else { comboFechar(false); comboAbrir(t); } return; }
+    if(combo.sel) comboFechar(false);
+  }, true);
+  document.addEventListener("keydown", function(ev){
+    var t = ev.target;
+    if(comboElegivel(t) && (ev.key === " " || ev.key === "Enter" || (ev.altKey && ev.key === "ArrowDown"))){ ev.preventDefault(); comboAbrir(t); }
+  }, true);
+  window.addEventListener("resize", function(){ comboFechar(false); });
+  window.addEventListener("scroll", function(ev){ if(combo.sel && Date.now() - (combo.aberto || 0) > 400 && !(combo.pop && combo.pop.contains(ev.target))) comboFechar(false); }, true);
+
+  // fecha as listas suspensas ao clicar fora
+  document.addEventListener("click", function(ev){
+    Array.prototype.forEach.call(document.querySelectorAll("details.multi-dd[open]"), function(d){ if(!d.contains(ev.target)) d.removeAttribute("open"); });
+  });
   $("usuBusca").addEventListener("input", renderUsuarios);
   $("usuSelTodos").addEventListener("change", function(){
     var marcar = this.checked;
@@ -5125,9 +5947,15 @@
   $("emSenha").addEventListener("input", atualizarCorpoEmail);
   $("emCorpo").addEventListener("input", function(){ em.editado = true; });
   ["usuFiltroSetor", "usuFiltroEmpresa", "usuFiltroStatus"].forEach(function(id){ $(id).addEventListener("change", renderUsuarios); });
-  $("usuCancelar").addEventListener("click", limparFormUsuario);
+  $("usuCancelar").addEventListener("click", function(){ limparFormUsuario(); fecharUsuModal(); });
+  $("usuNovo").addEventListener("click", function(){ limparFormUsuario(); $("usuMsg").className = "status-msg"; abrirUsuModal(); });
+  document.addEventListener("keydown", function(ev){
+    if(ev.key !== "Escape" || !$("usuModal").classList.contains("show")) return;
+    var aberto = document.querySelector("#usuModal details.multi-dd[open]");
+    if(aberto){ aberto.removeAttribute("open"); return; }
+    limparFormUsuario(); fecharUsuModal();
+  });
   $("usuGerar").addEventListener("click", function(){ $("usuSenha").value = gerarSenha(); });
-  $("usuImportar").addEventListener("click", importarUsuariosLista);
   $("usuMarcarTodas").addEventListener("click", function(){ opcoesEmpresas().forEach(function(n){ usu.empresas[normCompanyName(n)] = true; }); renderUsuarios(); });
   $("usuLimpar").addEventListener("click", function(){ usu.empresas = {}; renderUsuarios(); });
   $("demCancelar").addEventListener("click", closeDemissao);
@@ -5166,6 +5994,8 @@
   $("syncDe").addEventListener("change", renderSync); $("syncAte").addEventListener("change", renderSync);
   $("mesGrade").addEventListener("change", function(){ aplicarMes("Grade"); renderGrade(); });
   $("mesResumo").addEventListener("change", function(){ aplicarMes("Resumo"); renderMensal(); });
+  $("mesAbonos").addEventListener("change", function(){ aplicarMes("Abonos"); renderAbonos(); });
+  ["ini","fim"].forEach(function(k){ $(k+"Abonos").addEventListener("change", function(){ sincronizarMes("Abonos"); renderAbonos(); }); });
   $("modoResumo").addEventListener("change", renderMensal);
   $("modoGrade").addEventListener("change", renderGrade);
   $("buscaGrade").addEventListener("input", renderGrade);
@@ -5209,26 +6039,46 @@
     });
   })();
   $("btnAddAusenciaManual").addEventListener("click", openAusenciaModalNovo);
+  $("btnNovoAbono").addEventListener("click", abrirNovoAbono);
+  $("cadSelTodos").addEventListener("change", function(){
+    var marcar = this.checked; (state.cadVisiveis || []).forEach(function(k){ state.cadSel[k] = marcar; }); renderCadastro();
+  });
+  $("cadLoteLimpar").addEventListener("click", function(){ state.cadSel = {}; renderCadastro(); });
+  $("cadLoteLider").addEventListener("click", function(){ abrirLideranca(Object.keys(state.cadSel).filter(function(k){ return state.cadSel[k] && state.funcionarios[k]; })); });
+  $("lidBusca").addEventListener("input", lidRender);
+  $("lidCancelar").addEventListener("click", function(){ $("modalLideranca").classList.remove("show"); });
+  $("lidSalvar").addEventListener("click", salvarLideranca);
+  $("abnCancelar").addEventListener("click", function(){ $("modalAbono").classList.remove("show"); });
+  $("abnSalvar").addEventListener("click", salvarAbono);
+  $("abnTipo").addEventListener("change", function(){ $("abnMinWrap").style.display = this.value === "falta" ? "none" : ""; abnRenderOcorr(); });
+  $("abnFunc").addEventListener("change", abnRenderOcorr);
+  $("abnFuncBusca").addEventListener("input", abnPreencherFuncs);
+  $("abnData").addEventListener("change", abnRenderOcorr);
+  $("abnDecVoltar").addEventListener("click", function(){ $("modalAbonoDecisao").classList.remove("show"); });
+  $("abnDecConfirmar").addEventListener("click", confirmarDecisaoAbono);
+  ["abnFiltroStatus", "abnFiltroTipo"].forEach(function(id){ $(id).addEventListener("change", renderAbonos); });
+  $("abnBusca").addEventListener("input", renderAbonos);
   $("modalCancelar").addEventListener("click", closeModal);
   $("modalSalvar").addEventListener("click", salvarModal);
 
   Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function(btn){
     btn.addEventListener("click", function(){
+      if(!abaPermitida(btn.getAttribute("data-tab"))) return;   // aba não liberada para este usuário
       Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function(b){ b.classList.remove("active"); });
       Array.prototype.forEach.call(document.querySelectorAll(".tabpane"), function(p){ p.classList.remove("active"); });
       btn.classList.add("active");
       $("tab-"+btn.getAttribute("data-tab")).classList.add("active");
       document.body.classList.remove("menu-open");
       window.scrollTo(0,0);
-      $("app").classList.toggle("tab-global", btn.getAttribute("data-tab") === "usuarios");
+      $("app").classList.toggle("tab-global", btn.getAttribute("data-tab") === "usuarios" || btn.getAttribute("data-tab") === "abonos");
       if(btn.getAttribute("data-tab") === "usuarios") iniciarUsuarios();
+      if(btn.getAttribute("data-tab") === "abonos" && state.obraId && abnNivel() === "solicitacao"){ abnMarcarVisto(); abnAtualizarBadge(); }
       ajustarLarguraPagina();
     });
   });
 
   (function populateLoginEmailList(){
-    var uniq = Array.from(new Set(allEmpresaEmails())).sort();
-    $("loginEmailList").innerHTML = uniq.map(function(e){ return '<option value="'+e+'">'; }).join("");
+    $("loginEmailList").innerHTML = "";   // sem sugestões: só entra quem está cadastrado em Usuários e acessos
   })();
   tryStoredLogin();
 })();
