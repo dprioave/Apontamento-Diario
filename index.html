@@ -1753,9 +1753,39 @@
     Object.keys(cols).forEach(function(k){ if(cols[k] - 7 <= x && cols[k] > mx){ mx = cols[k]; melhor = k; } });
     return melhor;
   }
+  // Cartão Ponto de período longo: cada funcionário ocupa VÁRIAS páginas seguidas (a 1ª tem o cabeçalho NOME/Nº FOLHA/ADMISSÃO/FUNÇÃO,
+  // as demais só continuam a lista de dias, e a última traz o nome completo na assinatura). Por isso o funcionário "atual" é carregado
+  // de uma página para a outra e só é gravado quando começa o próximo (ou o arquivo acaba), já com o nome completo.
   async function parseCartaoPontoPdf(pdf, onProgress){
-    var empresaNome = null, porDia = {}, ordem = [], informes = [];
+    var empresaNome = null, porDia = {}, ordem = [], informes = [], emp = null;
     var rx = /^(\d{2})\/(\d{2})\/(\d{4})\b/;
+    // valor que fica logo ABAIXO de um rótulo do cabeçalho (a distância varia um pouco de um relatório para outro)
+    function valorAbaixo(its, lab, xmin, xmax){
+      if(!lab) return "";
+      var c = its.filter(function(i){ return i.x >= xmin && i.x < xmax && i.y < lab.y - 3 && i.y > lab.y - 24; });
+      if(!c.length) return "";
+      var ymax = Math.max.apply(null, c.map(function(i){ return i.y; }));
+      return c.filter(function(i){ return Math.abs(i.y - ymax) <= 3; }).sort(function(a, b){ return a.x - b.x; })
+        .map(function(i){ return i.s; }).join(" ").replace(/\s+/g, " ").trim();
+    }
+    function fechar(){
+      var e = emp; emp = null;
+      if(!e || !e.linhas.length) return;
+      var nome = e.nomeRod && e.nomeCab && normName(e.nomeRod).indexOf(normName(e.nomeCab)) === 0 ? e.nomeRod : (e.nomeCab || e.nomeRod);
+      if(!nome) return;
+      informes.push({nome:nome, matricula:e.folha, admissao:e.admissao, funcao:e.funcao});
+      e.linhas.forEach(function(l){
+        var dia = porDia[l.iso];
+        if(!dia){
+          dia = porDia[l.iso] = {empresa:empresaNome, data:l.iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], cadastroInfo:informes, temHoras:true};
+          ordem.push(l.iso);
+        }
+        dia.todosNomes.push(nome);
+        dia.pessoas.push({nome:nome, matricula:e.folha, codigo:l.codigo, admissao:l.sawAdmissao, horas:l.hh});
+        if(l.codigo) dia.ausencias.push({matricula:e.folha, nome:nome, codigo:l.codigo});
+        else if(l.motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:l.motivoDesconhecido});
+      });
+    }
     for(var p=1; p<=pdf.numPages; p++){
       if(onProgress && (p===1 || p%10===0 || p===pdf.numPages)) await onProgress(p, pdf.numPages);
       var page = await pdf.getPage(p);
@@ -1766,34 +1796,28 @@
         var me = groupTextItemsToLines(content.items).join("\n").match(/Empresa:\s*([^.]+)\./);
         if(me) empresaNome = me[1].trim();
       }
-      // cabeçalho do funcionário (valores ficam ~9,5pt abaixo dos rótulos)
+      // página com cabeçalho = começa um funcionário novo
       var lNome = its.filter(function(i){ return i.s === "NOME:"; })[0];
-      var lAdm = its.filter(function(i){ return /^ADMISS/.test(stripAccents(i.s).toUpperCase()) && i.x < 300; })[0];
-      var lFunc = its.filter(function(i){ return /^FUNC/.test(stripAccents(i.s).toUpperCase()) && i.x < 100; })[0];
-      var nomeCab = lNome ? textoDaFaixa(its, lNome.y - 9.6, 3, 0, 170) : "";
-      var folha = lNome ? textoDaFaixa(its, lNome.y - 9.6, 3, 170, 300).replace(/\s+/g,"") : "";
-      var admissao = null;
-      if(lAdm){
-        var ma = textoDaFaixa(its, lAdm.y - 9.6, 3, 170, 300).match(/(\d{2})\/(\d{2})\/(\d{4})/);
-        if(ma) admissao = ma[3]+"-"+ma[2]+"-"+ma[1];
+      if(lNome){
+        fechar();
+        var lAdm = its.filter(function(i){ return /^ADMISS/.test(stripAccents(i.s).toUpperCase()) && i.x < 300; })[0];
+        var lFunc = its.filter(function(i){ return /^FUNC/.test(stripAccents(i.s).toUpperCase()) && i.x < 100; })[0];
+        var admissao = null;
+        if(lAdm){
+          var ma = valorAbaixo(its, lAdm, 170, 300).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+          if(ma) admissao = ma[3]+"-"+ma[2]+"-"+ma[1];
+        }
+        emp = {nomeCab:valorAbaixo(its, lNome, 0, 170), folha:valorAbaixo(its, lNome, 170, 300).replace(/\s+/g, ""), admissao:admissao,
+               funcao:lFunc ? valorAbaixo(its, lFunc, 0, 170) : "", nomeRod:"", linhas:[]};
       }
-      var funcao = lFunc ? textoDaFaixa(its, lFunc.y - 9.6, 3, 0, 170) : "";
-      // nome completo: logo abaixo da linha de assinatura da esquerda
+      if(!emp) continue;           // página sem funcionário em andamento (não deveria acontecer)
+      // nome completo: logo abaixo da linha de assinatura da esquerda (última página do funcionário)
       var traco = its.filter(function(i){ return /^_{8,}/.test(i.s) && i.x < 330; })[0];
-      var nomeRod = traco ? textoDaFaixa(its, traco.y - 12, 5, 0, 330) : "";
-      var nome = nomeRod && normName(nomeRod).indexOf(normName(nomeCab)) === 0 ? nomeRod : (nomeCab || nomeRod);
-      if(!nome) continue;
-      informes.push({nome:nome, matricula:folha, admissao:admissao, funcao:funcao});
+      if(traco){ var nr = textoDaFaixa(its, traco.y - 12, 5, 0, 330); if(nr) emp.nomeRod = nr; }
       var colsH = colunasHorasCartao(its);
 
       its.filter(function(i){ return i.x < 60 && rx.test(i.s); }).forEach(function(d){
         var m = d.s.match(rx), iso = m[3]+"-"+m[2]+"-"+m[1];
-        var dia = porDia[iso];
-        if(!dia){
-          dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], cadastroInfo:informes, temHoras:true};
-          ordem.push(iso);
-        }
-        dia.todosNomes.push(nome);
         var codigo = null, motivoDesconhecido = null, sawAdmissao = false;
         its.filter(function(i){ return Math.abs(i.y - d.y) <= 3 && i.x >= 95 && i.x < 260; })
           .sort(function(a,b){ return a.x - b.x; }).forEach(function(c){
@@ -1810,20 +1834,19 @@
           if(c.x < 260){ if(/^\d{1,2}:\d{2}/.test(c.s)) temBatida = true; return; }
           var k = chaveColunaHoras(colsH, c.x);
           if(k === "ft"){ faltasDia += parseFloat(c.s.replace(",", ".")) || 0; return; }
-          var m = minDeCelula(c.s); if(!m) return;
-          if(k === "at") hh.a += m;
-          else if(k === "ex" || k === "exn") hh.e += m;
-          else if(k === "s70" || k === "s100"){ hh.e += m; hh.s += m; }
-          else if(k === "tr") hh.t += m;
+          var mn = minDeCelula(c.s); if(!mn) return;
+          if(k === "at") hh.a += mn;
+          else if(k === "ex" || k === "exn") hh.e += mn;
+          else if(k === "s70" || k === "s100"){ hh.e += mn; hh.s += mn; }
+          else if(k === "tr") hh.t += mn;
         });
         // FALTAS DIA preenchido, sem batida e sem motivo reconhecido = falta de dia inteiro (dias já passados)
         if(!codigo && !motivoDesconhecido && faltasDia >= 1 && !temBatida && iso < todayIso()) codigo = "F";
         if(codigo) hh.a = 0;     // dia com falta/atestado/etc.: o "atraso" que o Secullum mostra é o dia inteiro, não um atraso
-        dia.pessoas.push({nome:nome, matricula:folha, codigo:codigo, admissao:sawAdmissao, horas:hh});
-        if(codigo) dia.ausencias.push({matricula:folha, nome:nome, codigo:codigo});
-        else if(motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
+        emp.linhas.push({iso:iso, codigo:codigo, motivoDesconhecido:motivoDesconhecido, sawAdmissao:sawAdmissao, hh:hh});
       });
     }
+    fechar();
     var res = ordem.sort().map(function(iso){ return porDia[iso]; });
     res.informes = informes;
     return res;
