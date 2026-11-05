@@ -1729,6 +1729,30 @@
     return its.filter(function(it){ return Math.abs(it.y - y) <= tol && it.x >= xmin && it.x < xmax; })
       .sort(function(a,b){ return a.x - b.x; }).map(function(it){ return it.s; }).join(" ").replace(/\s+/g," ").trim();
   }
+  // Posição (x) de cada coluna de horas, achada pelo cabeçalho da página; se não achar usa as posições padrão do relatório.
+  function colunasHorasCartao(its){
+    var pad = {ft:263, at:303, ex:343, s70:383, s100:423, exn:463, tr:503}, up = function(i){ return stripAccents(i.s).toUpperCase(); };
+    var hAt = its.filter(function(i){ return up(i) === "ATRASO"; })[0];
+    if(!hAt) return pad;
+    var hy = hAt.y, h = its.filter(function(i){ return Math.abs(i.y - hy) <= 3 && i.x > 240; }).sort(function(a, b){ return a.x - b.x; });
+    var c = {at:hAt.x};
+    h.forEach(function(i){
+      var u = up(i);
+      if(/^FALTAS/.test(u)) c.ft = i.x;
+      else if(/^EX\.?\s?70/.test(u)) c.ex = i.x;
+      else if(u === "SAB" && c.s70 == null) c.s70 = i.x;
+      else if(u === "SAB." || (u === "SAB" && c.s70 != null)) c.s100 = i.x;
+      else if(u === "EX") c.exn = i.x;
+      else if(/^TRABALHAD/.test(u)) c.tr = i.x;
+    });
+    Object.keys(pad).forEach(function(k){ if(c[k] == null) c[k] = pad[k]; });
+    return c;
+  }
+  function chaveColunaHoras(cols, x){
+    var melhor = null, mx = -1;
+    Object.keys(cols).forEach(function(k){ if(cols[k] - 7 <= x && cols[k] > mx){ mx = cols[k]; melhor = k; } });
+    return melhor;
+  }
   async function parseCartaoPontoPdf(pdf, onProgress){
     var empresaNome = null, porDia = {}, ordem = [], informes = [];
     var rx = /^(\d{2})\/(\d{2})\/(\d{4})\b/;
@@ -1760,12 +1784,13 @@
       var nome = nomeRod && normName(nomeRod).indexOf(normName(nomeCab)) === 0 ? nomeRod : (nomeCab || nomeRod);
       if(!nome) continue;
       informes.push({nome:nome, matricula:folha, admissao:admissao, funcao:funcao});
+      var colsH = colunasHorasCartao(its);
 
       its.filter(function(i){ return i.x < 60 && rx.test(i.s); }).forEach(function(d){
         var m = d.s.match(rx), iso = m[3]+"-"+m[2]+"-"+m[1];
         var dia = porDia[iso];
         if(!dia){
-          dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], cadastroInfo:informes};
+          dia = porDia[iso] = {empresa:empresaNome, data:iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], cadastroInfo:informes, temHoras:true};
           ordem.push(iso);
         }
         dia.todosNomes.push(nome);
@@ -1779,7 +1804,22 @@
             if(cd) codigo = cd;
             else if(!isIgnoredStatus(w)) motivoDesconhecido = w;
           });
-        dia.pessoas.push({nome:nome, matricula:folha, codigo:codigo, admissao:sawAdmissao});
+        // Horas do dia (minutos): t trabalhadas, e extras (EX + SAB), s sábado, a atraso — mesmo formato do Ponto Diário em xlsx.
+        var hh = {t:0, e:0, s:0, a:0}, faltasDia = 0, temBatida = false;
+        its.filter(function(i){ return Math.abs(i.y - d.y) <= 3 && i.x >= 95; }).forEach(function(c){
+          if(c.x < 260){ if(/^\d{1,2}:\d{2}/.test(c.s)) temBatida = true; return; }
+          var k = chaveColunaHoras(colsH, c.x);
+          if(k === "ft"){ faltasDia += parseFloat(c.s.replace(",", ".")) || 0; return; }
+          var m = minDeCelula(c.s); if(!m) return;
+          if(k === "at") hh.a += m;
+          else if(k === "ex" || k === "exn") hh.e += m;
+          else if(k === "s70" || k === "s100"){ hh.e += m; hh.s += m; }
+          else if(k === "tr") hh.t += m;
+        });
+        // FALTAS DIA preenchido, sem batida e sem motivo reconhecido = falta de dia inteiro (dias já passados)
+        if(!codigo && !motivoDesconhecido && faltasDia >= 1 && !temBatida && iso < todayIso()) codigo = "F";
+        if(codigo) hh.a = 0;     // dia com falta/atestado/etc.: o "atraso" que o Secullum mostra é o dia inteiro, não um atraso
+        dia.pessoas.push({nome:nome, matricula:folha, codigo:codigo, admissao:sawAdmissao, horas:hh});
         if(codigo) dia.ausencias.push({matricula:folha, nome:nome, codigo:codigo});
         else if(motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
       });
