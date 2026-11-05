@@ -500,6 +500,15 @@
   .abn-topo{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
   .abn-topo h2{ font-size:clamp(22px,3.4vw,28px); margin:0 0 4px; letter-spacing:-.01em; }
   .abn-topo p{ margin:0; color:var(--text-dim); font-size:13.5px; max-width:64ch; }
+  .abn-periodo{ display:flex; gap:12px; flex-wrap:wrap; margin:0 0 12px; }
+  .abn-pbox{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 16px; min-width:200px; }
+  .abn-plabel{ font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--text-faint); }
+  .abn-pval{ font-family:var(--mono, ui-monospace, Consolas, monospace); font-size:16px; font-weight:600; margin:3px 0 1px; white-space:nowrap; }
+  .abn-pval.bad{ color:var(--bad); }
+  .abn-psub{ font-size:12px; color:var(--text-faint); }
+  #abnKpis{ grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); }
+  .abn-flag{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap; padding:4px 8px; border:1px solid var(--border-strong); border-radius:7px; background:var(--surface-2); }
+  .abn-flag input{ accent-color:var(--accent); width:auto; margin:0; }
   .abn-lanc{ color:var(--good) !important; }
   .abn-nlanc{ color:var(--warn) !important; }
   .abn-filtros{ display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin:0 0 14px; }
@@ -800,11 +809,12 @@
       <div class="abn-topo">
         <div>
           <h2>Solicitações de abonos</h2>
-          <p>Solicite, aprove e acompanhe abonos de falta, atraso e saída antecipada desta obra. Fluxo: solicitação → aprovação da engenharia → aprovação da gerência.</p>
+          <p>Solicite, aprove e acompanhe abonos de falta, atraso e saída antecipada desta obra. Fluxo: solicitação → aprovação em 1 ou 2 etapas (definidas no cadastro de quem solicita).</p>
           <p class="abn-nivel" id="abnNivelInfo"></p>
         </div>
         <button class="btn" id="btnNovoAbono" type="button">+ Nova solicitação</button>
       </div>
+      <div class="abn-periodo" id="abnPeriodoInfo"></div>
       <div class="kpis" id="abnKpis"></div>
       <p class="panel-hint" id="abnForaPeriodo" style="display:none;"></p>
       <div class="abn-filtros">
@@ -813,8 +823,6 @@
         <div class="field"><label for="fimAbonos">Até</label><input type="date" id="fimAbonos"></div>
         <div class="field"><label for="abnFiltroStatus">Situação</label>
           <select id="abnFiltroStatus"><option value="">Todas</option><option value="pendente_eng">Aguardando 1ª aprovação</option><option value="pendente_ger">Aguardando 2ª aprovação</option><option value="aprovado">Aprovadas</option><option value="reprovado">Reprovadas</option><option value="cancelado">Canceladas</option></select></div>
-        <div class="field" id="abnFiltroPontoWrap" style="display:none;"><label for="abnFiltroPonto">Lançamento no ponto</label>
-          <select id="abnFiltroPonto"><option value="">Todos</option><option value="alancar">Aprovados a lançar</option><option value="lancado">Já lançados</option></select></div>
         <div class="field"><label for="abnFiltroTipo">Tipo</label>
           <select id="abnFiltroTipo"><option value="">Todos</option><option value="falta">Falta</option><option value="atraso">Atraso</option><option value="saida">Saída antecipada</option></select></div>
         <div class="field"><label for="abnBusca">Buscar</label><input type="search" id="abnBusca" placeholder="Código, colaborador, data, motivo, situação, aprovador…"></div>
@@ -824,6 +832,16 @@
           <thead><tr><th>Código</th><th>Data</th><th>Colaborador</th><th>Tipo</th><th>Motivo</th><th>Situação</th><th>Solicitação</th><th></th></tr></thead>
           <tbody id="abnTbody"></tbody>
         </table>
+      </div>
+      <div id="abnLancBox" style="display:none;margin-top:22px;">
+        <p class="panel-title" style="margin-bottom:4px;">Lançados no ponto <span class="abn-sub" id="abnLancCont"></span></p>
+        <p class="panel-hint" style="margin:0 0 10px;">Abonos aprovados que o DP já lançou no sistema de ponto. Desmarque a flag para devolver à lista de cima.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Código</th><th>Data</th><th>Colaborador</th><th>Tipo</th><th>Motivo</th><th>Situação</th><th>Solicitação</th><th></th></tr></thead>
+            <tbody id="abnTbodyLanc"></tbody>
+          </table>
+        </div>
       </div>
       <div class="status-msg" id="abnMsg"></div>
       <details class="panel abn-quem">
@@ -2680,11 +2698,9 @@
     return q.split(/\s+/).every(function(t){ return !t || txt.indexOf(t) >= 0; });
   }
   function abnListaFiltrada(){
-    var st = $("abnFiltroStatus").value, tp = $("abnFiltroTipo").value, q = normName($("abnBusca").value || ""), pt = abnEhDP() ? $("abnFiltroPonto").value : "";
+    var st = $("abnFiltroStatus").value, tp = $("abnFiltroTipo").value, q = normName($("abnBusca").value || "");
     return abnNoPeriodo(abnVisiveis()).filter(function(a){
       if(st && abnStatusDe(a) !== st) return false;
-      if(pt === "alancar" && !(abnStatusDe(a) === "aprovado" && !a.lancadoPonto)) return false;
-      if(pt === "lancado" && !a.lancadoPonto) return false;
       if(tp && a.tipo !== tp) return false;
       if(q && !abnCasaBusca(a, q)) return false;
       return true;
@@ -2692,7 +2708,7 @@
   }
   function renderAbonos(){
     var corpo = $("abnTbody"); if(!corpo || !state.obraId) return;
-    abnAtualizarBadge();
+    abnAtualizarBadge(); abnRenderPeriodoInfo();
     var todosPeriodos = abnVisiveis(), todos = abnNoPeriodo(todosPeriodos);
     var foraLista = todosPeriodos.filter(function(a){ var st = abnStatusDe(a); return todos.indexOf(a) < 0 && (st === "pendente_eng" || st === "pendente_ger"); });
     var fora = foraLista.length;
@@ -2716,9 +2732,8 @@
     $("abnNivelInfo").textContent = "Seu nível: " + (abnNivel() === "admin" ? "Administração (todas as etapas)" : ABN_NIVEL_ROTULO[abnNivel()]) +
       (state.perfil && state.perfil.aprovadores && state.perfil.aprovadores.length && !isAdmin() ? " · suas solicitações são aprovadas por " + state.perfil.aprovadores.map(function(p){ return p.nome; }).join(" → ") : "") +
       (abnVeTudo() ? "" : vinc ? " — você vê " + vinc + " colaborador" + (vinc === 1 ? "" : "es") + " sob a sua liderança." : " — você ainda não está vinculado a nenhum colaborador (o DP faz isso em Cadastro > Liderança).");
-    $("abnFiltroPontoWrap").style.display = abnEhDP() ? "" : "none";
     var lista = abnListaFiltrada(), dp = abnEhDP();
-    corpo.innerHTML = lista.length ? lista.map(function(a){
+    var linhaAbono = function(a){
       var tipo = ABN_TIPOS[a.tipo] || a.tipo, min = a.minutos ? ' <span class="abn-sub">' + a.minutos + " min</span>" : "";
       var st = abnStatusDe(a);
       var etapa = function(rot, por, em, obs, ok){ return a[por] ? '<span class="abn-etapa">' + rot + ": " + (ok ? "✓ " : "✗ ") + escapeHtml(a[por + "Nome"] || nomeBonito(a[por])) + " · " + escapeHtml(fmtDataHora(a[em])) + (a[obs] ? " · " + escapeHtml(a[obs]) : "") + "</span>" : ""; };
@@ -2730,9 +2745,7 @@
         if(abnPodeDecidirEtapa(a)) acoes += '<button class="btn btn-sm" data-abn="aprovado" data-id="' + escapeHtml(a.id) + '">Aprovar</button><button class="btn-ghost btn-sm" data-abn="reprovado" data-id="' + escapeHtml(a.id) + '">Reprovar</button>';
         if(dp || normEmail(a.solicitadoPor) === state.email) acoes += '<button class="btn-ghost btn-sm" data-abn="cancelado" data-id="' + escapeHtml(a.id) + '">Cancelar</button>';
       }
-      if(dp && st === "aprovado") acoes += a.lancadoPonto
-        ? '<button class="btn-ghost btn-sm" data-abn="deslancar" data-id="' + escapeHtml(a.id) + '" title="Desfaz a marcação de lançado no ponto">Desmarcar lançamento</button>'
-        : '<button class="btn btn-sm" data-abn="lancar" data-id="' + escapeHtml(a.id) + '" title="Marque depois de lançar o abono no sistema de ponto">Marcar lançado no ponto</button>';
+      if(dp && st === "aprovado") acoes += '<label class="abn-flag" title="Marque depois de lançar o abono no sistema de ponto; ele passa para a lista de baixo"><input type="checkbox" data-abn-flag="' + escapeHtml(a.id) + '"' + (a.lancadoPonto ? " checked" : "") + "> Lançado no ponto</label>";
       if(isAdmin()) acoes += '<button class="btn-ghost btn-sm" data-abn="excluir" data-id="' + escapeHtml(a.id) + '" title="Apaga a solicitação definitivamente">Excluir</button>';
       return "<tr><td class=\"num\">" + escapeHtml(a.id) + "</td><td class=\"num\">" + escapeHtml(fmtDateBR(a.data)) + "</td>" +
         "<td class=\"nome\">" + escapeHtml(a.funcNome || "—") + '<span class="abn-sub">' + escapeHtml(fmtFuncao(a.funcFuncao) || "") + "</span></td>" +
@@ -2740,11 +2753,20 @@
         '<td><span class="abn-status ' + escapeHtml(st) + '">' + escapeHtml(ABN_STATUS[st] || st) + "</span>" + dec + "</td>" +
         "<td>" + escapeHtml(a.solicitadoPorNome || nomeBonito(a.solicitadoPor)) + '<span class="abn-sub">' + escapeHtml(fmtDataHora(a.solicitadoEm)) + "</span></td>" +
         '<td><div class="abn-acoes">' + acoes + "</div></td></tr>";
-    }).join("") : '<tr class="empty-row"><td colspan="8">' + (todos.length ? "Nenhuma solicitação com esses filtros." : (todosPeriodos.length ? "Nenhuma solicitação neste período." : "Nenhuma solicitação de abono nesta obra ainda.")) + "</td></tr>";
-    Array.prototype.forEach.call(corpo.querySelectorAll("[data-abn]"), function(b){
-      b.addEventListener("click", function(){
-        var ac = b.getAttribute("data-abn"), id = b.getAttribute("data-id");
-        if(ac === "lancar" || ac === "deslancar") abnMarcarLancado(id, ac === "lancar"); else abrirDecisaoAbono(id, ac);
+    };
+    // DP/administração: o que já foi lançado no ponto sai da lista principal e vai para a lista de baixo.
+    var principal = dp ? lista.filter(function(a){ return !(abnStatusDe(a) === "aprovado" && a.lancadoPonto); }) : lista;
+    var lancados = dp ? lista.filter(function(a){ return abnStatusDe(a) === "aprovado" && a.lancadoPonto; }) : [];
+    corpo.innerHTML = principal.length ? principal.map(linhaAbono).join("") : '<tr class="empty-row"><td colspan="8">' + (lista.length ? "Todos os abonos desta lista já foram lançados no ponto (veja abaixo)." : (todos.length ? "Nenhuma solicitação com esses filtros." : (todosPeriodos.length ? "Nenhuma solicitação neste período." : "Nenhuma solicitação de abono nesta obra ainda."))) + "</td></tr>";
+    $("abnLancBox").style.display = lancados.length ? "" : "none";
+    $("abnLancCont").textContent = lancados.length ? "· " + lancados.length : "";
+    $("abnTbodyLanc").innerHTML = lancados.map(linhaAbono).join("");
+    [corpo, $("abnTbodyLanc")].forEach(function(tb){
+      Array.prototype.forEach.call(tb.querySelectorAll("[data-abn]"), function(b){
+        b.addEventListener("click", function(){ abrirDecisaoAbono(b.getAttribute("data-id"), b.getAttribute("data-abn")); });
+      });
+      Array.prototype.forEach.call(tb.querySelectorAll("[data-abn-flag]"), function(c){
+        c.addEventListener("change", function(){ abnMarcarLancado(c.getAttribute("data-abn-flag"), c.checked); });
       });
     });
   }
@@ -2758,6 +2780,16 @@
     var corteAnt = mp + "-21", corteAtual = mc + "-21";
     var anteriorAberto = hoje <= corteAnt;
     return {ini: anteriorAberto ? mesBounds(mp).ini : mesBounds(mc).ini, corteAnterior: corteAnt, anteriorAberto: anteriorAberto, corteAtual: corteAtual, perAtual: mesBounds(mc), perAnt: mesBounds(mp)};
+  }
+  // Cartões do topo da aba: período de apuração em aberto e data de corte dos pedidos (vale para todos; só quem não é DP é limitado por ela).
+  function abnDiasAte(iso){ var a = new Date(todayIso() + "T12:00:00"), b = new Date(iso + "T12:00:00"); return Math.round((b - a) / 86400000); }
+  function abnRenderPeriodoInfo(){
+    var p = abnPrazo(), cartao = function(rot, val, sub, cls){ return '<div class="abn-pbox"><div class="abn-plabel">' + rot + '</div><div class="abn-pval ' + (cls || "") + '">' + val + '</div><div class="abn-psub">' + sub + "</div></div>"; };
+    var dias = function(iso){ var d = abnDiasAte(iso); return d <= 0 ? "último dia" : (d === 1 ? "falta 1 dia" : "faltam " + d + " dias"); };
+    var html = cartao("Período de apuração em aberto", fmtDateBR(p.perAtual.ini) + " a " + fmtDateBR(p.perAtual.fim), "fecha em " + fmtDateBR(p.perAtual.fim).slice(0, 5)) +
+      cartao("Corte dos pedidos de abono", fmtDateBR(p.corteAtual), dias(p.corteAtual), abnDiasAte(p.corteAtual) <= 2 ? "bad" : "");
+    if(p.anteriorAberto) html += cartao("Período anterior (ainda aceita pedidos)", fmtDateBR(p.perAnt.ini).slice(0, 5) + " a " + fmtDateBR(p.perAnt.fim), "corte " + fmtDateBR(p.corteAnterior) + " · " + dias(p.corteAnterior), abnDiasAte(p.corteAnterior) <= 2 ? "bad" : "");
+    $("abnPeriodoInfo").innerHTML = html;
   }
   function abnPrazoTexto(){
     var p = abnPrazo();
@@ -6234,7 +6266,7 @@
   $("abnData").addEventListener("change", abnRenderOcorr);
   $("abnDecVoltar").addEventListener("click", function(){ $("modalAbonoDecisao").classList.remove("show"); });
   $("abnDecConfirmar").addEventListener("click", confirmarDecisaoAbono);
-  ["abnFiltroStatus", "abnFiltroTipo", "abnFiltroPonto"].forEach(function(id){ $(id).addEventListener("change", renderAbonos); });
+  ["abnFiltroStatus", "abnFiltroTipo"].forEach(function(id){ $(id).addEventListener("change", renderAbonos); });
   $("abnBusca").addEventListener("input", renderAbonos);
   $("modalCancelar").addEventListener("click", closeModal);
   $("modalSalvar").addEventListener("click", salvarModal);
