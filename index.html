@@ -249,6 +249,24 @@
   table.grade td.col-total-cell{ text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; padding:0 10px; white-space:nowrap; }
   a.nome-link{ color:var(--text); text-decoration:underline; text-decoration-color:var(--border-strong); text-underline-offset:3px; cursor:pointer; }
   a.nome-link:hover{ color:var(--accent); text-decoration-color:var(--accent); }
+  .modal-box.wide.ocorr-box{ max-width:980px; width:100%; max-height:92vh; overflow:auto; }
+  .ocorr-topo{ display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .ocorr-avatar{ width:64px; height:64px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border-strong); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:600; color:var(--text-dim); flex:none; overflow:hidden; }
+  .ocorr-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .ocorr-tit{ margin:14px 0 8px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); }
+  .ocorr-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin-bottom:12px; }
+  .ocorr-kpi{ background:var(--surface-2); border:1px solid var(--border); border-left:4px solid var(--border-strong); border-radius:10px; padding:12px 16px; }
+  .ocorr-kpi.f{ border-left-color:var(--bad); } .ocorr-kpi.a{ border-left-color:var(--warn); } .ocorr-kpi.c{ border-left-color:var(--accent); }
+  .ocorr-kpi .l{ font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--text-faint); }
+  .ocorr-kpi .v{ font-family:var(--mono, ui-monospace, Consolas, monospace); font-size:26px; font-weight:600; margin:2px 0; }
+  .ocorr-kpi .s{ font-size:12px; color:var(--text-faint); }
+  .ocorr-comp{ max-height:230px; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+  .ocorr-comp table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .ocorr-comp th{ position:sticky; top:0; background:var(--surface-solid); text-align:left; padding:7px 12px; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); border-bottom:1px solid var(--border-strong); }
+  .ocorr-comp td{ padding:6px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .ocorr-comp .bar{ display:inline-block; height:8px; border-radius:4px; vertical-align:middle; margin-left:8px; min-width:0; }
+  .ocorr-comp .bar.f{ background:var(--bad); } .ocorr-comp .bar.a{ background:var(--warn); }
+  .ocorr-comp tr.aberta td{ color:var(--text-dim); font-style:italic; }
   .ocorr-summary{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 12px; }
   .ocorr-list{ max-height:48vh; overflow-y:auto; }
   .ocorr-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:12.5px; }
@@ -952,9 +970,15 @@
 
 <!-- ---- MODAL: ocorrências do funcionário ---- -->
 <div class="modal-backdrop" id="modalOcorrencias">
-  <div class="modal-box wide">
-    <h3 id="ocorrNome">Ocorrências</h3>
-    <p class="modal-sub" id="ocorrSub"></p>
+  <div class="modal-box wide ocorr-box">
+    <div class="ocorr-topo">
+      <div class="ocorr-avatar" id="ocorrAvatar"></div>
+      <div><h3 id="ocorrNome">Ocorrências</h3><p class="modal-sub" id="ocorrSub" style="margin:0;"></p></div>
+    </div>
+    <p class="ocorr-tit">Faltas e atestados por competência <span class="abn-sub">(fechamento de 16 a 15)</span></p>
+    <div class="ocorr-kpis" id="ocorrKpis"></div>
+    <div class="ocorr-comp" id="ocorrComp"></div>
+    <p class="ocorr-tit">Resumo das ocorrências</p>
     <div class="ocorr-summary" id="ocorrResumo"></div>
     <div class="ocorr-list" id="ocorrLista"></div>
     <div class="ocorr-foot" id="ocorrRodape"></div>
@@ -4988,11 +5012,81 @@
     return {faixas:faixas.reverse(), counts:counts, totalDias:dias.length, datas:datas};
   }
 
+  var MESES_ABREV = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+  function compRotulo(k){ return MESES_ABREV[+k.slice(5, 7) - 1] + "/" + k.slice(2, 4); }
+  function proxCompetencia(k){ var y = +k.slice(0, 4), m = +k.slice(5, 7); return m === 12 ? (y + 1) + "-01" : y + "-" + String(m + 1).padStart(2, "0"); }
+  // Faltas (F) e atestados (A) em DIAS, por competência (fechamento 16 a 15), desde a admissão (ou desde o 1º dia importado).
+  // A média usa só competências FECHADAS e inteiras (a 1ª, se o histórico começa no meio dela, fica de fora); a aberta aparece à parte.
+  function ocorrEstatisticas(fid){
+    var f = state.funcionarios[fid] || {}, datas = Object.keys(state.dias).sort();
+    if(!datas.length) return null;
+    var hoje = todayIso(), primeiro = datas[0], ini = (f.admissao && f.admissao > primeiro) ? f.admissao : primeiro;
+    var kAtual = mesDoFechamento(hoje), comps = [], mapa = {}, k = mesDoFechamento(ini);
+    while(k <= kAtual){ var b = mesBounds(k); mapa[k] = {k:k, ini:b.ini, fim:b.fim, f:0, a:0, aberta:k === kAtual, conta:false}; comps.push(mapa[k]); k = proxCompetencia(k); }
+    datas.forEach(function(iso){
+      if(iso < ini) return;
+      var c = mapa[mesDoFechamento(iso)], a = getAusenciaDoDia(iso, fid); if(!c || !a) return;
+      if(a.codigo === "F") c.f++; else if(a.codigo === "A") c.a++;
+    });
+    comps.forEach(function(c){ c.conta = !c.aberta && (c.ini >= primeiro || (f.admissao && f.admissao >= c.ini && f.admissao <= c.fim)); });
+    var contadas = comps.filter(function(c){ return c.conta; });
+    var tf = contadas.reduce(function(n, c){ return n + c.f; }, 0), ta = contadas.reduce(function(n, c){ return n + c.a; }, 0);
+    return {comps:comps.slice().reverse(), n:contadas.length, totalF:tf, totalA:ta, mediaF:contadas.length ? tf / contadas.length : 0, mediaA:contadas.length ? ta / contadas.length : 0,
+            desde:contadas.length ? compRotulo(contadas[0].k) : "", aberta:comps.filter(function(c){ return c.aberta; })[0] || null};
+  }
+  function fmtMedia(n){ return n.toFixed(2).replace(".", ","); }
+  function ocorrRenderEstatisticas(fid){
+    var st = ocorrEstatisticas(fid), kp = $("ocorrKpis"), tb = $("ocorrComp");
+    if(!st || !st.comps.length){ kp.innerHTML = ""; tb.innerHTML = '<div class="ocorr-row" style="color:var(--text-faint);">Sem dias importados nesta obra ainda.</div>'; return; }
+    var sub = st.n ? fmtMedia(st.mediaF) + " por competência · " + st.n + " competência" + (st.n === 1 ? "" : "s") + " desde " + st.desde : "ainda sem competência fechada";
+    var subA = st.n ? fmtMedia(st.mediaA) + " por competência · " + st.n + " competência" + (st.n === 1 ? "" : "s") + " desde " + st.desde : "ainda sem competência fechada";
+    var ab = st.aberta;
+    kp.innerHTML = '<div class="ocorr-kpi f"><div class="l">Faltas</div><div class="v">' + st.totalF + '</div><div class="s">' + sub + "</div></div>" +
+      '<div class="ocorr-kpi a"><div class="l">Atestados</div><div class="v">' + st.totalA + '</div><div class="s">' + subA + "</div></div>" +
+      (ab ? '<div class="ocorr-kpi c"><div class="l">Competência em aberto</div><div class="v">' + ab.f + " F · " + ab.a + ' A</div><div class="s">' + compRotulo(ab.k) + " · " + fmtDateBR(ab.ini).slice(0, 5) + " a " + fmtDateBR(ab.fim).slice(0, 5) + "</div></div>" : "");
+    var mx = Math.max.apply(null, st.comps.map(function(c){ return Math.max(c.f, c.a); }).concat([1]));
+    tb.innerHTML = "<table><thead><tr><th>Competência</th><th>Período</th><th>Faltas</th><th>Atestados</th></tr></thead><tbody>" + st.comps.map(function(c){
+      return "<tr" + (c.aberta ? ' class="aberta"' : "") + "><td>" + compRotulo(c.k) + (c.aberta ? " (em aberto)" : "") + "</td><td>" + fmtDateBR(c.ini).slice(0, 5) + " a " + fmtDateBR(c.fim).slice(0, 5) + "</td>" +
+        "<td>" + c.f + (c.f ? '<span class="bar f" style="width:' + Math.round(c.f / mx * 80) + 'px"></span>' : "") + "</td>" +
+        "<td>" + c.a + (c.a ? '<span class="bar a" style="width:' + Math.round(c.a / mx * 80) + 'px"></span>' : "") + "</td></tr>";
+    }).join("") + "</tbody></table>";
+  }
+  // Foto do cadastro do Secullum: o robô (fotos.py) grava miniaturas em fotos/<obra>__<nº identificador> e fotos/<obra>__n_<NOME>.
+  // O painel lê só ao abrir o card (1-2 leituras) e guarda na memória da sessão.
+  var fotosCache = {};
+  function fotoChaves(fid){
+    var f = state.funcionarios[fid] || {}, m = String(f.matricula || "").replace(/\D/g, ""), ids = [];
+    var a = m.length >= 20 ? m.slice(2).replace(/^0+/, "") : m.replace(/^0+/, "");      // 22 dígitos = 2 da empresa + zeros + identificador
+    if(a) ids.push(state.obraId + "__" + a);
+    var b = m.replace(/^0+/, ""); if(b && b !== a) ids.push(state.obraId + "__" + b);
+    var nn = stripAccents(String(f.nome || "")).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if(nn) ids.push(state.obraId + "__n_" + nn);
+    return ids;
+  }
+  async function carregarFoto(fid){
+    var chave = state.obraId + "|" + fid;
+    if(fotosCache[chave] !== undefined) return fotosCache[chave];
+    var src = null;
+    if(state.db){
+      var ids = fotoChaves(fid);
+      for(var i = 0; i < ids.length && !src; i++){
+        try{ var d = await state.db.collection("fotos").doc(ids[i]).get(); if(d && d.exists){ var dd = d.data() || {}; if(dd.foto) src = dd.foto; } }catch(e){ /* sem acesso: segue com as iniciais */ }
+      }
+    }
+    fotosCache[chave] = src;
+    return src;
+  }
   function openOcorrencias(fid){
     var f = state.funcionarios[fid];
     if(!f) return;
     var o = computeOcorrencias(fid);
     $("ocorrNome").textContent = f.nome;
+    $("ocorrAvatar").textContent = String(f.nome || "?").trim().split(/\s+/).slice(0, 2).map(function(p){ return p.charAt(0); }).join("").toUpperCase();
+    ocorrRenderEstatisticas(fid);
+    state.ocorrAtual = fid;
+    carregarFoto(fid).then(function(src){
+      if(src && state.ocorrAtual === fid && $("modalOcorrencias").classList.contains("show")){ var im = document.createElement("img"); im.src = src; im.alt = ""; $("ocorrAvatar").textContent = ""; $("ocorrAvatar").appendChild(im); }
+    });
     var anteriores = (f.vinculosAnteriores||[]).map(function(v){ return (v.funcao||"sem função") + (v.admissao ? " desde " + fmtDateBR(v.admissao) : ""); });
     $("ocorrSub").textContent = (fmtFuncao(f.funcao)||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo") +
       (f.demissao ? " · Demissão " + fmtDateBR(f.demissao) : "") +
