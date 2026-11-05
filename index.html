@@ -780,6 +780,23 @@
         <div id="cadastroPreview"></div>
       </div>
 
+      <div class="panel" id="lidMassaPanel">
+        <p class="panel-title">Liderança em massa (planilha)</p>
+        <p class="panel-hint">Para definir a liderança de muitos colaboradores de uma vez: 1) baixe a planilha desta obra (já vem com todos os colaboradores ativos); 2) preencha as colunas "Liderança 1/2/3" escolhendo a pessoa na lista suspensa; 3) suba a planilha aqui. As pessoas precisam estar cadastradas em Usuários e acessos com acesso a esta obra. Linhas sem liderança preenchida não são alteradas.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+          <button class="btn-ghost" id="lidMassaBaixar" type="button">⬇ Baixar planilha da obra</button>
+          <label class="usu-emp"><input type="radio" name="lidMassaModo" value="substituir" checked> Substituir a liderança atual</label>
+          <label class="usu-emp"><input type="radio" name="lidMassaModo" value="adicionar"> Acrescentar às que já existem</label>
+        </div>
+        <div class="dropzone" id="dzLidMassa">
+          <input type="file" id="fileLidMassa" accept=".xlsx,.xls">
+          <div class="dropzone-label">👥 Planilha de liderança preenchida</div>
+          <div class="dropzone-sub">.xlsx — arraste ou clique</div>
+        </div>
+        <div class="status-msg" id="lidMassaMsg"></div>
+        <div id="lidMassaPreview"></div>
+      </div>
+
       <div class="panel" id="addFuncionarioPanel">
         <p class="panel-title">Adicionar funcionário</p>
         <div class="funcionario-form">
@@ -2576,6 +2593,152 @@
       renderCadastro();
     }catch(e){ erro.textContent = "Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo."); erro.classList.add("show"); }
     $("lidSalvar").disabled = false;
+  }
+
+  // ===== Liderança em massa por planilha (mala direta) =====
+  var lidM = {plano:null};
+  async function lidEsperarUsuarios(){
+    assinarUsuariosCad();
+    for(var i = 0; i < 40 && !Object.keys(state.usuariosCad || {}).length; i++) await new Promise(function(r){ setTimeout(r, 150); });
+  }
+  // Pessoas que podem ser liderança nesta obra (usuários ativos com acesso à empresa), com o rótulo que vai na lista suspensa da planilha.
+  function lidPessoasObra(){
+    var obra = (state.obras[state.obraId] || {}).nome || "";
+    var ids = Object.keys(state.usuariosCad || {}).filter(function(id){
+      var u = state.usuariosCad[id];
+      return u.ativo !== false && (u.setor || u.empresas) && (u.empresas || []).some(function(n){ return mesmaEmpresa(n, obra); });
+    }).sort(function(a, b){ return String(state.usuariosCad[a].nome || a).localeCompare(String(state.usuariosCad[b].nome || b), "pt-BR"); });
+    var cont = {};
+    ids.forEach(function(id){ var n = normName(state.usuariosCad[id].nome || idLegivel(id)); cont[n] = (cont[n] || 0) + 1; });
+    return ids.map(function(id){
+      var u = state.usuariosCad[id], nome = u.nome || idLegivel(id);
+      return {id:id, nome:nome, label:(cont[normName(nome)] > 1 ? nome + " · " + idLegivel(id) : nome), setor:u.setor || ""};
+    });
+  }
+  function lidFuncsObra(){
+    return Object.keys(state.funcionarios).filter(function(id){ var f = state.funcionarios[id]; return f && !f.inativo && f.foraEscopo !== true; })
+      .sort(function(a, b){
+        var fa = state.funcionarios[a], fb = state.funcionarios[b];
+        return String(fa.departamento || "").localeCompare(String(fb.departamento || ""), "pt-BR") || funcName(a).localeCompare(funcName(b), "pt-BR");
+      });
+  }
+  async function lidMassaBaixar(){
+    var msg = $("lidMassaMsg");
+    if(!state.obraId){ msg.className = "status-msg show error"; msg.textContent = "Abra uma obra primeiro."; return; }
+    await lidEsperarUsuarios();
+    var pessoas = lidPessoasObra(), funcs = lidFuncsObra(), obraNome = (state.obras[state.obraId] || {}).nome || "obra";
+    if(!funcs.length){ msg.className = "status-msg show error"; msg.textContent = "Esta obra não tem colaboradores ativos cadastrados."; return; }
+    var porId = {}; pessoas.forEach(function(p){ porId[p.id] = p; });
+    var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Liderança"), wp = wb.addWorksheet("Pessoas"), wc = wb.addWorksheet("Como preencher");
+    ws.columns = [{header:"Código", width:10}, {header:"Matrícula", width:12}, {header:"Colaborador", width:38}, {header:"Função", width:30}, {header:"Departamento", width:26}, {header:"Liderança 1", width:34}, {header:"Liderança 2", width:34}, {header:"Liderança 3", width:34}];
+    ws.getColumn(1).hidden = true;
+    var cab = ws.getRow(1); cab.font = {bold:true, color:{argb:"FFFFFFFF"}}; cab.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF2B3A55"}}; cab.height = 22; cab.alignment = {vertical:"middle"};
+    [6, 7, 8].forEach(function(c){ ws.getCell(1, c).fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFB4412F"}}; });
+    var ultima = pessoas.length + 1;
+    funcs.forEach(function(id, i){
+      var f = state.funcionarios[id], r = i + 2, atuais = (f.liderancas || []).map(function(l){ return (porId[l.id] || {}).label || l.nome || idLegivel(l.id); });
+      ws.getRow(r).values = [id, f.matricula || "", funcName(id), fmtFuncao(f.funcao) || "", f.departamento || "", atuais[0] || "", atuais[1] || "", atuais[2] || ""];
+      if(pessoas.length) [6, 7, 8].forEach(function(c){ ws.getCell(r, c).dataValidation = {type:"list", allowBlank:true, formulae:["Pessoas!$A$2:$A$" + ultima], showErrorMessage:false}; });
+    });
+    ws.views = [{state:"frozen", xSplit:3, ySplit:1}];
+    ws.autoFilter = {from:{row:1, column:2}, to:{row:funcs.length + 1, column:8}};
+    wp.columns = [{header:"Pessoa (nome na lista)", width:44}, {header:"E-mail / CPF", width:40}, {header:"Setor", width:16}];
+    wp.getRow(1).font = {bold:true};
+    pessoas.forEach(function(p){ wp.addRow([p.label, idLegivel(p.id), p.setor]); });
+    wc.getColumn(1).width = 110;
+    ["Como preencher a planilha de liderança de " + obraNome,
+     "1. Na aba Liderança, preencha Liderança 1, 2 e 3 (a coluna vermelha) escolhendo a pessoa na lista suspensa. Também vale digitar o nome, o e-mail ou o CPF cadastrado.",
+     "2. Dá para usar o filtro do Excel (Departamento, Função…) e copiar a mesma pessoa para várias linhas de uma vez.",
+     "3. Linhas com as três colunas em branco não são alteradas. Não apague a coluna oculta 'Código' nem mude o nome dos colaboradores.",
+     "4. A lista de pessoas está na aba Pessoas (quem tem acesso a esta obra em Usuários e acessos). Pessoa nova precisa ser cadastrada antes.",
+     "5. Salve e suba o arquivo em Cadastro > Liderança em massa."].forEach(function(t, i){ var c = wc.getCell(i + 1, 1); c.value = t; c.alignment = {wrapText:true, vertical:"top"}; if(!i) c.font = {bold:true, size:13}; });
+    var buf = await wb.xlsx.writeBuffer();
+    await saveFile("Lideranca - " + obraNome + ".xlsx", new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+    msg.className = "status-msg show ok"; msg.textContent = "Planilha gerada com " + funcs.length + " colaborador(es) e " + pessoas.length + " pessoa(s) na lista de lideranças.";
+  }
+  function lidChaveTxt(t){ return normName(String(t == null ? "" : t)); }
+  async function lidMassaLer(){
+    var msg = $("lidMassaMsg"), prev = $("lidMassaPreview"), file = $("fileLidMassa").files[0];
+    prev.innerHTML = ""; lidM.plano = null;
+    if(!file) return;
+    if(!state.obraId){ msg.className = "status-msg show error"; msg.textContent = "Abra a obra da planilha primeiro."; return; }
+    msg.className = "status-msg show info"; msg.textContent = "Lendo a planilha…";
+    await lidEsperarUsuarios();
+    try{
+      var wb = XLSX.read(await file.arrayBuffer(), {type:"array"}), nomeAba = wb.SheetNames.filter(function(n){ return lidChaveTxt(n) === "lideranca"; })[0] || wb.SheetNames[0];
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[nomeAba], {header:1, raw:false, defval:""});
+      var hi = -1; for(var i = 0; i < Math.min(rows.length, 15); i++){ if(rows[i].some(function(c){ return lidChaveTxt(c) === "colaborador" || lidChaveTxt(c) === "nome"; })){ hi = i; break; } }
+      if(hi < 0) throw new Error("Não achei o cabeçalho (coluna Colaborador). Use a planilha baixada aqui.");
+      var cab = rows[hi].map(lidChaveTxt), col = {cod:cab.indexOf("codigo"), mat:cab.indexOf("matricula"), nome:cab.indexOf("colaborador") >= 0 ? cab.indexOf("colaborador") : cab.indexOf("nome"), lid:[]};
+      cab.forEach(function(h, k){ if(h.indexOf("lideranca") === 0) col.lid.push(k); });
+      if(!col.lid.length) throw new Error("Não achei as colunas 'Liderança 1/2/3'.");
+      // índices de busca
+      var pessoas = lidPessoasObra(), pIdx = {};
+      pessoas.forEach(function(p){
+        [p.label, p.nome, idLegivel(p.id), p.id, String(p.id).replace(/\D/g, "")].forEach(function(k){ k = lidChaveTxt(k); if(!k) return; (pIdx[k] = pIdx[k] || {})[p.id] = p; });
+      });
+      var fMat = {}, fNome = {};
+      lidFuncsObra().forEach(function(id){ var f = state.funcionarios[id], m = chaveMatricula(f.matricula), n = normName(f.nome); if(m) (fMat[m] = fMat[m] || []).push(id); (fNome[n] = fNome[n] || []).push(id); });
+      var modo = document.querySelector('input[name="lidMassaModo"]:checked').value;
+      var plano = {itens:[], ignoradas:0, semMudanca:0, problemas:[], modo:modo}, vistos = {};
+      for(var r = hi + 1; r < rows.length; r++){
+        var lin = rows[r], rot = "Linha " + (r + 1);
+        var nomeCel = String(lin[col.nome] || "").trim();
+        if(!nomeCel && !String(lin[col.cod] || "").trim()) continue;
+        var txts = col.lid.map(function(k){ return String(lin[k] == null ? "" : lin[k]).trim(); }).filter(function(x){ return x; });
+        if(!txts.length){ plano.ignoradas++; continue; }
+        // colaborador: código oculto → matrícula → nome
+        var fid = null, cod = String(lin[col.cod] || "").trim();
+        if(cod && state.funcionarios[cod]) fid = cod;
+        if(!fid && col.mat >= 0){ var mm = fMat[chaveMatricula(lin[col.mat])]; if(mm && mm.length === 1) fid = mm[0]; }
+        if(!fid){ var nn = fNome[normName(nomeCel)]; if(nn && nn.length === 1) fid = nn[0]; }
+        if(!fid){ plano.problemas.push(rot + ": colaborador '" + nomeCel + "' não encontrado nesta obra"); continue; }
+        if(vistos[fid]){ plano.problemas.push(rot + ": " + nomeCel + " aparece mais de uma vez (valeu a 1ª linha)"); continue; }
+        vistos[fid] = true;
+        var novos = [], ids = {};
+        txts.forEach(function(t){
+          var cand = pIdx[lidChaveTxt(t)] || pIdx[lidChaveTxt(String(t).replace(/\D/g, ""))] || null, chaves = cand ? Object.keys(cand) : [];
+          if(chaves.length === 1){ var p = cand[chaves[0]]; if(!ids[p.id]){ ids[p.id] = true; novos.push({id:p.id, nome:p.nome}); } }
+          else plano.problemas.push(rot + " (" + nomeCel + "): liderança '" + t + "' " + (chaves.length > 1 ? "é ambígua (escolha pelo e-mail)" : "não encontrada entre as pessoas com acesso a esta obra"));
+        });
+        if(!novos.length) continue;
+        var atuais = (state.funcionarios[fid].liderancas || []), lista = novos;
+        if(modo === "adicionar"){ lista = atuais.slice(); novos.forEach(function(e){ if(!lista.some(function(l){ return l.id === e.id; })) lista.push(e); }); }
+        var igual = lista.length === atuais.length && lista.every(function(e){ return atuais.some(function(l){ return l.id === e.id; }); });
+        if(igual){ plano.semMudanca++; continue; }
+        plano.itens.push({fid:fid, lista:lista});
+      }
+      lidM.plano = plano;
+      var porLider = {}; plano.itens.forEach(function(it){ it.lista.forEach(function(l){ porLider[l.nome] = (porLider[l.nome] || 0) + 1; }); });
+      var resumo = Object.keys(porLider).sort().map(function(n){ return escapeHtml(n) + " <b>" + porLider[n] + "</b>"; }).join(" · ");
+      prev.innerHTML = '<div class="import-preview"><p><b>' + plano.itens.length + "</b> colaborador(es) serão atualizados (" + (modo === "adicionar" ? "acrescentando às lideranças atuais" : "substituindo a liderança atual") + ")." +
+        (plano.semMudanca ? " " + plano.semMudanca + " já estavam iguais." : "") + (plano.ignoradas ? " " + plano.ignoradas + " linha(s) sem liderança preenchida foram ignoradas." : "") + "</p>" +
+        (resumo ? '<p class="panel-hint">Por liderança: ' + resumo + "</p>" : "") +
+        (plano.problemas.length ? '<p style="color:var(--warn);margin:8px 0 4px;"><b>' + plano.problemas.length + " ponto(s) para conferir (essas linhas/lideranças não entram):</b></p><div style=\"max-height:180px;overflow:auto;font-size:12.5px;color:var(--text-dim);\">" + plano.problemas.slice(0, 80).map(function(p){ return "• " + escapeHtml(p); }).join("<br>") + (plano.problemas.length > 80 ? "<br>… e mais " + (plano.problemas.length - 80) : "") + "</div>" : "") +
+        (plano.itens.length ? '<div style="margin-top:12px;display:flex;gap:8px;"><button class="btn" id="lidMassaAplicar" type="button">Aplicar liderança (' + plano.itens.length + ')</button><button class="btn-ghost" id="lidMassaCancelar" type="button">Cancelar</button></div>' : "") + "</div>";
+      msg.className = "status-msg";
+      if($("lidMassaAplicar")) $("lidMassaAplicar").addEventListener("click", lidMassaAplicar);
+      if($("lidMassaCancelar")) $("lidMassaCancelar").addEventListener("click", function(){ prev.innerHTML = ""; lidM.plano = null; $("fileLidMassa").value = ""; });
+    }catch(e){ msg.className = "status-msg show error"; msg.textContent = "Não consegui ler a planilha: " + (e && e.message || e); }
+  }
+  async function lidMassaAplicar(){
+    var plano = lidM.plano, msg = $("lidMassaMsg"), btn = $("lidMassaAplicar");
+    if(!plano || !plano.itens.length || !state.db || isReadOnly()) return;
+    btn.disabled = true; var feitos = 0, falhas = 0, agora = new Date().toISOString(), fila = plano.itens.slice();
+    msg.className = "status-msg show info"; msg.textContent = "Gravando… 0/" + plano.itens.length;
+    var worker = async function(){
+      while(fila.length){
+        var it = fila.shift();
+        try{ await state.db.collection("obras/" + state.obraId + "/funcionarios").doc(it.fid).update({liderancas:it.lista, liderancasEm:agora, liderancasPor:state.email}); feitos++; }
+        catch(e){ falhas++; }
+        msg.textContent = "Gravando… " + (feitos + falhas) + "/" + plano.itens.length;
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+    $("lidMassaPreview").innerHTML = ""; lidM.plano = null; $("fileLidMassa").value = "";
+    msg.className = "status-msg show " + (falhas ? "warn" : "ok");
+    msg.textContent = "Liderança aplicada a " + feitos + " colaborador(es)." + (falhas ? " " + falhas + " não foram gravados — suba a planilha de novo para repetir só esses." : "");
+    renderCadastro();
   }
 
   // ================= TAB: SOLICITAÇÕES DE ABONOS =================
@@ -4642,6 +4805,7 @@
     var readOnly = isReadOnly();
     $("importCadastroPanel").style.display = readOnly ? "none" : "block";
     $("addFuncionarioPanel").style.display = readOnly ? "none" : "block";
+    $("lidMassaPanel").style.display = readOnly ? "none" : "block";
     renderAcessos();
     var busca = normName($("buscaFuncionario").value);
     var perm = deptsPermitidosDoUsuario(), nFora = 0, temDept = false;
@@ -6240,6 +6404,14 @@
   $("buscaFuncionario").addEventListener("input", renderCadastro);
   $("btnAddFuncionario").addEventListener("click", function(){ addFuncionario(); });
   $("fileCadastro").addEventListener("change", handleImportCadastroFile);
+  $("lidMassaBaixar").addEventListener("click", lidMassaBaixar);
+  $("fileLidMassa").addEventListener("change", lidMassaLer);
+  (function(){
+    var dz = $("dzLidMassa");
+    ["dragenter","dragover"].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.add("drag"); }); });
+    ["dragleave","drop"].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.remove("drag"); }); });
+    dz.addEventListener("drop", function(e){ if(e.dataTransfer.files.length){ $("fileLidMassa").files = e.dataTransfer.files; lidMassaLer(); } });
+  })();
   (function(){
     var dzc = $("dzCadastro");
     ["dragenter","dragover"].forEach(function(ev){ dzc.addEventListener(ev, function(e){ e.preventDefault(); dzc.classList.add("drag"); }); });
