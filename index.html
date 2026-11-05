@@ -251,7 +251,13 @@
   a.nome-link:hover{ color:var(--accent); text-decoration-color:var(--accent); }
   .modal-box.wide.ocorr-box{ max-width:980px; width:100%; max-height:92vh; overflow:auto; }
   .ocorr-topo{ display:flex; align-items:center; gap:14px; margin-bottom:14px; }
-  .ocorr-avatar{ width:64px; height:64px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border-strong); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:600; color:var(--text-dim); flex:none; overflow:hidden; }
+  .ocorr-avatar{ width:128px; height:128px; border-radius:16px; background:var(--surface-2); border:1px solid var(--border-strong); display:flex; align-items:center; justify-content:center; font-size:40px; font-weight:600; color:var(--text-dim); flex:none; overflow:hidden; }
+  .ocorr-avatar.tem-foto{ cursor:zoom-in; transition:box-shadow .15s, transform .15s; }
+  .ocorr-avatar.tem-foto:hover{ box-shadow:0 0 0 2px var(--accent); transform:scale(1.02); }
+  .ocorr-topo h3{ font-size:19px; }
+  .foto-zoom{ text-align:center; cursor:zoom-out; }
+  .foto-zoom img{ width:min(78vh, 560px); max-width:92vw; aspect-ratio:1; object-fit:cover; border-radius:18px; box-shadow:0 18px 60px rgba(0,0,0,.6); background:var(--surface-2); }
+  .foto-zoom p{ margin:12px 0 0; color:#fff; font-size:15px; font-weight:600; text-shadow:0 1px 6px rgba(0,0,0,.7); }
   .ocorr-avatar img{ width:100%; height:100%; object-fit:cover; }
   .ocorr-tit{ margin:14px 0 8px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); }
   .ocorr-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin-bottom:12px; }
@@ -969,6 +975,7 @@
 </div><!-- /page -->
 
 <!-- ---- MODAL: ocorrências do funcionário ---- -->
+<div class="modal-backdrop" id="fotoZoom" style="z-index:95;background:rgba(5,7,10,.82);"><div class="foto-zoom"><img id="fotoZoomImg" alt=""><p id="fotoZoomNome"></p></div></div>
 <div class="modal-backdrop" id="modalOcorrencias">
   <div class="modal-box wide ocorr-box">
     <div class="ocorr-topo">
@@ -5081,11 +5088,12 @@
     if(!f) return;
     var o = computeOcorrencias(fid);
     $("ocorrNome").textContent = f.nome;
+    $("ocorrAvatar").classList.remove("tem-foto");
     $("ocorrAvatar").textContent = String(f.nome || "?").trim().split(/\s+/).slice(0, 2).map(function(p){ return p.charAt(0); }).join("").toUpperCase();
     ocorrRenderEstatisticas(fid);
     state.ocorrAtual = fid;
     carregarFoto(fid).then(function(src){
-      if(src && state.ocorrAtual === fid && $("modalOcorrencias").classList.contains("show")){ var im = document.createElement("img"); im.src = src; im.alt = ""; $("ocorrAvatar").textContent = ""; $("ocorrAvatar").appendChild(im); }
+      if(src && state.ocorrAtual === fid && $("modalOcorrencias").classList.contains("show")){ var im = document.createElement("img"); im.src = src; im.alt = ""; $("ocorrAvatar").textContent = ""; $("ocorrAvatar").appendChild(im); $("ocorrAvatar").classList.add("tem-foto"); $("ocorrAvatar").title = "Clique para ampliar"; }
     });
     var anteriores = (f.vinculosAnteriores||[]).map(function(v){ return (v.funcao||"sem função") + (v.admissao ? " desde " + fmtDateBR(v.admissao) : ""); });
     $("ocorrSub").textContent = (fmtFuncao(f.funcao)||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo") +
@@ -6311,6 +6319,13 @@
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
   $("ocorrFechar").addEventListener("click", closeOcorrencias);
+  // foto do funcionário: clique para ampliar; clique em qualquer lugar ou Esc fecha
+  $("ocorrAvatar").addEventListener("click", function(){
+    var im = this.querySelector("img"); if(!im) return;
+    $("fotoZoomImg").src = im.src; $("fotoZoomNome").textContent = $("ocorrNome").textContent; $("fotoZoom").classList.add("show");
+  });
+  $("fotoZoom").addEventListener("click", function(){ this.classList.remove("show"); });
+  document.addEventListener("keydown", function(ev){ if(ev.key === "Escape" && $("fotoZoom").classList.contains("show")){ ev.stopPropagation(); $("fotoZoom").classList.remove("show"); } }, true);
   $("modalOcorrencias").addEventListener("click", function(ev){ if(ev.target===this) closeOcorrencias(); });
   $("btnTrocarSenha").addEventListener("click", openTrocarSenha);
   $("usuSalvar").addEventListener("click", salvarUsuario);
