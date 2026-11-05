@@ -3002,7 +3002,7 @@
   }
   function abnOcorrencias(fid){
     var hoje = todayIso(), lim = addDaysIso(hoje, -62), out = [];
-    if(abnLimitado()){ var pz = abnPrazo().ini; if(pz > lim) lim = pz; }
+    var pz = abnPrazo().ini; if(pz > lim) lim = pz;     // só o período de apuração em aberto (vale para todos; DP/admin ainda podem digitar outra data)
     Object.keys(state.dias).forEach(function(iso){
       if(iso >= hoje || iso < lim) return;
       var d = state.dias[iso] || {}, a = d.ausencias && d.ausencias[fid], h = d.horas && d.horas[fid];
@@ -3022,7 +3022,7 @@
     var box = $("abnOcorr"), fid = $("abnFunc").value;
     if(!fid){ box.innerHTML = '<div class="abn-oc-vazio">Escolha o colaborador.</div>'; return; }
     var lista = abnOcorrencias(fid);
-    if(!lista.length){ box.innerHTML = '<div class="abn-oc-vazio">' + (abnLimitado() ? "Nenhuma falta ou atraso dele no período aberto para solicitação." : "Nenhuma falta ou atraso nos últimos 60 dias. Se for um caso fora do ponto, informe a data abaixo.") + "</div>"; return; }
+    if(!lista.length){ box.innerHTML = '<div class="abn-oc-vazio">' + ("Nenhuma falta ou atraso dele no período de apuração em aberto." + (abnLimitado() ? "" : " Se for um caso fora do período ou do ponto, informe a data abaixo.")) + "</div>"; return; }
     var dataSel = $("abnData").value, tipoSel = $("abnTipo").value === "falta" ? "falta" : "atraso";
     box.innerHTML = lista.map(function(o){
       var ja = abnJaSolicitado(fid, o.iso, o.tipo), sem = new Date(o.iso + "T12:00:00").toLocaleDateString("pt-BR", {weekday:"short"}).replace(".", "");
@@ -3063,7 +3063,7 @@
     $("abnTipo").value = "falta"; $("abnData").value = todayIso(); $("abnMin").value = ""; $("abnMotivo").value = "";
     $("abnMinWrap").style.display = "none"; $("abnErro").classList.remove("show");
     $("abnData").min = abnLimitado() ? abnPrazo().ini : "";
-    $("abnPrazoInfo").textContent = abnLimitado() ? abnPrazoTexto() : "";
+    $("abnPrazoInfo").textContent = abnPrazoTexto() + (abnLimitado() ? "" : " Como DP, você ainda pode informar uma data fora do período.");
     abnRenderOcorr();
     $("modalAbono").classList.add("show");
   }
