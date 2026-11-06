@@ -273,6 +273,10 @@
   .ocorr-comp .bar{ display:inline-block; height:8px; border-radius:4px; vertical-align:middle; margin-left:8px; min-width:0; }
   .ocorr-comp .bar.f{ background:var(--bad); } .ocorr-comp .bar.a{ background:var(--warn); }
   .ocorr-comp tr.aberta td{ color:var(--text-dim); font-style:italic; }
+  .novidade{ border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:10px; background:var(--surface-2); padding:12px 14px; margin:0 0 10px; }
+  .novidade h4{ margin:0 0 4px; font-size:14px; }
+  .novidade p{ margin:0 0 6px; font-size:12.5px; color:var(--text-dim); line-height:1.5; }
+  .novidade p:last-child{ margin-bottom:0; }
   .tbl-cad tbody tr:hover{ background:rgba(255,255,255,.035); }
   .tbl-cad td.nome{ white-space:nowrap; font-weight:600; }
   .tbl-cad td.nome .usu-dot{ margin-right:8px; }
@@ -995,6 +999,14 @@
 </div><!-- /page -->
 
 <!-- ---- MODAL: ocorrências do funcionário ---- -->
+<div class="modal-backdrop" id="modalNovidades">
+  <div class="modal-box" style="max-width:520px;">
+    <h3>O que há de novo</h3>
+    <p class="modal-sub">Uma atualização para você conhecer:</p>
+    <div id="novidadesLista"></div>
+    <div class="modal-actions"><button class="btn" id="novidadesOk" type="button">Entendi</button></div>
+  </div>
+</div>
 <div class="modal-backdrop" id="fotoZoom" style="z-index:95;background:rgba(5,7,10,.82);"><div class="foto-zoom"><img id="fotoZoomImg" alt=""><p id="fotoZoomNome"></p></div></div>
 <div class="modal-backdrop" id="modalOcorrencias">
   <div class="modal-box wide ocorr-box">
@@ -2295,6 +2307,38 @@
     var nome = (state.perfil && state.perfil.nome) || nomeBonito(state.email);
     n.textContent = "Conectado como " + nome; n.title = idLegivel(state.email);
   }
+  // ===== Avisos de novidade (aparecem uma vez para cada pessoa, no 1º login depois da atualização) =====
+  // Para avisar de algo novo: acrescente um item aqui com um id novo. Quem já viu (neste navegador) não vê de novo.
+  var NOVIDADES = [
+    {id:"2026-11-06-observacoes", abas:["cadastro", "diario"], titulo:"Observações no cadastro do funcionário",
+     html:"<p>O cadastro de cada funcionário agora tem um campo de <b>Observações</b>, como um mural de comentários: todos os usuários veem e qualquer um pode escrever, com nome e data.</p>" +
+          "<p><b>Como usar:</b> na aba <b>Cadastro</b>, ou na lista da aba <b>Diário</b>, clique no <b>nome</b> do funcionário. O campo fica no fim do card. Escreva e clique em <b>Comentar</b> (Ctrl+Enter também envia). Quem escreveu, ou a administração, pode apagar o comentário.</p>"}
+  ];
+  function novidadesChave(){ return "apontamento-diario:novidades:" + state.email; }
+  function novidadesVistas(){
+    try{ var v = JSON.parse(localStorage.getItem(novidadesChave()) || "[]"); return Array.isArray(v) ? v : []; }catch(e){}
+    try{ return JSON.parse(sessionStorage.getItem(novidadesChave()) || "[]"); }catch(e){ return []; }
+  }
+  function novidadesMarcarVistas(ids){
+    var todas = novidadesVistas().concat(ids.filter(function(i){ return novidadesVistas().indexOf(i) < 0; }));
+    try{ localStorage.setItem(novidadesChave(), JSON.stringify(todas)); }catch(e){ try{ sessionStorage.setItem(novidadesChave(), JSON.stringify(todas)); }catch(e2){} }
+  }
+  var novidadesAtuais = [];
+  function mostrarNovidades(){
+    if(!state.email) return;
+    var vistas = novidadesVistas();
+    novidadesAtuais = NOVIDADES.filter(function(n){
+      return vistas.indexOf(n.id) < 0 && (!n.abas || n.abas.some(function(a){ return abaPermitida(a); }));    // só para quem tem acesso ao que foi atualizado
+    });
+    if(!novidadesAtuais.length) return;
+    $("novidadesLista").innerHTML = novidadesAtuais.map(function(n){ return '<div class="novidade"><h4>' + escapeHtml(n.titulo) + "</h4>" + n.html + "</div>"; }).join("");
+    $("modalNovidades").classList.add("show");
+  }
+  function fecharNovidades(){
+    $("modalNovidades").classList.remove("show");
+    novidadesMarcarVistas(novidadesAtuais.map(function(n){ return n.id; }));
+    novidadesAtuais = [];
+  }
   function enterApp(email){
     state.email = normId(email);
     atualizarQuemAcessa();
@@ -2307,7 +2351,7 @@
     state.perfil = null;
     state.dbReady.then(function(db){ return lerUsuario(db, state.email); })
       .then(function(u){ state.perfil = u; }, function(){ state.perfil = null; })
-      .then(function(){ aplicarAbas(); atualizarQuemAcessa(); })
+      .then(function(){ aplicarAbas(); atualizarQuemAcessa(); setTimeout(mostrarNovidades, 900); })
       .then(startBoot);
   }
 
@@ -6488,6 +6532,8 @@
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
   $("ocorrFechar").addEventListener("click", closeOcorrencias);
+  $("novidadesOk").addEventListener("click", fecharNovidades);
+  $("modalNovidades").addEventListener("click", function(ev){ if(ev.target === this) fecharNovidades(); });
   $("obsEnviar").addEventListener("click", obsEnviar);
   $("obsTexto").addEventListener("keydown", function(ev){ if(ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); obsEnviar(); } });
   // foto do funcionário: clique para ampliar; clique em qualquer lugar ou Esc fecha
