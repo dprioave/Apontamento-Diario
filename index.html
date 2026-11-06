@@ -1845,6 +1845,7 @@
       if(!nome) return;
       informes.push({nome:nome, matricula:e.folha, admissao:e.admissao, funcao:e.funcao});
       e.linhas.forEach(function(l){
+        if(e.admissao && l.iso < e.admissao) return;          // o cartão lista o período inteiro para todos: dias ANTES da admissão da pessoa são descartados
         var dia = porDia[l.iso];
         if(!dia){
           dia = porDia[l.iso] = {empresa:empresaNome, data:l.iso, ausencias:[], naoMapeados:[], todosNomes:[], pessoas:[], cadastroInfo:informes, temHoras:true};
