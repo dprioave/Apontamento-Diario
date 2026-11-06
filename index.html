@@ -975,15 +975,6 @@
 </div><!-- /page -->
 
 <!-- ---- MODAL: ocorrências do funcionário ---- -->
-<div class="modal-backdrop" id="modalAlertaContato">
-  <div class="modal-box" style="max-width:460px;">
-    <h3 id="alcTitulo">Registrar contato</h3>
-    <p class="modal-sub" id="alcSub"></p>
-    <div class="field"><label for="alcObs">Observação (opcional)</label><textarea id="alcObs" placeholder="Ex.: liguei, está de atestado até 12/11 / combinou voltar segunda…"></textarea></div>
-    <div class="login-error" id="alcErro"></div>
-    <div class="modal-actions"><button class="btn-ghost" id="alcCancelar" type="button">Cancelar</button><button class="btn" id="alcConfirmar" type="button">Contato feito</button></div>
-  </div>
-</div>
 <div class="modal-backdrop" id="fotoZoom" style="z-index:95;background:rgba(5,7,10,.82);"><div class="foto-zoom"><img id="fotoZoomImg" alt=""><p id="fotoZoomNome"></p></div></div>
 <div class="modal-backdrop" id="modalOcorrencias">
   <div class="modal-box wide ocorr-box">
@@ -2090,7 +2081,6 @@
     unsubFuncionarios: null,
     unsubDias: null,
     unsubAbonos: null,
-    unsubAlertas: null, alertas: {}, alertasOk: false,
     cadSel: {},
     cadVisiveis: [],
     usuariosCad: {},
@@ -2565,13 +2555,11 @@
     state.funcionarios = {};
     state.dias = {};
     state.abonos = {};
-    state.alertas = {}; state.alertasOk = false;
     state.cadSel = {};
     state.deptFiltro = "";
     if(state.unsubFuncionarios) state.unsubFuncionarios();
     if(state.unsubDias) state.unsubDias();
     if(state.unsubAbonos) state.unsubAbonos();
-    if(state.unsubAlertas) state.unsubAlertas();
 
     // Trocar de obra no menu lateral: descarta qualquer prévia de importação da obra anterior
     // (senão o "Salvar importação" gravaria o arquivo na obra errada).
@@ -2619,13 +2607,6 @@
         state.abonos = out;
         renderAbonos();
       }, function(){ /* sem acesso à coleção de abonos: a aba mostra vazio */ });
-      // Lembretes persistentes de 5+ dias seguidos de falta/atestado (ficam até alguém registrar o contato)
-      state.unsubAlertas = state.db.collection("obras/" + obraId + "/alertas").onSnapshot(function(snap){
-        var out = {};
-        snap.docs.forEach(function(d){ out[d.id] = d.data(); });
-        state.alertas = out; state.alertasOk = true;
-        renderFaltasConsecutivas();
-      }, function(){ state.alertasOk = false; });
     }
     renderAll();
     if(!isReadOnly()) assinarUsuariosCad();
@@ -3605,146 +3586,63 @@
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   }
 
-  // ===== Lembrete persistente: 5 FALTAS seguidas (atestados e dias não úteis não interrompem) =====
-  // Regra: o lembrete NASCE quando a pessoa soma 5 faltas (F) em sequência — sem atestado no meio. Daí em diante ele acompanha a
-  // ausência: novos atestados (A) e novas faltas (F) entram na mesma contagem. Não interrompem a sequência: folga (FO), domingo e
-  // feriado (sem código). Interrompem: dia trabalhado, qualquer outro código (férias, licença/INSS, suspensão, abonado…) ou um
-  // dia sem importação. O lembrete fica gravado em obras/<obra>/alertas/<funcionário>__<1ª falta> até alguém registrar o contato.
-  // Sequências que terminaram há mais de 30 dias não geram lembrete novo (evita encher de histórico antigo).
-  var ALERTA_MIN_DIAS = 5, ALERTA_JANELA_DIAS = 30, ALERTA_VARREDURA_DIAS = 90, ALERTA_REGRA = 2;
+  // ===== Alerta de ausência prolongada: 5+ FALTAS =====
+  // O alerta aparece quando a pessoa soma 5 faltas (F) numa mesma ausência e fica na tela até ela REGISTRAR O PONTO de novo
+  // (um dia com horas trabalhadas) ou ser desligada (cadastro inativo). Atestados (A), folgas (FO), fins de semana, feriados e dias
+  // em branco (sem batida) NÃO interrompem a contagem; só os atestados e faltas entram na conta de dias. Outro código (férias,
+  // licença/INSS, suspensão…) antes das 5 faltas zera a contagem; depois do alerta aberto, só mostra o aviso do código.
+  // Tudo é calculado dos dias importados (nada é gravado no banco).
+  var ALERTA_MIN_DIAS = 5, ALERTA_VARREDURA_DIAS = 400;
   var _alertaMemo = {k:null, v:null};
-  function diaNeutroAlerta(iso, cd){ return cd === "FO" || (!cd && ehNaoUtil(iso)); }
+  // Classifica o dia da pessoa: F, A, "neutro" (folga/domingo/feriado/sem batida), "trab" (registrou ponto) ou "outro:<código>".
+  function classeDiaAlerta(iso, fid){
+    var d = state.dias[iso], a = d && d.ausencias && d.ausencias[fid], cd = a && a.codigo;
+    if(cd === "F" || cd === "A") return cd;
+    if(cd === "FO") return "neutro";
+    if(cd) return "outro:" + cd;
+    var h = d && d.horas && d.horas[fid];
+    if(d && d.horas) return (h && h.t > 0) ? "trab" : "neutro";          // dia com horas importadas: precisa ter batida; em branco = não trabalhou
+    return ehNaoUtil(iso) ? "neutro" : "trab";                            // dia sem horas importadas: sem código em dia útil = presente
+  }
   function sequenciasFaltaAtestado(){
     var hoje = todayIso(), k = [state.dias, state.funcionarios, hoje];
     if(_alertaMemo.k && _alertaMemo.k[0] === k[0] && _alertaMemo.k[1] === k[1] && _alertaMemo.k[2] === k[2]) return _alertaMemo.v;
-    var desde = addDaysIso(hoje, -ALERTA_VARREDURA_DIAS), minFim = addDaysIso(hoje, -ALERTA_JANELA_DIAS);
+    var desde = addDaysIso(hoje, -ALERTA_VARREDURA_DIAS);
     var datas = Object.keys(state.dias).filter(function(iso){ return iso <= hoje && iso >= desde; }).sort();
     var ate = datas.length ? datas[datas.length - 1] : null, out = [];
     if(datas.length) ativosPonto().forEach(function(fid){
-      var run = 0, runIni = null, al = null, prev = null;
-      var fechar = function(){ if(al && al.fim >= minFim) out.push({id:fid + "__" + al.ini, fid:fid, nome:funcName(fid), ini:al.ini, fim:al.fim, dias:al.f + al.a, faltas:al.f, atestados:al.a}); al = null; run = 0; runIni = null; };
+      var run = null, al = null;       // run = ausência em formação (menos de 5 faltas); al = alerta aberto (5+ faltas)
       datas.forEach(function(iso){
-        if(prev && !isNextCalendarDay(prev, iso)) fechar();          // dia sem importação no meio: não dá para saber, quebra
-        prev = iso;
-        var a = getAusenciaDoDia(iso, fid), cd = a && a.codigo;
-        if(cd === "F"){
-          if(al){ al.fim = iso; al.f++; }
-          else { if(!run) runIni = iso; run++; if(run >= ALERTA_MIN_DIAS) al = {ini:runIni, fim:iso, f:run, a:0}; }
-        } else if(cd === "A"){
-          if(al){ al.fim = iso; al.a++; } else { run = 0; runIni = null; }   // antes de 5 faltas, atestado zera a contagem
-        } else if(diaNeutroAlerta(iso, cd)){ /* folga, domingo, feriado: não conta nem interrompe */ }
-        else fechar();
+        var c = classeDiaAlerta(iso, fid), x = al || run;
+        if(c === "F" || c === "A"){
+          if(!x){ run = x = {ini:iso, fim:iso, f:0, a:0}; }
+          x.fim = iso; if(c === "F") x.f++; else x.a++;
+          if(!al && run.f >= ALERTA_MIN_DIAS){ al = run; run = null; }
+          if(al) al.outro = null;
+        } else if(c === "neutro"){ /* não conta, não interrompe */ }
+        else if(c === "trab"){ run = null; al = null; }                  // registrou o ponto: sai do controle
+        else { if(al){ al.outro = {cod:c.slice(6), data:iso}; } else run = null; }
       });
-      fechar();
+      if(al) out.push({id:fid + "__" + al.ini, fid:fid, nome:funcName(fid), ini:al.ini, fim:al.fim, dias:al.f + al.a, faltas:al.f, atestados:al.a, outro:al.outro});
     });
+    out.sort(function(x, y){ return y.dias - x.dias; });
     _alertaMemo = {k:k, v:{lista:out, ate:ate}};
     return _alertaMemo.v;
-  }
-  // Situação depois do último dia da sequência (olha os dias importados até o mais recente):
-  //  "retornou" = 1º dia trabalhado (sem código, dia útil) -> o lembrete sai do controle sozinho;
-  //  "outro"    = entrou outro código (férias, licença/INSS, suspensão…) -> segue pendente, com aviso do código;
-  //  "ausente"  = só dias neutros (folga/domingo/feriado) ou sem dados ainda -> segue pendente.
-  function alertaSituacao(a, ate){
-    var iso = a.fim;
-    while(ate && iso < ate){
-      iso = addDaysIso(iso, 1);
-      if(!state.dias[iso]) return {tipo:"ausente"};
-      var x = getAusenciaDoDia(iso, a.funcId), cd = x && x.codigo;
-      if(cd === "F" || cd === "A") continue;
-      if(diaNeutroAlerta(iso, cd)) continue;
-      if(!cd) return {tipo:"retornou", data:iso};
-      return {tipo:"outro", cod:cd, data:iso};
-    }
-    return {tipo:"ausente"};
-  }
-  // Grava os lembretes novos e atualiza a duração dos que ainda estão abertos (só quem pode editar).
-  function sincronizarAlertas(seq){
-    if(isReadOnly() || !state.db || !state.alertasOk || !state.obraId) return;
-    var col = state.db.collection("obras/" + state.obraId + "/alertas"), agora = new Date().toISOString(), novos = {};
-    seq.lista.forEach(function(sq){
-      novos[sq.id] = true;
-      var ex = state.alertas[sq.id], campos = {funcId:sq.fid, nome:sq.nome, ini:sq.ini, fim:sq.fim, dias:sq.dias, faltas:sq.faltas, atestados:sq.atestados, regra:ALERTA_REGRA, atualizadoEm:agora};
-      if(!ex){
-        state.alertas[sq.id] = Object.assign({status:"pendente", criadoEm:agora}, campos);       // otimista: evita gravar duas vezes
-        col.doc(sq.id).set(Object.assign({status:"pendente", criadoEm:agora}, campos)).catch(function(){ delete state.alertas[sq.id]; });
-      } else if(ex.fim !== sq.fim || ex.dias !== sq.dias || ex.regra !== ALERTA_REGRA){
-        Object.assign(state.alertas[sq.id], campos);
-        col.doc(sq.id).update(campos).catch(function(){});
-      }
-    });
-    // quem voltou a trabalhar sai do controle (fica no histórico como "voltou ao trabalho")
-    Object.keys(state.alertas).forEach(function(id){
-      var a = state.alertas[id]; if(a.status !== "pendente") return;
-      var sit = alertaSituacao(a, seq.ate);
-      if(sit.tipo === "retornou"){
-        var c = {status:"retornou", retornouEm:sit.data, atualizadoEm:agora};
-        Object.assign(a, c); col.doc(id).update(c).catch(function(){});
-      }
-    });
-    // lembretes PENDENTES criados pela regra antiga (sem o campo regra) que não valem mais: removidos
-    Object.keys(state.alertas).forEach(function(id){
-      var a = state.alertas[id];
-      if(a.status !== "resolvido" && a.regra !== ALERTA_REGRA && !novos[id]){ delete state.alertas[id]; col.doc(id).delete().catch(function(){}); }
-    });
   }
   function fmtPeriodoAlerta(a){ return fmtDateBR(a.ini).slice(0, 5) + " a " + fmtDateBR(a.fim).slice(0, 5); }
   function renderFaltasConsecutivas(){
     var box = $("faltasConsecutivasBox"); if(!box) return;
-    var seq = sequenciasFaltaAtestado();
-    sincronizarAlertas(seq);
-    var podeMarcar = !isReadOnly(), ate = seq.ate;
-    var todos = Object.keys(state.alertas).map(function(id){ var a = state.alertas[id]; a.id = id; return a; }).filter(function(a){
-      var f = state.funcionarios[a.funcId]; return f && !f.inativo && f.foraEscopo !== true;
-    });
-    var sitDe = function(a){ return a.status === "retornou" ? {tipo:"retornou", data:a.retornouEm} : alertaSituacao(a, ate); };
-    var pend = todos.filter(function(a){ return a.status !== "resolvido" && a.status !== "retornou" && sitDe(a).tipo !== "retornou"; }).sort(function(x, y){ return y.fim.localeCompare(x.fim); });
-    var resolv = todos.filter(function(a){ return a.status === "resolvido" || a.status === "retornou" || (a.status !== "resolvido" && sitDe(a).tipo === "retornou"); })
-      .sort(function(x, y){ return String(y.resolvidoEm || y.retornouEm || y.fim || "").localeCompare(String(x.resolvidoEm || x.retornouEm || x.fim || "")); });
-    if(!pend.length && !resolv.length){ box.innerHTML = ""; return; }
+    var r = sequenciasFaltaAtestado(), lista = r.lista;
+    if(!lista.length){ box.innerHTML = ""; return; }
     var comp = function(a){ return a.dias + " dia" + (a.dias === 1 ? "" : "s") + " (" + a.faltas + " falta" + (a.faltas === 1 ? "" : "s") + (a.atestados ? " + " + a.atestados + " atestado" + (a.atestados === 1 ? "" : "s") : "") + ")"; };
-    var linha = function(a){
-      var sit = alertaSituacao(a, ate), tag = sit.tipo === "outro" ? '<span class="pill" style="background:var(--warn-soft);color:var(--warn);">em ' + escapeHtml((CODE_META[sit.cod] || {label:sit.cod}).label.toLowerCase()) + " desde " + fmtDateBR(sit.data).slice(0, 5) + "</span>" : '<span class="pill" style="background:var(--bad-soft);color:var(--bad);">ainda ausente</span>';
-      return '<div class="naoenc-item" style="gap:10px;flex-wrap:wrap;"><span><a href="#" class="nome-link" data-alerta-func="' + escapeHtml(a.funcId) + '">' + escapeHtml(funcName(a.funcId)) + "</a> — " + comp(a) + " · " + fmtPeriodoAlerta(a) + "</span>" + tag +
-        (podeMarcar ? '<button class="btn btn-sm" data-alerta-ok="' + escapeHtml(a.id) + '" style="margin-left:auto;">Contato feito</button>' : "") + "</div>";
-    };
-    var html = "";
-    if(pend.length) html += '<div class="naoenc-box" style="background:var(--bad-soft);border-color:rgba(224,113,95,.3);"><div style="font-size:13px;font-weight:600;margin-bottom:2px;">⚠ ' + pend.length + " lembrete(s): " + ALERTA_MIN_DIAS + "+ faltas seguidas — entrar em contato</div>" +
-      '<div style="font-size:11.5px;color:var(--text-faint);margin-bottom:8px;">Atestados e fins de semana/feriados não interrompem a contagem. O lembrete sai daqui sozinho quando a pessoa volta a trabalhar, ou quando alguém registrar o contato.</div>' + pend.map(linha).join("") + "</div>";
-    if(resolv.length) html += '<details class="naoenc-box" style="margin-top:8px;"><summary style="cursor:pointer;font-size:12.5px;color:var(--text-dim);">Já tratados: contato registrado ou voltou ao trabalho (' + resolv.length + ')</summary>' + resolv.map(function(a){
-      var voltou = a.status !== "resolvido", dv = a.retornouEm || (voltou ? sitDe(a).data : "");
-      return '<div class="naoenc-item" style="gap:10px;flex-wrap:wrap;"><span><b>' + escapeHtml(funcName(a.funcId)) + "</b> — " + comp(a) + " · " + fmtPeriodoAlerta(a) + '</span><span class="abn-sub">' +
-        (voltou ? "↩ voltou ao trabalho em " + fmtDateBR(dv).slice(0, 5) : "✓ " + escapeHtml(a.resolvidoPorNome || "") + (a.resolvidoEm ? " · " + escapeHtml(fmtDataHora(a.resolvidoEm)) : "") + (a.obs ? " · " + escapeHtml(a.obs) : "")) + "</span>" +
-        (podeMarcar && !voltou ? '<button class="btn-ghost btn-sm" data-alerta-reabrir="' + escapeHtml(a.id) + '" style="margin-left:auto;">Reabrir</button>' : "") + "</div>";
-    }).join("") + "</details>";
-    box.innerHTML = html;
+    box.innerHTML = '<div class="naoenc-box" style="background:var(--bad-soft);border-color:rgba(224,113,95,.3);">' +
+      '<div style="font-size:13px;font-weight:600;margin-bottom:2px;">⚠ ' + lista.length + " funcionário(s) com " + ALERTA_MIN_DIAS + "+ faltas — entrar em contato</div>" +
+      '<div style="font-size:11.5px;color:var(--text-faint);margin-bottom:8px;">Atestados, folgas, fins de semana e feriados não interrompem a contagem. O alerta sai quando a pessoa registrar o ponto de novo ou for desligada. Dados até ' + fmtDateBR(r.ate) + ".</div>" +
+      lista.map(function(a){
+        var tag = a.outro ? '<span class="pill" style="background:var(--warn-soft);color:var(--warn);">em ' + escapeHtml((CODE_META[a.outro.cod] || {label:a.outro.cod}).label.toLowerCase()) + " desde " + fmtDateBR(a.outro.data).slice(0, 5) + "</span>" : "";
+        return '<div class="naoenc-item" style="gap:10px;flex-wrap:wrap;"><span><a href="#" class="nome-link" data-alerta-func="' + escapeHtml(a.fid) + '">' + escapeHtml(a.nome) + "</a> — " + comp(a) + " · " + fmtPeriodoAlerta(a) + "</span>" + tag + "</div>";
+      }).join("") + "</div>";
     Array.prototype.forEach.call(box.querySelectorAll("[data-alerta-func]"), function(el){ el.addEventListener("click", function(ev){ ev.preventDefault(); openOcorrencias(el.getAttribute("data-alerta-func")); }); });
-    Array.prototype.forEach.call(box.querySelectorAll("[data-alerta-ok]"), function(el){ el.addEventListener("click", function(){ abrirContatoAlerta(el.getAttribute("data-alerta-ok")); }); });
-    Array.prototype.forEach.call(box.querySelectorAll("[data-alerta-reabrir]"), function(el){ el.addEventListener("click", function(){ reabrirAlerta(el.getAttribute("data-alerta-reabrir")); }); });
-  }
-  var alertaAtual = null;
-  function abrirContatoAlerta(id){
-    var a = state.alertas[id]; if(!a) return;
-    alertaAtual = id;
-    $("alcTitulo").textContent = "Registrar contato — " + funcName(a.funcId);
-    $("alcSub").textContent = fmtPeriodoAlerta(a) + " · " + a.dias + " dias (" + a.faltas + " falta(s)" + (a.atestados ? " + " + a.atestados + " atestado(s)" : "") + ")";
-    $("alcObs").value = ""; $("alcErro").classList.remove("show");
-    $("modalAlertaContato").classList.add("show"); setTimeout(function(){ $("alcObs").focus(); }, 30);
-  }
-  async function confirmarContatoAlerta(){
-    var a = state.alertas[alertaAtual]; if(!a || !state.db || isReadOnly()) return;
-    var campos = {status:"resolvido", resolvidoPor:state.email, resolvidoPorNome:abnNomeUsuario(), resolvidoEm:new Date().toISOString(), obs:$("alcObs").value.trim() || null};
-    $("alcConfirmar").disabled = true;
-    try{
-      await state.db.collection("obras/" + state.obraId + "/alertas").doc(alertaAtual).update(campos);
-      Object.assign(state.alertas[alertaAtual], campos);
-      $("modalAlertaContato").classList.remove("show"); renderFaltasConsecutivas();
-    }catch(e){ $("alcErro").textContent = "Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo."); $("alcErro").classList.add("show"); }
-    $("alcConfirmar").disabled = false;
-  }
-  async function reabrirAlerta(id){
-    if(!state.alertas[id] || !state.db || isReadOnly()) return;
-    var campos = {status:"pendente", resolvidoPor:null, resolvidoPorNome:null, resolvidoEm:null, obs:null};
-    try{ await state.db.collection("obras/" + state.obraId + "/alertas").doc(id).update(campos); Object.assign(state.alertas[id], campos); renderFaltasConsecutivas(); }catch(e){}
   }
 
   // ================= EXPORTAÇÕES (mesmo padrão visual "pretty export" já usado no Vale-Transporte/HHT) =================
@@ -6444,8 +6342,6 @@
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
   $("ocorrFechar").addEventListener("click", closeOcorrencias);
-  $("alcCancelar").addEventListener("click", function(){ $("modalAlertaContato").classList.remove("show"); });
-  $("alcConfirmar").addEventListener("click", confirmarContatoAlerta);
   // foto do funcionário: clique para ampliar; clique em qualquer lugar ou Esc fecha
   $("ocorrAvatar").addEventListener("click", function(){
     var im = this.querySelector("img"); if(!im) return;
