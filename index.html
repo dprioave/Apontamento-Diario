@@ -273,6 +273,26 @@
   .ocorr-comp .bar{ display:inline-block; height:8px; border-radius:4px; vertical-align:middle; margin-left:8px; min-width:0; }
   .ocorr-comp .bar.f{ background:var(--bad); } .ocorr-comp .bar.a{ background:var(--warn); }
   .ocorr-comp tr.aberta td{ color:var(--text-dim); font-style:italic; }
+  .tbl-cad tbody tr:hover{ background:rgba(255,255,255,.035); }
+  .tbl-cad td.nome{ white-space:nowrap; font-weight:600; }
+  .tbl-cad td.nome .usu-dot{ margin-right:8px; }
+  .tbl-cad td.mat{ color:var(--text-dim); }
+  .tbl-cad td.cad-faltas{ text-align:right; font-family:var(--mono, ui-monospace, Consolas, monospace); font-weight:600; padding-right:18px; }
+  .tbl-cad td.cad-faltas.alto{ color:var(--bad); }
+  .ocorr-sub{ font-size:12.5px; color:var(--text-faint); line-height:1.55; }
+  .ocorr-sub .funcao{ color:var(--text); font-size:13.5px; font-weight:600; }
+  .ocorr-sub .tempo{ color:var(--text); font-weight:600; }
+  .ocorr-lid{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 8px; padding:10px 12px; margin:0 0 4px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); }
+  .ocorr-lid .rot{ font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--text-faint); margin-right:4px; }
+  .obs-box{ margin-top:6px; }
+  .obs-box textarea{ width:100%; min-height:64px; box-sizing:border-box; }
+  .obs-lista{ margin-top:10px; display:flex; flex-direction:column; gap:8px; max-height:260px; overflow:auto; }
+  .obs-item{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:9px 12px; }
+  .obs-cab{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--text-faint); margin-bottom:3px; }
+  .obs-cab b{ color:var(--text); font-size:12.5px; }
+  .obs-cab .x{ margin-left:auto; background:transparent; border:0; color:var(--text-faint); cursor:pointer; font-size:13px; padding:0 4px; }
+  .obs-cab .x:hover{ color:var(--bad); }
+  .obs-txt{ font-size:13px; white-space:pre-wrap; word-break:break-word; }
   .ocorr-summary{ display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 12px; }
   .ocorr-list{ max-height:48vh; overflow-y:auto; }
   .ocorr-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:12.5px; }
@@ -696,7 +716,7 @@
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Funcionário<button class="xl-btn" data-xl="nome" type="button" title="Filtrar / ordenar">▾</button></th><th>Função<button class="xl-btn" data-xl="funcao" type="button" title="Filtrar / ordenar">▾</button></th><th>Status<button class="xl-btn" data-xl="status" type="button" title="Filtrar / ordenar">▾</button></th><th>Origem<button class="xl-btn" data-xl="origem" type="button" title="Filtrar / ordenar">▾</button></th><th></th></tr></thead>
+          <thead><tr><th>Funcionário<button class="xl-btn" data-xl-ctx="dia" data-xl="nome" type="button" title="Filtrar / ordenar">▾</button></th><th>Função<button class="xl-btn" data-xl-ctx="dia" data-xl="funcao" type="button" title="Filtrar / ordenar">▾</button></th><th>Status<button class="xl-btn" data-xl-ctx="dia" data-xl="status" type="button" title="Filtrar / ordenar">▾</button></th><th>Origem<button class="xl-btn" data-xl-ctx="dia" data-xl="origem" type="button" title="Filtrar / ordenar">▾</button></th><th></th></tr></thead>
           <tbody id="diaTbody"></tbody>
         </table>
       </div>
@@ -832,13 +852,13 @@
         </div>
       </div>
 
-      <div class="search-box" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."><label class="chk-fora" id="lblForaEscopo" style="display:none;" title="Pessoas dos departamentos que não são acompanhados: ficam escondidas de todas as telas, menos daqui"><input type="checkbox" id="chkForaEscopo"> <span id="txtForaEscopo"></span></label><label class="chk-fora" id="lblDesligAntigos" style="display:none;" title="Pessoas que saíram antes do mês atual ficam escondidas do Cadastro"><input type="checkbox" id="chkDesligAntigos"> <span id="txtDesligAntigos"></span></label></div>
+      <div class="search-box" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."><button class="btn-ghost btn-sm" id="cadLimparFiltros" type="button" style="display:none;"></button><label class="chk-fora" id="lblForaEscopo" style="display:none;" title="Pessoas dos departamentos que não são acompanhados: ficam escondidas de todas as telas, menos daqui"><input type="checkbox" id="chkForaEscopo"> <span id="txtForaEscopo"></span></label><label class="chk-fora" id="lblDesligAntigos" style="display:none;" title="Pessoas que saíram antes do mês atual ficam escondidas do Cadastro"><input type="checkbox" id="chkDesligAntigos"> <span id="txtDesligAntigos"></span></label></div>
       <div class="cad-lote" id="cadLote"><span id="cadLoteTxt"></span>
         <button class="btn btn-sm" id="cadLoteLider" type="button">Definir liderança</button>
         <button class="btn-ghost btn-sm" id="cadLoteLimpar" type="button">Limpar seleção</button></div>
       <div class="table-wrap">
-        <table>
-          <thead><tr><th class="cad-th-sel" style="width:28px;"><input type="checkbox" id="cadSelTodos" title="Selecionar todos os listados"></th><th title="Matrícula (últimos 6 dígitos)">Matrícula</th><th>Nome</th><th>Função</th><th id="thDeptoCad" style="display:none;">Departamento</th><th title="Quem lidera este colaborador (vê e solicita os abonos dele)">Liderança</th><th>Admissão</th><th>Demissão</th><th>Status</th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto</th><th></th></tr></thead>
+        <table class="tbl-cad">
+          <thead><tr><th class="cad-th-sel" style="width:28px;"><input type="checkbox" id="cadSelTodos" title="Selecionar todos os listados"></th><th title="Matrícula (últimos 6 dígitos)">Matrícula<button class="xl-btn" data-xl-ctx="cad" data-xl="mat" type="button" title="Filtrar / ordenar">▾</button></th><th>Nome<button class="xl-btn" data-xl-ctx="cad" data-xl="nome" type="button" title="Filtrar / ordenar">▾</button></th><th>Função<button class="xl-btn" data-xl-ctx="cad" data-xl="funcao" type="button" title="Filtrar / ordenar">▾</button></th><th id="thDeptoCad" style="display:none;">Departamento<button class="xl-btn" data-xl-ctx="cad" data-xl="depto" type="button" title="Filtrar / ordenar">▾</button></th><th title="Total de faltas (F), em dias, em todo o histórico importado. A liderança fica dentro do card do funcionário." style="text-align:right;">Faltas<button class="xl-btn" data-xl-ctx="cad" data-xl="faltas" type="button" title="Filtrar / ordenar">▾</button></th><th>Admissão<button class="xl-btn" data-xl-ctx="cad" data-xl="adm" type="button" title="Filtrar / ordenar">▾</button></th><th>Demissão<button class="xl-btn" data-xl-ctx="cad" data-xl="dem" type="button" title="Filtrar / ordenar">▾</button></th><th title="Quem não bate ponto fica fora das contas de ausência, carga e horas extras">Bate ponto<button class="xl-btn" data-xl-ctx="cad" data-xl="bate" type="button" title="Filtrar / ordenar">▾</button></th><th></th></tr></thead>
           <tbody id="cadastroTbody"></tbody>
         </table>
       </div>
@@ -980,8 +1000,9 @@
   <div class="modal-box wide ocorr-box">
     <div class="ocorr-topo">
       <div class="ocorr-avatar" id="ocorrAvatar"></div>
-      <div><h3 id="ocorrNome">Ocorrências</h3><p class="modal-sub" id="ocorrSub" style="margin:0;"></p></div>
+      <div><h3 id="ocorrNome">Ocorrências</h3><div class="ocorr-sub" id="ocorrSub"></div></div>
     </div>
+    <div class="ocorr-lid" id="ocorrLid"></div>
     <p class="ocorr-tit">Faltas e atestados por competência <span class="abn-sub">(fechamento de 16 a 15)</span></p>
     <div class="ocorr-kpis" id="ocorrKpis"></div>
     <div class="ocorr-comp" id="ocorrComp"></div>
@@ -989,6 +1010,12 @@
     <div class="ocorr-summary" id="ocorrResumo"></div>
     <div class="ocorr-list" id="ocorrLista"></div>
     <div class="ocorr-foot" id="ocorrRodape"></div>
+    <p class="ocorr-tit">Observações <span class="abn-sub" id="obsCont"></span></p>
+    <div class="obs-box">
+      <textarea id="obsTexto" maxlength="1500" placeholder="Escreva uma observação sobre este funcionário (todos os usuários veem e podem comentar)… Ctrl+Enter envia."></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px;"><button class="btn btn-sm" id="obsEnviar" type="button">Comentar</button></div>
+      <div class="obs-lista" id="obsLista"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn-ghost" id="ocorrFechar">Fechar</button>
     </div>
@@ -2555,7 +2582,7 @@
     state.funcionarios = {};
     state.dias = {};
     state.abonos = {};
-    state.cadSel = {};
+    state.cadSel = {}; cadXl.filtros = {}; cadXl.ordem = null;
     state.deptFiltro = "";
     if(state.unsubFuncionarios) state.unsubFuncionarios();
     if(state.unsubDias) state.unsubDias();
@@ -3422,7 +3449,7 @@
   }
   function diaAtualizarCabecalho(){
     var n = 0;
-    Array.prototype.forEach.call(document.querySelectorAll(".xl-btn[data-xl]"), function(b){
+    Array.prototype.forEach.call(document.querySelectorAll('.xl-btn[data-xl-ctx="dia"]'), function(b){
       var k = b.getAttribute("data-xl"), on = !!dia.filtros[k] || !!(dia.ordem && dia.ordem.col === k);
       b.classList.toggle("on", on);
       b.textContent = dia.ordem && dia.ordem.col === k ? (dia.ordem.dir > 0 ? "▲" : "▼") : (dia.filtros[k] ? "⧩" : "▾");
@@ -3431,6 +3458,30 @@
     var bl = $("diaLimparFiltros"); bl.style.display = (n || dia.ordem) ? "" : "none"; bl.textContent = "✕ Limpar filtros" + (n ? " (" + n + ")" : "");
   }
   var xl = {pop:null, aberto:0};
+  // Cada tabela com filtro de cabeçalho registra o seu contexto: estado (filtros/ordem), como aplicar e como redesenhar.
+  var cadXl = {rowsTodas:[], filtros:{}, ordem:null, col:null};
+  function xlOrd(col, r){ var o = r["_o_" + col]; return o !== undefined ? o : r[col]; }
+  function xlCmp(col, a, b){ var x = xlOrd(col, a), y = xlOrd(col, b); return (typeof x === "number" && typeof y === "number") ? x - y : String(x).localeCompare(String(y), "pt-BR"); }
+  function cadAplicar(exceto){
+    var out = cadXl.rowsTodas.filter(function(r){
+      return Object.keys(cadXl.filtros).every(function(k){ return k === exceto || !cadXl.filtros[k] || cadXl.filtros[k][r[k]]; });
+    });
+    var o = cadXl.ordem && !exceto ? cadXl.ordem : {col:"nome", dir:1};
+    if(!exceto) out = out.slice().sort(function(x, y){ return o.dir * xlCmp(o.col, x, y) || xlCmp("nome", x, y); });
+    return out;
+  }
+  function cadAtualizarCabecalho(){
+    var n = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('.xl-btn[data-xl-ctx="cad"]'), function(b){
+      var k = b.getAttribute("data-xl"), on = !!cadXl.filtros[k] || !!(cadXl.ordem && cadXl.ordem.col === k);
+      b.classList.toggle("on", on);
+      b.textContent = cadXl.ordem && cadXl.ordem.col === k ? (cadXl.ordem.dir > 0 ? "▲" : "▼") : (cadXl.filtros[k] ? "⧩" : "▾");
+      if(cadXl.filtros[k]) n++;
+    });
+    var bl = $("cadLimparFiltros"); bl.style.display = (n || cadXl.ordem) ? "" : "none"; bl.textContent = "✕ Limpar filtros" + (n ? " (" + n + ")" : "");
+  }
+  var xlCtxs = {dia:{est:dia, aplicar:diaAplicar, render:function(){ renderDiario(); }}, cad:{est:cadXl, aplicar:cadAplicar, render:function(){ renderCadastro(); }}};
+  var xlCtx = xlCtxs.dia;
   function xlMontar(){
     if(xl.pop) return;
     var p = document.createElement("div"); p.className = "xl-pop";
@@ -3445,8 +3496,9 @@
     p.addEventListener("click", function(ev){
       var b = ev.target.closest("[data-op]"); if(!b || b.disabled) return;
       var op = b.getAttribute("data-op");
-      if(op === "asc" || op === "desc"){ dia.ordem = {col:dia.col, dir:op === "asc" ? 1 : -1}; xlFechar(); renderDiario(); }
-      else if(op === "limpar"){ delete dia.filtros[dia.col]; if(dia.ordem && dia.ordem.col === dia.col) dia.ordem = null; xlFechar(); renderDiario(); }
+      var E = xlCtx.est;
+      if(op === "asc" || op === "desc"){ E.ordem = {col:E.col, dir:op === "asc" ? 1 : -1}; xlFechar(); xlCtx.render(); }
+      else if(op === "limpar"){ delete E.filtros[E.col]; if(E.ordem && E.ordem.col === E.col) E.ordem = null; xlFechar(); xlCtx.render(); }
       else if(op === "cancelar") xlFechar();
       else if(op === "ok") xlAplicar();
     });
@@ -3463,9 +3515,9 @@
     t.indeterminate = !t.checked && cs.some(function(c){ return c.checked; });
   }
   function xlRenderLista(){
-    var col = dia.col, q = normName(xl.pop.querySelector("input[type=search]").value), cont = {}, atual = dia.filtros[col];
-    diaAplicar(col).forEach(function(r){ cont[r[col]] = (cont[r[col]] || 0) + 1; });
-    var vals = Object.keys(cont).sort(function(a, b){ return a.localeCompare(b, "pt-BR"); });
+    var E = xlCtx.est, col = E.col, q = normName(xl.pop.querySelector("input[type=search]").value), cont = {}, atual = E.filtros[col], amostra = {};
+    xlCtx.aplicar(col).forEach(function(r){ cont[r[col]] = (cont[r[col]] || 0) + 1; if(!amostra[r[col]]) amostra[r[col]] = r; });
+    var vals = Object.keys(cont).sort(function(a, b){ return xlCmp(col, amostra[a], amostra[b]); });
     var html = '<label><input type="checkbox" data-todos> <b>(Selecionar tudo)</b></label>' + vals.map(function(v){
       var marcado = !atual || atual[v];
       return '<label' + (q && normName(v).indexOf(q) < 0 ? ' style="display:none"' : "") + '><input type="checkbox" data-v="' + escapeHtml(v) + '"' + (marcado ? " checked" : "") + "> <span>" + escapeHtml(v) + '</span><span class="xl-n">' + cont[v] + "</span></label>";
@@ -3474,14 +3526,14 @@
     xlSincronizarTodos();
   }
   function xlAplicar(){
-    var col = dia.col, cs = xl.pop.querySelectorAll(".xl-list [data-v]"), marc = {}, total = 0, nm = 0;
+    var E = xlCtx.est, col = E.col, cs = xl.pop.querySelectorAll(".xl-list [data-v]"), marc = {}, total = 0, nm = 0;
     Array.prototype.forEach.call(cs, function(c){ total++; if(c.checked){ nm++; marc[c.getAttribute("data-v")] = true; } });
     if(!total) { xlFechar(); return; }
-    if(nm === total) delete dia.filtros[col]; else dia.filtros[col] = marc;     // tudo marcado = sem filtro
-    xlFechar(); renderDiario();
+    if(nm === total) delete E.filtros[col]; else E.filtros[col] = marc;     // tudo marcado = sem filtro
+    xlFechar(); xlCtx.render();
   }
   function xlAbrir(btn){
-    xlMontar(); dia.col = btn.getAttribute("data-xl");
+    xlMontar(); xlCtx = xlCtxs[btn.getAttribute("data-xl-ctx") || "dia"]; xlCtx.est.col = btn.getAttribute("data-xl");
     var p = xl.pop, r = btn.getBoundingClientRect();
     p.querySelector("input[type=search]").value = "";
     xlRenderLista();
@@ -4950,7 +5002,7 @@
     $("txtForaEscopo").textContent = "Mostrar fora do escopo (" + nFora + ")";
     var verFora = podeVerFora && $("chkForaEscopo").checked;
     $("thDeptoCad").style.display = temDept ? "" : "none";
-    var ncol = 10 + (temDept ? 1 : 0);
+    var ncol = 9 + (temDept ? 1 : 0);
     var selCol = document.querySelectorAll(".cad-th-sel"); Array.prototype.forEach.call(selCol, function(th){ th.style.display = readOnly ? "none" : ""; });
     state.cadVisiveis = [];
     var ids = Object.keys(state.funcionarios).filter(function(id){
@@ -4961,17 +5013,26 @@
       return !busca || normName(fb.nome).indexOf(busca)>=0 || (qd.length >= 2 && matriculaCurta(fb.matricula).indexOf(qd) >= 0);
     }).sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
 
-    var tbody = $("cadastroTbody");
+    // filtros estilo Excel nos títulos das colunas (valores marcados + ordenação), por cima da busca e dos "mostrar…"
+    var cont = contagemFaltasGerais(), tbody = $("cadastroTbody"), totalAntes = ids.length;
+    cadXl.rowsTodas = ids.map(function(id){
+      var f = state.funcionarios[id], fc = cont[id] || {f:0, a:0}, bp = batePonto(id);
+      return {id:id, mat:matriculaCurta(f.matricula) || "—", nome:f.nome || id, _o_nome:funcName(id), funcao:fmtFuncao(f.funcao) || "—", depto:f.departamento || "—",
+              faltas:String(fc.f), _o_faltas:fc.f, adm:f.admissao ? fmtDateBR(f.admissao) : "—", _o_adm:f.admissao || "", dem:f.demissao ? fmtDateBR(f.demissao) : "—", _o_dem:f.demissao || "",
+              bate:foraEscopo(id) ? "Não (fora do escopo)" : (bp ? "Sim" : "Não")};
+    });
+    ids = cadAplicar(null).map(function(r){ return r.id; });
+    cadAtualizarCabecalho();
     if(!ids.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+ncol+'">Nenhum funcionário cadastrado.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="'+ncol+'">' + (totalAntes ? "Nenhum funcionário com esses filtros." : "Nenhum funcionário cadastrado.") + "</td></tr>";
+      cadAtualizarLote();
       return;
     }
     state.cadVisiveis = ids.slice();
     tbody.innerHTML = ids.map(function(id){
       var f = state.funcionarios[id];
-      var lideres = (f.liderancas || []).map(function(l){ return '<span class="lid-chip">' + escapeHtml(l.nome || l.id) + "</span>"; }).join("");
-      var lidHtml = '<div class="lid-nomes">' + (lideres || '<span style="color:var(--text-faint);">—</span>') + "</div>" + (readOnly ? "" : '<button class="btn-ghost btn-sm" style="margin-top:4px;" data-lider="' + id + '">Definir</button>');
-      var statusHtml = f.inativo ? '<span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inativo</span>' : '<span class="pill pill-presente">Ativo</span>';
+      var fe0 = f.foraEscopo === true, fc = cont[id] || {f:0, a:0};
+      var dotHtml = '<span class="usu-dot ' + (f.inativo ? "desativado" : (fe0 ? "" : "ativo")) + '" title="' + (f.inativo ? "Inativo" : (fe0 ? "Ativo · fora do escopo" : "Ativo")) + '"></span>';
       var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-toggle-inativo="'+id+'">'+(f.inativo?"Reativar":"Marcar inativo")+"</button>" +
         (f.inativo ? ' <button class="btn-ghost btn-sm" data-edit-dem="'+id+'" title="Editar a data de demissão">Data</button>' : "");
       var bp = batePonto(id), auto = !(f.batePonto === true || f.batePonto === false);
@@ -4982,13 +5043,12 @@
       return "<tr>"+
         '<td class="cad-sel"' + (readOnly ? ' style="display:none;"' : '') + '><input type="checkbox" data-cad-sel="' + id + '"' + (state.cadSel[id] ? " checked" : "") + "></td>"+
         '<td class="mat">'+escapeHtml(matriculaCurta(f.matricula) || "—")+"</td>"+
-        '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+id+'" title="Ver ocorrências">'+escapeHtml(f.nome || id)+"</a></td>"+
+        '<td class="nome">'+dotHtml+'<a href="#" class="nome-link" data-ocorr="'+id+'" title="Abrir o cadastro do funcionário">'+escapeHtml(f.nome || id)+"</a></td>"+
         "<td>"+escapeHtml(fmtFuncao(f.funcao)||"—")+"</td>"+
         (temDept ? "<td>"+escapeHtml(f.departamento||"—")+"</td>" : "")+
-        "<td>" + lidHtml + "</td>"+
+        '<td class="num cad-faltas' + (fc.f >= 10 ? " alto" : "") + '" title="' + fc.f + " falta(s) e " + fc.a + ' atestado(s) no histórico importado">' + (fc.f || '<span style="color:var(--text-faint);">0</span>') + "</td>"+
         "<td>"+fmtDateBR(f.admissao)+"</td>"+
         "<td>"+(f.demissao ? fmtDateBR(f.demissao) : "—")+"</td>"+
-        "<td>"+statusHtml+"</td>"+
         "<td>"+bateHtml+"</td>"+
         "<td>"+acaoHtml+"</td>"+
       "</tr>";
@@ -5002,9 +5062,6 @@
     });
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-cad-sel]"), function(el){
       el.addEventListener("change", function(){ state.cadSel[el.getAttribute("data-cad-sel")] = el.checked; cadAtualizarLote(); });
-    });
-    Array.prototype.forEach.call(tbody.querySelectorAll("[data-lider]"), function(el){
-      el.addEventListener("click", function(){ abrirLideranca([el.getAttribute("data-lider")]); });
     });
     cadAtualizarLote();
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-toggle-inativo]"), function(el){
@@ -5021,6 +5078,22 @@
         openOcorrencias(el.getAttribute("data-ocorr"));
       });
     });
+    if($("modalOcorrencias").classList.contains("show") && state.ocorrAtual) ocorrRenderLid(state.ocorrAtual);   // card aberto: atualiza a liderança
+  }
+  // Total de faltas (F) e atestados (A), em dias, de cada funcionário em todo o histórico importado da obra.
+  var _contFaltasMemo = {k:null, v:null};
+  function contagemFaltasGerais(){
+    if(_contFaltasMemo.k === state.dias) return _contFaltasMemo.v;
+    var out = {};
+    Object.keys(state.dias).forEach(function(iso){
+      var aus = (state.dias[iso] || {}).ausencias || {};
+      Object.keys(aus).forEach(function(fid){
+        var cd = aus[fid] && aus[fid].codigo; if(cd !== "F" && cd !== "A") return;
+        var o = out[fid] || (out[fid] = {f:0, a:0}); if(cd === "F") o.f++; else o.a++;
+      });
+    });
+    _contFaltasMemo = {k:state.dias, v:out};
+    return out;
   }
 
   // Todas as ausências registradas pra um funcionário em todos os dias já importados da obra (não só o
@@ -5124,9 +5197,13 @@
       if(src && state.ocorrAtual === fid && $("modalOcorrencias").classList.contains("show")){ var im = document.createElement("img"); im.src = src; im.alt = ""; $("ocorrAvatar").textContent = ""; $("ocorrAvatar").appendChild(im); $("ocorrAvatar").classList.add("tem-foto"); $("ocorrAvatar").title = "Clique para ampliar"; }
     });
     var anteriores = (f.vinculosAnteriores||[]).map(function(v){ return (v.funcao||"sem função") + (v.admissao ? " desde " + fmtDateBR(v.admissao) : ""); });
-    $("ocorrSub").textContent = (fmtFuncao(f.funcao)||"Sem função") + " · Admissão " + fmtDateBR(f.admissao) + " · " + (f.inativo?"Inativo":"Ativo") +
-      (f.demissao ? " · Demissão " + fmtDateBR(f.demissao) : "") +
-      (anteriores.length ? " · Vínculo anterior: " + anteriores.join("; ") : "");
+    var fimTempo = f.inativo ? f.demissao : todayIso(), tmp = (f.admissao && fimTempo) ? tempoEntre(f.admissao, fimTempo) : null;
+    $("ocorrSub").innerHTML = '<div class="funcao">' + escapeHtml(fmtFuncao(f.funcao) || "Sem função") + "</div>" +
+      (tmp ? '<div>Tempo de empresa: <span class="tempo">' + fmtTempo(tmp) + "</span>" + (f.inativo ? " (até a demissão)" : "") + "</div>" : (f.inativo && !f.demissao ? "<div>Tempo de empresa: sem data de demissão</div>" : "")) +
+      "<div>" + (f.admissao ? "Admissão " + fmtDateBR(f.admissao) + " · " : "") + (f.inativo ? "Inativo" : "Ativo") + (f.demissao ? " · Demissão " + fmtDateBR(f.demissao) : "") +
+      (anteriores.length ? " · Vínculo anterior: " + escapeHtml(anteriores.join("; ")) : "") + "</div>";
+    ocorrRenderLid(fid);
+    obsAbrir(fid);
 
     var ordem = CODES.concat(Object.keys(o.counts).filter(function(c){ return CODES.indexOf(c)<0; }));
     $("ocorrResumo").innerHTML = ordem.filter(function(c){ return o.counts[c]; }).map(function(c){
@@ -5150,7 +5227,71 @@
       : "Nenhum dia importado nesta obra ainda.";
     $("modalOcorrencias").classList.add("show");
   }
-  function closeOcorrencias(){ $("modalOcorrencias").classList.remove("show"); }
+  function closeOcorrencias(){ $("modalOcorrencias").classList.remove("show"); obsFechar(); }
+
+  // ---- tempo de empresa (anos, meses e dias) ----
+  function tempoEntre(ini, fim){
+    var a = new Date(ini + "T12:00:00"), b = new Date(fim + "T12:00:00");
+    if(isNaN(a) || isNaN(b) || b < a) return null;
+    var anos = b.getFullYear() - a.getFullYear(), meses = b.getMonth() - a.getMonth(), dias = b.getDate() - a.getDate();
+    if(dias < 0){ meses--; dias += new Date(b.getFullYear(), b.getMonth(), 0).getDate(); }
+    if(meses < 0){ anos--; meses += 12; }
+    return {a:anos, m:meses, d:dias};
+  }
+  function fmtTempo(t){
+    var p = [];
+    if(t.a) p.push(t.a + (t.a === 1 ? " ano" : " anos"));
+    if(t.m) p.push(t.m + (t.m === 1 ? " mês" : " meses"));
+    if(t.d || !p.length) p.push(t.d + (t.d === 1 ? " dia" : " dias"));
+    return p.length > 1 ? p.slice(0, -1).join(", ") + " e " + p[p.length - 1] : p[0];
+  }
+  // ---- liderança dentro do card ----
+  function ocorrRenderLid(fid){
+    var f = state.funcionarios[fid] || {}, box = $("ocorrLid");
+    var chips = (f.liderancas || []).map(function(l){ return '<span class="lid-chip">' + escapeHtml(l.nome || l.id) + "</span>"; }).join("");
+    box.innerHTML = '<span class="rot">Liderança</span>' + (chips || '<span style="color:var(--text-faint);font-size:12.5px;">ninguém definido</span>') +
+      (isReadOnly() ? "" : ' <button class="btn-ghost btn-sm" id="ocorrLidBtn" type="button" style="margin-left:auto;">' + (chips ? "Editar" : "Definir") + "</button>");
+    var b = $("ocorrLidBtn"); if(b) b.addEventListener("click", function(){ abrirLideranca([fid]); });
+  }
+  // ---- observações do funcionário (fórum): obras/<obra>/funcionarios/<id>/observacoes/<código> ----
+  var obs = {fid:null, unsub:null, lista:[], apagar:null};
+  function obsCaminho(){ return "obras/" + state.obraId + "/funcionarios/" + obs.fid + "/observacoes"; }
+  function obsFechar(){ if(obs.unsub){ try{ obs.unsub(); }catch(e){} } obs.unsub = null; obs.fid = null; obs.lista = []; }
+  function obsAbrir(fid){
+    obsFechar(); obs.fid = fid; obs.apagar = null;
+    $("obsTexto").value = ""; $("obsLista").innerHTML = ""; $("obsCont").textContent = "";
+    if(!state.db){ $("obsLista").innerHTML = '<div class="abn-oc-vazio">Observações indisponíveis sem conexão com o banco.</div>'; return; }
+    obs.unsub = state.db.collection(obsCaminho()).onSnapshot(function(snap){
+      obs.lista = snap.docs.map(function(d){ var x = d.data() || {}; x.id = d.id; return x; });
+      obsRender();
+    }, function(){ $("obsLista").innerHTML = '<div class="abn-oc-vazio">Sem acesso às observações.</div>'; });
+  }
+  function obsRender(){
+    var l = obs.lista.slice().sort(function(a, b){ return String(b.em || "").localeCompare(String(a.em || "")); });
+    $("obsCont").textContent = l.length ? "(" + l.length + ")" : "";
+    $("obsLista").innerHTML = l.length ? l.map(function(o){
+      var meu = normEmail(o.autor) === state.email || isAdmin();
+      return '<div class="obs-item"><div class="obs-cab"><b>' + escapeHtml(o.autorNome || nomeBonito(o.autor)) + "</b><span>" + escapeHtml(fmtDataHora(o.em)) + "</span>" +
+        (meu ? '<button class="x" type="button" data-obs-del="' + escapeHtml(o.id) + '" title="Apagar">' + (obs.apagar === o.id ? "Apagar?" : "✕") + "</button>" : "") + '</div><div class="obs-txt">' + escapeHtml(o.texto || "") + "</div></div>";
+    }).join("") : '<div class="abn-oc-vazio">Nenhuma observação ainda. Seja o primeiro a comentar.</div>';
+    Array.prototype.forEach.call($("obsLista").querySelectorAll("[data-obs-del]"), function(b){
+      b.addEventListener("click", function(){
+        var id = b.getAttribute("data-obs-del");
+        if(obs.apagar !== id){ obs.apagar = id; obsRender(); setTimeout(function(){ if(obs.apagar === id){ obs.apagar = null; obsRender(); } }, 3500); return; }
+        obs.apagar = null; state.db.collection(obsCaminho()).doc(id).delete().catch(function(){});
+      });
+    });
+  }
+  async function obsEnviar(){
+    var t = $("obsTexto").value.trim(); if(!t || !obs.fid || !state.db) return;
+    var id = "OBS-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6).toUpperCase();
+    $("obsEnviar").disabled = true;
+    try{
+      await state.db.collection(obsCaminho()).doc(id).set({texto:t.slice(0, 1500), autor:state.email, autorNome:abnNomeUsuario(), em:new Date().toISOString()});
+      $("obsTexto").value = "";
+    }catch(e){ $("obsLista").insertAdjacentHTML("afterbegin", '<div class="abn-oc-vazio" style="color:var(--bad);">Não consegui salvar: ' + escapeHtml((e && (e.code || e.message)) || "tente de novo") + "</div>"); }
+    $("obsEnviar").disabled = false;
+  }
 
   // ================= BASE GERAL (atualização geral dos cadastros; só administração) =================
   // Lê a base do grupo (todas as empresas), compara com o cadastro de cada obra e mostra o que vai mudar:
@@ -6347,6 +6488,8 @@
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
   $("ocorrFechar").addEventListener("click", closeOcorrencias);
+  $("obsEnviar").addEventListener("click", obsEnviar);
+  $("obsTexto").addEventListener("keydown", function(ev){ if(ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); obsEnviar(); } });
   // foto do funcionário: clique para ampliar; clique em qualquer lugar ou Esc fecha
   $("ocorrAvatar").addEventListener("click", function(){
     var im = this.querySelector("img"); if(!im) return;
@@ -6559,6 +6702,7 @@
   $("btnMenu").addEventListener("click", function(){ document.body.classList.toggle("menu-open"); });
   $("sideBackdrop").addEventListener("click", function(){ document.body.classList.remove("menu-open"); });
   $("diaSelecionado").addEventListener("change", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderAll(); });
+  $("cadLimparFiltros").addEventListener("click", function(){ cadXl.filtros = {}; cadXl.ordem = null; xlFechar(); renderCadastro(); });
   $("diaLimparFiltros").addEventListener("click", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderDiario(); });
   $("deptFiltro").addEventListener("change", function(){ state.deptFiltro = this.value; renderAll(); });
   $("chkForaEscopo").addEventListener("change", renderCadastro);
