@@ -3549,7 +3549,7 @@
         var origemHtml = r.a.origem==="manual" ? "Manual" : "Importado";
         var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-edit-func="'+r.id+'">Editar</button>';
         return "<tr>"+
-          '<td class="nome">'+escapeHtml(r.nome)+"</td>"+
+          '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+escapeHtml(r.id)+'" title="Abrir cadastro do funcionário">'+escapeHtml(r.nome)+"</a></td>"+
           "<td>"+escapeHtml(fmtFuncao(f.funcao)||"—")+"</td>"+
           "<td>"+codeHtml+"</td>"+
           "<td>"+origemHtml+"</td>"+
@@ -3557,6 +3557,9 @@
         "</tr>";
       }).join("");
     }
+    Array.prototype.forEach.call(tbody.querySelectorAll("[data-ocorr]"), function(el){
+      el.addEventListener("click", function(ev){ ev.preventDefault(); openOcorrencias(el.getAttribute("data-ocorr")); });
+    });
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-edit-func]"), function(el){
       el.addEventListener("click", function(){
         openAusenciaModal(iso, el.getAttribute("data-edit-func"));
@@ -3590,7 +3593,8 @@
   // O alerta aparece quando a pessoa soma 5 faltas (F) numa mesma ausência e fica na tela até ela REGISTRAR O PONTO de novo
   // (um dia com horas trabalhadas) ou ser desligada (cadastro inativo). Atestados (A), folgas (FO), fins de semana, feriados e dias
   // em branco (sem batida) NÃO interrompem a contagem; só os atestados e faltas entram na conta de dias. Outro código (férias,
-  // licença/INSS, suspensão…) antes das 5 faltas zera a contagem; depois do alerta aberto, só mostra o aviso do código.
+  // licença/INSS, suspensão…) antes das 5 faltas zera a contagem; depois do alerta aberto, licença (L) tira a pessoa do alerta e os
+  // demais códigos (férias, suspensão…) só mostram o aviso do código.
   // Tudo é calculado dos dias importados (nada é gravado no banco).
   var ALERTA_MIN_DIAS = 5, ALERTA_VARREDURA_DIAS = 400;
   var _alertaMemo = {k:null, v:null};
@@ -3621,6 +3625,7 @@
           if(al) al.outro = null;
         } else if(c === "neutro"){ /* não conta, não interrompe */ }
         else if(c === "trab"){ run = null; al = null; }                  // registrou o ponto: sai do controle
+        else if(c === "outro:L"){ run = null; al = null; }                 // licença/afastamento (INSS etc.): sai do alerta
         else { if(al){ al.outro = {cod:c.slice(6), data:iso}; } else run = null; }
       });
       if(al) out.push({id:fid + "__" + al.ini, fid:fid, nome:funcName(fid), ini:al.ini, fim:al.fim, dias:al.f + al.a, faltas:al.f, atestados:al.a, outro:al.outro});
