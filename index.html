@@ -1179,6 +1179,7 @@
   <div class="modal-box">
     <h3>Trocar minha senha</h3>
     <p class="modal-sub">Vale só para o seu login (<span id="trocarSenhaEmail"></span>).</p>
+    <div id="tsPrimeiro" style="display:none;margin:0 0 12px;padding:10px 12px;border:1px solid var(--warn);border-radius:9px;background:var(--warn-soft);font-size:12.5px;line-height:1.5;color:var(--text);"><b>Primeiro acesso:</b> você entrou com a senha padrão. Por segurança, escolha agora a sua senha pessoal (mínimo de 6 caracteres, diferente da padrão).</div>
     <div class="field"><input type="password" id="tsSenhaAtual" placeholder="Senha atual" autocomplete="off"></div>
     <div class="field"><input type="password" id="tsSenhaNova" placeholder="Nova senha (mín. 6 caracteres)" autocomplete="off"></div>
     <div class="field"><input type="password" id="tsSenhaNova2" placeholder="Confirmar nova senha" autocomplete="off"></div>
@@ -2326,7 +2327,7 @@
   }
   var novidadesAtuais = [];
   function mostrarNovidades(){
-    if(!state.email) return;
+    if(!state.email || $("modalTrocarSenha").classList.contains("show")) return;
     var vistas = novidadesVistas();
     novidadesAtuais = NOVIDADES.filter(function(n){
       return vistas.indexOf(n.id) < 0 && (!n.abas || n.abas.some(function(a){ return abaPermitida(a); }));    // só para quem tem acesso ao que foi atualizado
@@ -2352,7 +2353,7 @@
     state.perfil = null;
     state.dbReady.then(function(db){ return lerUsuario(db, state.email); })
       .then(function(u){ state.perfil = u; }, function(){ state.perfil = null; })
-      .then(function(){ aplicarAbas(); atualizarQuemAcessa(); setTimeout(mostrarNovidades, 900); })
+      .then(function(){ aplicarAbas(); atualizarQuemAcessa(); verificarPrimeiroAcesso(); setTimeout(mostrarNovidades, 900); })
       .then(startBoot);
   }
 
@@ -2391,6 +2392,7 @@
     if(!esperado){ falha("Este usuário ainda não tem senha definida. Peça ao administrador."); return; }
     if(hash !== esperado){ falha("Senha incorreta."); return; }
     try{ sessionStorage.setItem(LOGIN_STORAGE_KEY, email); }catch(e){}
+    senhaDoLogin = senha; setTimeout(function(){ senhaDoLogin = null; }, 20000);
     enterApp(email);
   }
 
@@ -6033,13 +6035,28 @@
   }
 
   // ================= TROCAR MINHA SENHA (self-service) =================
-  function openTrocarSenha(){
+  // Primeiro acesso = quem ainda não tem senha pessoal (sem senhaHash no cadastro) e entrou com a senha padrão: abre a troca sozinha.
+  var senhaDoLogin = null;       // senha digitada neste login (só na memória; serve para já preencher "senha atual")
+  function openTrocarSenha(primeiro){
     $("trocarSenhaEmail").textContent = state.email;
-    $("tsSenhaAtual").value = ""; $("tsSenhaNova").value = ""; $("tsSenhaNova2").value = "";
+    $("tsSenhaAtual").value = (primeiro === true && senhaDoLogin) ? senhaDoLogin : ""; $("tsSenhaNova").value = ""; $("tsSenhaNova2").value = "";
+    senhaDoLogin = null;
+    $("tsPrimeiro").style.display = primeiro === true ? "" : "none";
+    $("tsCancelar").textContent = primeiro === true ? "Agora não" : "Cancelar";
     $("tsError").classList.remove("show");
     $("modalTrocarSenha").classList.add("show");
+    setTimeout(function(){ try{ ($("tsSenhaAtual").value ? $("tsSenhaNova") : $("tsSenhaAtual")).focus(); }catch(e){} }, 40);
   }
-  function closeTrocarSenha(){ $("modalTrocarSenha").classList.remove("show"); }
+  function closeTrocarSenha(){
+    $("modalTrocarSenha").classList.remove("show");
+    setTimeout(mostrarNovidades, 300);      // o aviso de novidade espera a troca de senha
+  }
+  function verificarPrimeiroAcesso(){
+    if(!state.email || importAutomatico()) return;                                 // o robô de importação nunca é interrompido
+    if(state.perfil && state.perfil.senhaHash) return;                              // já tem senha pessoal
+    try{ if(sessionStorage.getItem("apontamento-diario:senha-adiada:" + state.email)) return; }catch(e){}
+    openTrocarSenha(true);
+  }
   async function salvarTrocarSenha(){
     var atual = $("tsSenhaAtual").value;
     var nova = $("tsSenhaNova").value;
@@ -6051,6 +6068,9 @@
     }
     if(nova.length < 6){
       errEl.textContent = "A nova senha precisa ter pelo menos 6 caracteres."; errEl.classList.add("show"); return;
+    }
+    if(await sha256Hex(nova) === GATE_PASSWORD_HASH){
+      errEl.textContent = "Escolha uma senha diferente da senha padrão."; errEl.classList.add("show"); return;
     }
     if(nova !== nova2){
       errEl.textContent = "As duas senhas novas não conferem."; errEl.classList.add("show"); return;
@@ -6066,8 +6086,9 @@
       await gravarUsuario(state.email, {
         senhaHash: novaHash, atualizadoEm: new Date().toISOString(), atualizadoPor: state.email
       });
+      if(state.perfil) state.perfil.senhaHash = novaHash;
       closeTrocarSenha();
-      alert("Senha alterada com sucesso. Use a nova senha no próximo login.");
+      try{ alert("Senha alterada com sucesso. Use a nova senha no próximo login."); }catch(e){}
     }catch(e){
       errEl.textContent = "Erro ao salvar: " + (e && e.message || "tente de novo.");
       errEl.classList.add("show");
@@ -6723,7 +6744,10 @@
   $("usuLimpar").addEventListener("click", function(){ usu.empresas = {}; renderUsuarios(); });
   $("demCancelar").addEventListener("click", closeDemissao);
   $("demSalvar").addEventListener("click", salvarDemissao);
-  $("tsCancelar").addEventListener("click", closeTrocarSenha);
+  $("tsCancelar").addEventListener("click", function(){
+    if($("tsPrimeiro").style.display !== "none"){ try{ sessionStorage.setItem("apontamento-diario:senha-adiada:" + state.email, "1"); }catch(e){} }   // volta a perguntar no próximo login
+    closeTrocarSenha();
+  });
   $("tsSalvar").addEventListener("click", salvarTrocarSenha);
   $("btnAdminSenhas").addEventListener("click", openAdminSenhas);
   $("btnBaseGeral").addEventListener("click", openBaseGeral);
