@@ -277,6 +277,21 @@
   .novidade h4{ margin:0 0 4px; font-size:14px; }
   .novidade p{ margin:0 0 6px; font-size:12.5px; color:var(--text-dim); line-height:1.5; }
   .novidade p:last-child{ margin-bottom:0; }
+  .modal-box.wide.ponto-box{ max-width:980px; width:100%; max-height:92vh; overflow:auto; }
+  .ponto-scroll{ max-height:58vh; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+  .ponto-tbl{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .ponto-tbl th{ position:sticky; top:0; background:var(--surface-solid); text-align:left; padding:7px 10px; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); border-bottom:1px solid var(--border-strong); white-space:nowrap; }
+  .ponto-tbl td{ padding:6px 10px; border-bottom:1px solid rgba(255,255,255,.05); white-space:nowrap; }
+  .ponto-tbl td.h{ font-family:var(--mono, ui-monospace, Consolas, monospace); }
+  .ponto-tbl tr.nao-util td{ color:var(--text-faint); background:rgba(255,255,255,.02); }
+  .ponto-tbl tr.sem-dado td{ color:var(--text-faint); font-style:italic; }
+  .ponto-tbl tr.tot td{ position:sticky; bottom:0; background:var(--surface-solid); font-weight:600; border-top:1px solid var(--border-strong); }
+  .ponto-dia{ display:grid; gap:12px; }
+  .ponto-bat{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }
+  .ponto-bat div{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+  .ponto-bat .l{ font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--text-faint); }
+  .ponto-bat .v{ font-family:var(--mono, ui-monospace, Consolas, monospace); font-size:22px; font-weight:600; margin-top:2px; }
+  .ponto-bat .v.vazio{ color:var(--text-faint); }
   .tbl-cad tbody tr:hover{ background:rgba(255,255,255,.035); }
   .tbl-cad td.nome{ white-space:nowrap; font-weight:600; }
   .tbl-cad td.nome .usu-dot{ margin-right:8px; }
@@ -570,6 +585,18 @@
   .abn-ocorr{ max-height:196px; overflow:auto; border:1px solid var(--border); border-radius:9px; background:var(--surface-2); }
   .abn-oc{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; text-align:left; padding:8px 12px; background:none; border:0; border-left:3px solid transparent; border-bottom:1px solid var(--border); color:var(--text); font-size:12.5px; cursor:pointer; }
   .abn-oc:last-child{ border-bottom:0; }
+  .abn-oc .ck{ display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; flex:none; margin-right:10px; border:1.5px solid var(--border-strong); border-radius:5px; font-size:12px; line-height:1; color:transparent; }
+  .abn-oc.sel .ck{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .abn-oc > span:first-child{ display:flex; align-items:center; flex-wrap:wrap; }
+  .abn-oc-tools{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 6px; }
+  .abn-selbar{ margin-top:8px; padding:8px 10px; border:1px solid var(--accent); border-radius:9px; background:var(--accent-soft); font-size:12.5px; }
+  .abn-selbar .tit{ font-weight:600; margin-bottom:5px; }
+  .abn-selbar .chips{ display:flex; flex-wrap:wrap; gap:5px; max-height:92px; overflow:auto; }
+  .abn-selbar .chip{ display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:20px; padding:2px 4px 2px 10px; font-size:11.5px; }
+  .abn-selbar .chip button{ background:transparent; border:0; color:var(--text-faint); cursor:pointer; font-size:12px; padding:0 4px; }
+  .abn-selbar .chip button:hover{ color:var(--bad); }
+  .abn-oc .nm{ font-weight:600; margin-right:8px; }
+  .abn-oc small{ color:var(--text-faint); font-size:11.5px; }
   .abn-oc:hover:not(:disabled){ background:rgba(255,255,255,.05); }
   .abn-oc.sel{ background:var(--accent-soft); border-left-color:var(--accent); }
   .abn-oc:disabled{ opacity:.55; cursor:not-allowed; }
@@ -720,11 +747,10 @@
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Funcionário<button class="xl-btn" data-xl-ctx="dia" data-xl="nome" type="button" title="Filtrar / ordenar">▾</button></th><th>Função<button class="xl-btn" data-xl-ctx="dia" data-xl="funcao" type="button" title="Filtrar / ordenar">▾</button></th><th>Status<button class="xl-btn" data-xl-ctx="dia" data-xl="status" type="button" title="Filtrar / ordenar">▾</button></th><th>Origem<button class="xl-btn" data-xl-ctx="dia" data-xl="origem" type="button" title="Filtrar / ordenar">▾</button></th><th></th></tr></thead>
+          <thead><tr><th>Funcionário<button class="xl-btn" data-xl-ctx="dia" data-xl="nome" type="button" title="Filtrar / ordenar">▾</button></th><th>Função<button class="xl-btn" data-xl-ctx="dia" data-xl="funcao" type="button" title="Filtrar / ordenar">▾</button></th><th>Status<button class="xl-btn" data-xl-ctx="dia" data-xl="status" type="button" title="Filtrar / ordenar">▾</button></th><th>Origem<button class="xl-btn" data-xl-ctx="dia" data-xl="origem" type="button" title="Filtrar / ordenar">▾</button></th></tr></thead>
           <tbody id="diaTbody"></tbody>
         </table>
       </div>
-      <button class="btn-ghost" id="btnAddAusenciaManual">+ Registrar ausência manualmente</button>
     </div>
 
     <!-- ---- TAB: GRADE DO MÊS ---- -->
@@ -1002,9 +1028,16 @@
 <div class="modal-backdrop" id="modalNovidades">
   <div class="modal-box" style="max-width:520px;">
     <h3>O que há de novo</h3>
-    <p class="modal-sub">Uma atualização para você conhecer:</p>
+    <p class="modal-sub">Novidades para você conhecer:</p>
     <div id="novidadesLista"></div>
     <div class="modal-actions"><button class="btn" id="novidadesOk" type="button">Entendi</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="modalPonto">
+  <div class="modal-box wide ponto-box">
+    <div class="ocorr-topo"><div class="ocorr-avatar" id="pontoAvatar" style="width:56px;height:56px;font-size:20px;"></div><div><h3 id="pontoTitulo">Registros de ponto</h3><div class="ocorr-sub" id="pontoSub"></div></div></div>
+    <div id="pontoCorpo"></div>
+    <div class="modal-actions"><button class="btn-ghost" id="pontoFechar" type="button">Fechar</button></div>
   </div>
 </div>
 <div class="modal-backdrop" id="fotoZoom" style="z-index:95;background:rgba(5,7,10,.82);"><div class="foto-zoom"><img id="fotoZoomImg" alt=""><p id="fotoZoomNome"></p></div></div>
@@ -1058,13 +1091,20 @@
   <div class="modal-box wide" style="max-width:520px;max-height:92vh;overflow:auto;">
     <h3>Nova solicitação de abono</h3>
     <p class="modal-sub" id="abnObraSub"></p>
-    <div class="field"><label for="abnFuncBusca">Colaborador</label>
-      <input type="search" id="abnFuncBusca" placeholder="Pesquisar por nome ou função…" autocomplete="off">
-      <select id="abnFunc" aria-label="Colaborador"></select>
-      <span class="abn-sub" id="abnFuncInfo"></span></div>
-    <div class="field"><label>Faltas e atrasos dele (clique no dia do abono)</label><div class="abn-ocorr" id="abnOcorr"></div>
+    <div class="field-row" style="margin:0 0 4px;align-items:flex-start;">
+      <div class="field" style="flex:1;min-width:220px;"><label for="abnFunc">Colaborador</label>
+        <select id="abnFunc" aria-label="Colaborador"></select>
+        <span class="abn-sub" id="abnFuncInfo"></span></div>
+      <div class="field" style="flex:1;min-width:220px;"><label for="abnFiltroData">Data da ocorrência</label>
+        <select id="abnFiltroData" aria-label="Data da ocorrência"></select>
+        <span class="abn-sub" id="abnDataInfo"></span></div>
+    </div>
+    <div class="field"><label id="abnOcorrTit">Faltas e atrasos (clique para escolher)</label>
+      <div class="abn-oc-tools" id="abnOcTools"></div>
+      <div class="abn-ocorr" id="abnOcorr"></div>
+      <div class="abn-selbar" id="abnSelBar" style="display:none;"></div>
       <span class="abn-sub" id="abnPrazoInfo"></span></div>
-    <div class="field-row" style="margin:0 0 12px;">
+    <div class="field-row" id="abnManualRow" style="margin:0 0 12px;">
       <div class="field" style="flex:1;min-width:150px;"><label for="abnTipo">Tipo</label>
         <select id="abnTipo"><option value="falta">Falta</option><option value="atraso">Atraso</option><option value="saida">Saída antecipada</option></select></div>
       <div class="field" style="flex:1;min-width:150px;"><label for="abnData">Data</label><input type="date" id="abnData"></div>
@@ -1093,36 +1133,6 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="modalAusencia">
-  <div class="modal-box">
-    <h3 id="modalAusenciaTitulo">Editar dia</h3>
-    <p class="modal-sub" id="modalAusenciaSub"></p>
-    <div class="field" id="modalFuncSelectWrap" style="display:none;">
-      <label>Funcionário</label>
-      <select id="modalFuncSelect"></select>
-    </div>
-    <div class="field">
-      <label>Status</label>
-      <select id="modalCodigo">
-        <option value="">Presente (célula vazia)</option>
-        <option value="F">F — Falta</option>
-        <option value="A">A — Atestado</option>
-        <option value="FE">FE — Férias</option>
-        <option value="FO">FO — Folga</option>
-        <option value="S">S — Suspensão</option>
-        <option value="L">L — Licença</option>
-        <option value="J">J — Justiça</option>
-        <option value="AB">AB — Abonado</option>
-        <option value="AP">AP — Aviso Prévio</option>
-        <option value="EP">EP — Exame Periódico</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-ghost" id="modalCancelar">Cancelar</button>
-      <button class="btn" id="modalSalvar">Salvar</button>
-    </div>
-  </div>
-</div>
 
 <!-- ================= MODAL: TROCAR MINHA SENHA (self-service) ================= -->
 <div class="modal-backdrop" id="modalDemissao">
@@ -1673,6 +1683,28 @@
     return {t:(map.t != null ? minDeCelula(dr[map.t]) : trabalhadaPelasMarcacoes(dr, map)), e:e, s:s2, a:at};
   }
 
+  // ---------- Batidas do ponto (horários de entrada e saída de cada dia) ----------
+  function hhmmDeMin(m){ return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); }
+  function minDeBatida(v){
+    if(v == null || v === "") return null;
+    if(typeof v === "number") return (v > 0 && v < 1) ? Math.round(v * 1440) : null;
+    var m = String(v).trim().match(/^(\d{1,2}):(\d{2})/);
+    return m ? (+m[1]) * 60 + (+m[2]) : null;
+  }
+  // ["07:00","12:00","13:00","19:00"] = ENTRADA 1, SAÍDA 1, ENTRADA 2, SAÍDA 2… ("" = sem marcação naquele lugar); null se não houve nenhuma.
+  function batidasDaLinha(dr, map){
+    if(!map || (!map.ent && !map.sai)) return null;
+    var ns = {}; Object.keys(map.ent || {}).concat(Object.keys(map.sai || {})).forEach(function(n){ ns[n] = true; });
+    var slots = [];
+    Object.keys(ns).sort().forEach(function(n){
+      [map.ent && map.ent[n], map.sai && map.sai[n]].forEach(function(col){
+        var m = col != null ? minDeBatida(dr[col]) : null; slots.push(m == null ? "" : hhmmDeMin(m));
+      });
+    });
+    while(slots.length && !slots[slots.length - 1]) slots.pop();
+    return slots.length ? slots : null;
+  }
+
   // ---------- Secullum XLSX parser ----------
   function parseSecullumXlsx(arrayBuffer){
     var wb = XLSX.read(arrayBuffer, {type:"array", raw:true});
@@ -1716,7 +1748,7 @@
       }
       if(!codigo && faltaDeDiaInteiro(dr, colH, dataDetectada)) codigo = "F";
       var matriculaLinha = String(dr[0]||"").trim();
-      pessoas.push({nome:nome, matricula:matriculaLinha, codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colH)});
+      pessoas.push({nome:nome, matricula:matriculaLinha, codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colH), batidas:batidasDaLinha(dr, colH)});
       if(codigo){
         ausencias.push({matricula:matriculaLinha, nome:nome, codigo:codigo});
       } else if(motivoDesconhecido){
@@ -1780,7 +1812,7 @@
         }
       }
       if(!codigo && faltaDeDiaInteiro(dr, colHP, iso)) codigo = "F";
-      dia.pessoas.push({nome:nome, matricula:"", codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colHP)});
+      dia.pessoas.push({nome:nome, matricula:"", codigo:codigo, admissao:sawAdmissao, horas:horasDaLinha(dr, colHP), batidas:batidasDaLinha(dr, colHP)});
       if(codigo) dia.ausencias.push({matricula:"", nome:nome, codigo:codigo});
       else if(motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:motivoDesconhecido});
     }
@@ -1853,7 +1885,7 @@
           ordem.push(l.iso);
         }
         dia.todosNomes.push(nome);
-        dia.pessoas.push({nome:nome, matricula:e.folha, codigo:l.codigo, admissao:l.sawAdmissao, horas:l.hh});
+        dia.pessoas.push({nome:nome, matricula:e.folha, codigo:l.codigo, admissao:l.sawAdmissao, horas:l.hh, batidas:l.bat});
         if(l.codigo) dia.ausencias.push({matricula:e.folha, nome:nome, codigo:l.codigo});
         else if(l.motivoDesconhecido) dia.naoMapeados.push({nome:nome, motivo:l.motivoDesconhecido});
       });
@@ -1915,7 +1947,14 @@
         // FALTAS DIA preenchido, sem batida e sem motivo reconhecido = falta de dia inteiro (dias já passados)
         if(!codigo && !motivoDesconhecido && faltasDia >= 1 && !temBatida && iso < todayIso()) codigo = "F";
         if(codigo) hh.a = 0;     // dia com falta/atestado/etc.: o "atraso" que o Secullum mostra é o dia inteiro, não um atraso
-        emp.linhas.push({iso:iso, codigo:codigo, motivoDesconhecido:motivoDesconhecido, sawAdmissao:sawAdmissao, hh:hh});
+        // horários das batidas (ENTRADA 1 / SAÍDA 1 / ENTRADA 2 / SAÍDA 2), pela posição da coluna
+        var bat = ["", "", "", ""];
+        its.filter(function(i){ return Math.abs(i.y - d.y) <= 3 && i.x >= 95 && i.x < 260 && /^\d{1,2}:\d{2}/.test(i.s); }).forEach(function(c){
+          var kb = c.x < 135 ? 0 : (c.x < 175 ? 1 : (c.x < 215 ? 2 : 3)), mb = c.s.match(/^(\d{1,2}):(\d{2})/);
+          bat[kb] = ("0" + mb[1]).slice(-2) + ":" + mb[2];
+        });
+        while(bat.length && !bat[bat.length - 1]) bat.pop();
+        emp.linhas.push({iso:iso, codigo:codigo, motivoDesconhecido:motivoDesconhecido, sawAdmissao:sawAdmissao, hh:hh, bat:bat.length ? bat : null});
       });
     }
     fechar();
@@ -2278,9 +2317,10 @@
   }
   function funcaoNaoBatePonto(funcao){ return NAO_BATE_PONTO_RE.test(stripAccents(String(funcao||"")).toUpperCase()); }
   // Célula do nome na Grade: nome + função (padronizada) numa 2ª linha pequena, com a marca opcional ao lado
-  function celNome(fid, marca){
+  function celNome(fid, marca, link){
     var f = state.funcionarios[fid] || {};
-    return escapeHtml(funcName(fid)) + '<span class="func-sub">' + escapeHtml(fmtFuncao(f.funcao) || "—") + (marca || "") + "</span>";
+    var nm = link ? '<a href="#" class="nome-link" data-ponto-func="' + escapeHtml(fid) + '" title="Ver todos os registros de ponto no período">' + escapeHtml(funcName(fid)) + "</a>" : escapeHtml(funcName(fid));
+    return nm + '<span class="func-sub">' + escapeHtml(fmtFuncao(f.funcao) || "—") + (marca || "") + "</span>";
   }
   function foraEscopo(fid){ var f = state.funcionarios[fid]; return !!(f && f.foraEscopo === true); }
   function batePonto(fid){
@@ -2314,7 +2354,13 @@
   var NOVIDADES = [
     {id:"2026-11-06-observacoes", abas:["cadastro", "diario"], titulo:"Observações no cadastro do funcionário",
      html:"<p>O cadastro de cada funcionário agora tem um campo de <b>Observações</b>, como um mural de comentários: todos os usuários veem e qualquer um pode escrever, com nome e data.</p>" +
-          "<p><b>Como usar:</b> na aba <b>Cadastro</b>, ou na lista da aba <b>Diário</b>, clique no <b>nome</b> do funcionário. O campo fica no fim do card. Escreva e clique em <b>Comentar</b> (Ctrl+Enter também envia). Quem escreveu, ou a administração, pode apagar o comentário.</p>"}
+          "<p><b>Como usar:</b> na aba <b>Cadastro</b>, ou na lista da aba <b>Diário</b>, clique no <b>nome</b> do funcionário. O campo fica no fim do card. Escreva e clique em <b>Comentar</b> (Ctrl+Enter também envia). Quem escreveu, ou a administração, pode apagar o comentário.</p>"},
+    {id:"2026-11-10-abonos-data-varias", abas:["abonos"], titulo:"Abonos: busca por data e várias ocorrências de uma vez",
+     html:"<p>Em <b>Solicitações de abonos › Nova solicitação</b> agora há dois filtros: por <b>colaborador</b> (lista os dias de falta ou atraso dele) e por <b>data</b> (lista todos os colaboradores com falta ou atraso naquele dia). A pesquisa fica dentro de cada lista.</p>" +
+          "<p>Você pode <b>marcar mais de uma ocorrência</b>, de pessoas e dias diferentes (ou usar <b>Marcar todos</b>), escrever o motivo uma vez e clicar em <b>Enviar N solicitações</b>.</p>"},
+    {id:"2026-11-10-grade-cartao-ponto", abas:["grade"], titulo:"Grade do Mês: cartão de ponto completo",
+     html:"<p>Na <b>Grade do Mês</b>, clique no <b>nome do funcionário</b> para ver todos os registros de ponto do período: entradas e saídas, horas trabalhadas, atraso e extras. Clique na <b>caixa de um dia</b> para ver o registro daquele dia.</p>" +
+          "<p>Os horários aparecem nos dias sincronizados a partir de agora; dias anteriores podem aparecer sem horários até o DP sincronizar de novo.</p>"}
   ];
   function novidadesChave(){ return "apontamento-diario:novidades:" + state.email; }
   function novidadesVistas(){
@@ -2627,7 +2673,7 @@
     }
     state.obraId = obraId;
     state.funcionarios = {};
-    state.dias = {};
+    state.dias = {}; pontoCache = {};
     state.abonos = {};
     state.cadSel = {}; cadXl.filtros = {}; cadXl.ordem = null;
     state.deptFiltro = "";
@@ -3128,15 +3174,19 @@
       (p.anteriorAberto ? "O período " + fmtDateBR(p.perAnt.ini).slice(0, 5) + " a " + fmtDateBR(p.perAnt.fim).slice(0, 5) + " aceita solicitações até " + fmtDateBR(p.corteAnterior).slice(0, 5) + ". " : "") +
       "O período atual (" + fmtDateBR(p.perAtual.ini).slice(0, 5) + " a " + fmtDateBR(p.perAtual.fim).slice(0, 5) + ") aceita até " + fmtDateBR(p.corteAtual).slice(0, 5) + ".";
   }
+  // Ocorrência (falta ou atraso) de um colaborador num dia: falta = código F; atraso = horas de atraso em dia sem código de ausência.
+  function abnOcorrDoDia(iso, fid){
+    var d = state.dias[iso] || {}, a = d.ausencias && d.ausencias[fid], h = d.horas && d.horas[fid];
+    if(a && a.codigo) return a.codigo === "F" ? {iso:iso, tipo:"falta"} : null;
+    return (h && h.a > 0) ? {iso:iso, tipo:"atraso", min:h.a} : null;
+  }
+  function abnDiasOcorr(){        // dias que entram na busca: só o período de apuração em aberto (vale para todos; DP/admin ainda podem digitar outra data)
+    var hoje = todayIso(), lim = addDaysIso(hoje, -62), pz = abnPrazo().ini; if(pz > lim) lim = pz;
+    return Object.keys(state.dias).filter(function(iso){ return iso < hoje && iso >= lim; }).sort();
+  }
   function abnOcorrencias(fid){
-    var hoje = todayIso(), lim = addDaysIso(hoje, -62), out = [];
-    var pz = abnPrazo().ini; if(pz > lim) lim = pz;     // só o período de apuração em aberto (vale para todos; DP/admin ainda podem digitar outra data)
-    Object.keys(state.dias).forEach(function(iso){
-      if(iso >= hoje || iso < lim) return;
-      var d = state.dias[iso] || {}, a = d.ausencias && d.ausencias[fid], h = d.horas && d.horas[fid];
-      if(a && a.codigo){ if(a.codigo === "F") out.push({iso:iso, tipo:"falta"}); return; }
-      if(h && h.a > 0) out.push({iso:iso, tipo:"atraso", min:h.a});
-    });
+    var out = [];
+    abnDiasOcorr().forEach(function(iso){ var o = abnOcorrDoDia(iso, fid); if(o) out.push(o); });
     return out.sort(function(x, y){ return y.iso.localeCompare(x.iso); });
   }
   function abnJaSolicitado(fid, iso, tipo){
@@ -3146,46 +3196,93 @@
       return a.funcId === fid && a.data === iso && grupo(a.tipo) === grupo(tipo) && (st === "pendente_eng" || st === "pendente_ger" || st === "aprovado");
     })[0] || null;
   }
+  // Índice data -> colaboradores com ocorrência (só quem a pessoa pode ver), refeito ao abrir a janela.
+  var abnIdx = {porData:{}, datas:[]}, abnModoData = false, abnSel = {}, abnItensLista = [];
+  function abnChave(o){ return o.fid + "|" + o.iso + "|" + o.tipo; }
+  function abnConstruirIndice(ids){
+    var porData = {};
+    abnDiasOcorr().forEach(function(iso){
+      ids.forEach(function(fid){ var o = abnOcorrDoDia(iso, fid); if(o){ o.fid = fid; (porData[iso] = porData[iso] || []).push(o); } });
+    });
+    abnIdx = {porData:porData, datas:Object.keys(porData).sort().reverse()};
+  }
+  function abnSemana(iso){ return new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", {weekday:"short"}).replace(".", ""); }
+  function abnRotOcorr(o){ return o.tipo === "falta" ? '<span class="t-falta">Falta</span>' : '<span class="t-atraso">Atraso ' + fmtHM(o.min) + "</span>"; }
   function abnRenderOcorr(){
-    var box = $("abnOcorr"), fid = $("abnFunc").value;
-    if(!fid){ box.innerHTML = '<div class="abn-oc-vazio">Escolha o colaborador.</div>'; return; }
-    var lista = abnOcorrencias(fid);
-    if(!lista.length){ box.innerHTML = '<div class="abn-oc-vazio">' + ("Nenhuma falta ou atraso dele no período de apuração em aberto." + (abnLimitado() ? "" : " Se for um caso fora do período ou do ponto, informe a data abaixo.")) + "</div>"; return; }
+    var box = $("abnOcorr"), fid = $("abnFunc").value, dt = $("abnFiltroData").value;
     var dataSel = $("abnData").value, tipoSel = $("abnTipo").value === "falta" ? "falta" : "atraso";
-    box.innerHTML = lista.map(function(o){
-      var ja = abnJaSolicitado(fid, o.iso, o.tipo), sem = new Date(o.iso + "T12:00:00").toLocaleDateString("pt-BR", {weekday:"short"}).replace(".", "");
-      var rot = o.tipo === "falta" ? '<span class="t-falta">Falta</span>' : '<span class="t-atraso">Atraso ' + fmtHM(o.min) + "</span>";
-      return '<button type="button" class="abn-oc' + (dataSel === o.iso && tipoSel === o.tipo ? " sel" : "") + '" data-iso="' + o.iso + '" data-tipo="' + o.tipo + '" data-min="' + (o.min || "") + '"' + (ja ? " disabled" : "") + ">" +
-        "<span><b>" + escapeHtml(sem) + " " + escapeHtml(fmtDateBR(o.iso).slice(0, 5)) + "</b>" + rot + "</span>" +
-        (ja ? '<span class="abn-status ' + abnStatusDe(ja) + '">Já solicitado</span>' : "") + "</button>";
+    var vazioPadrao = "Nenhuma falta ou atraso no período de apuração em aberto." + (abnLimitado() ? "" : " Se for um caso fora do período ou do ponto, informe a data abaixo.");
+    var itens;       // [{fid, iso, tipo, min}]
+    if(abnModoData && dt){
+      itens = (abnIdx.porData[dt] || []).slice().sort(function(a, b){ return funcName(a.fid).localeCompare(funcName(b.fid)); });
+      $("abnOcorrTit").textContent = "Colaboradores com falta ou atraso em " + fmtDateBR(dt) + " (clique para escolher)";
+    } else if(fid){
+      itens = abnOcorrencias(fid).map(function(o){ o.fid = fid; return o; });
+      $("abnOcorrTit").textContent = "Faltas e atrasos de " + funcName(fid) + " (clique no dia do abono)";
+    } else {
+      box.innerHTML = '<div class="abn-oc-vazio">Escolha um colaborador (lista os dias dele) ou uma data (lista os colaboradores daquele dia).</div>';
+      $("abnOcorrTit").textContent = "Faltas e atrasos (clique para escolher)";
+      abnItensLista = []; abnAtualizarSelecao();
+      return;
+    }
+    abnItensLista = itens;
+    if(!itens.length){ box.innerHTML = '<div class="abn-oc-vazio">' + escapeHtml(vazioPadrao) + "</div>"; abnAtualizarSelecao(); return; }
+    var porData = abnModoData && dt;
+    box.innerHTML = itens.map(function(o){
+      var ja = abnJaSolicitado(o.fid, o.iso, o.tipo), sel = !!abnSel[abnChave(o)];
+      var f = state.funcionarios[o.fid] || {};
+      var esq = porData ? '<span class="nm">' + escapeHtml(funcName(o.fid)) + "</span><small>" + escapeHtml(fmtFuncao(f.funcao) || "") + "</small> " + abnRotOcorr(o)
+                        : "<b>" + escapeHtml(abnSemana(o.iso)) + " " + escapeHtml(fmtDateBR(o.iso).slice(0, 5)) + "</b>" + abnRotOcorr(o);
+      return '<button type="button" class="abn-oc' + (sel ? " sel" : "") + '" data-fid="' + escapeHtml(o.fid) + '" data-iso="' + o.iso + '" data-tipo="' + o.tipo + '" data-min="' + (o.min || "") + '"' + (ja ? " disabled" : "") + ' aria-pressed="' + sel + '">' +
+        '<span><span class="ck">✓</span>' + esq + "</span>" + (ja ? '<span class="abn-status ' + abnStatusDe(ja) + '">Já solicitado</span>' : "") + "</button>";
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll(".abn-oc"), function(b){
       b.addEventListener("click", function(){
-        $("abnTipo").value = b.getAttribute("data-tipo");
-        $("abnMinWrap").style.display = $("abnTipo").value === "falta" ? "none" : "";
-        $("abnData").value = b.getAttribute("data-iso");
-        if(b.getAttribute("data-min")) $("abnMin").value = b.getAttribute("data-min");
-        abnRenderOcorr();
+        // marca/desmarca a ocorrência (dá para marcar várias, de pessoas e dias diferentes, e enviar tudo de uma vez)
+        var o = {fid:b.getAttribute("data-fid"), iso:b.getAttribute("data-iso"), tipo:b.getAttribute("data-tipo"), min:parseInt(b.getAttribute("data-min"), 10) || null}, k = abnChave(o);
+        if(abnSel[k]) delete abnSel[k]; else abnSel[k] = o;
+        b.classList.toggle("sel", !!abnSel[k]); b.setAttribute("aria-pressed", String(!!abnSel[k]));
+        abnAtualizarSelecao();
       });
     });
+    abnAtualizarSelecao();
   }
-  // Lista de colaboradores do modal, filtrada pela pesquisa (nome ou função). Mantém o escolhido se ele continua na lista.
+  // Barra "Marcar todos / Limpar", chips das ocorrências marcadas, esconde os campos manuais enquanto há seleção e ajusta o botão de enviar.
+  function abnAtualizarSelecao(){
+    var ks = Object.keys(abnSel), itens = ks.map(function(k){ return abnSel[k]; }).sort(function(a, b){ return funcName(a.fid).localeCompare(funcName(b.fid)) || a.iso.localeCompare(b.iso); });
+    var livres = (abnItensLista || []).filter(function(o){ return !abnJaSolicitado(o.fid, o.iso, o.tipo); }), naoMarc = livres.filter(function(o){ return !abnSel[abnChave(o)]; });
+    $("abnOcTools").innerHTML = (naoMarc.length > 1 ? '<button type="button" class="btn-ghost btn-sm" id="abnMarcarTodos">Marcar todos desta lista (' + naoMarc.length + ")</button>" : "") +
+      (ks.length ? '<button type="button" class="btn-ghost btn-sm" id="abnLimparSel">Limpar seleção (' + ks.length + ")</button>" : "");
+    var bt = $("abnMarcarTodos"); if(bt) bt.addEventListener("click", function(){ livres.forEach(function(o){ abnSel[abnChave(o)] = {fid:o.fid, iso:o.iso, tipo:o.tipo, min:o.min || null}; }); abnRenderOcorr(); });
+    var bl = $("abnLimparSel"); if(bl) bl.addEventListener("click", function(){ abnSel = {}; abnRenderOcorr(); });
+    var bar = $("abnSelBar");
+    bar.style.display = ks.length ? "" : "none";
+    bar.innerHTML = ks.length ? '<div class="tit">' + ks.length + " ocorrência" + (ks.length === 1 ? "" : "s") + " marcada" + (ks.length === 1 ? "" : "s") + ' — o motivo abaixo vale para todas</div><div class="chips">' + itens.map(function(o){
+      return '<span class="chip">' + escapeHtml(funcName(o.fid)) + " · " + escapeHtml(fmtDateBR(o.iso).slice(0, 5)) + " · " + (o.tipo === "falta" ? "Falta" : "Atraso " + fmtHM(o.min)) + '<button type="button" data-sel-rm="' + escapeHtml(abnChave(o)) + '" title="Remover">✕</button></span>';
+    }).join("") + "</div>" : "";
+    Array.prototype.forEach.call(bar.querySelectorAll("[data-sel-rm]"), function(b){ b.addEventListener("click", function(){ delete abnSel[b.getAttribute("data-sel-rm")]; abnRenderOcorr(); }); });
+    $("abnManualRow").style.display = ks.length ? "none" : "";                       // com ocorrências marcadas, tipo/data/minutos vêm de cada uma
+    $("abnSalvar").textContent = ks.length > 1 ? "Enviar " + ks.length + " solicitações" : "Enviar solicitação";
+  }
+  // Lista de colaboradores e de datas do modal (a pesquisa fica dentro de cada lista suspensa). Mantém as escolhas se ainda existem.
   function abnPreencherFuncs(){
-    var q = normName($("abnFuncBusca").value || ""), atual = $("abnFunc").value;
+    var atual = $("abnFunc").value, dAtual = $("abnFiltroData").value;
     var todos = ativosPonto().filter(function(id){ return abnVeTudo() || abnMeusFuncIds()[id]; }).sort(function(a, b){ return funcName(a).localeCompare(funcName(b)); });
-    var ids = todos.filter(function(id){
-      var f = state.funcionarios[id] || {};
-      return !q || normName(funcName(id) + " " + (f.funcao || "") + " " + fmtFuncao(f.funcao)).indexOf(q) >= 0;
-    });
-    $("abnFunc").innerHTML = ids.length ? ids.map(function(id){ return '<option value="' + escapeHtml(id) + '">' + escapeHtml(funcName(id)) + "</option>"; }).join("")
-      : '<option value="">' + (todos.length ? "Nenhum colaborador encontrado" : (abnVeTudo() ? "Sem colaboradores ativos" : "Nenhum colaborador sob a sua liderança")) + "</option>";
-    if(ids.indexOf(atual) >= 0) $("abnFunc").value = atual;
-    $("abnFuncInfo").textContent = todos.length ? (q ? ids.length + " de " + todos.length + " colaborador" + (todos.length === 1 ? "" : "es") : todos.length + " colaborador" + (todos.length === 1 ? "" : "es")) : "";
+    $("abnFunc").innerHTML = '<option value="">' + (todos.length ? "Escolha o colaborador…" : (abnVeTudo() ? "Sem colaboradores ativos" : "Nenhum colaborador sob a sua liderança")) + "</option>" +
+      todos.map(function(id){ return '<option value="' + escapeHtml(id) + '">' + escapeHtml(funcName(id)) + "</option>"; }).join("");
+    if(todos.indexOf(atual) >= 0) $("abnFunc").value = atual; else if(todos.length === 1) $("abnFunc").value = todos[0];
+    $("abnFuncInfo").textContent = todos.length ? todos.length + " colaborador" + (todos.length === 1 ? "" : "es") : "";
+    abnConstruirIndice(todos);
+    $("abnFiltroData").innerHTML = '<option value="">' + (abnIdx.datas.length ? "Todas as datas…" : "Sem ocorrências no período") + "</option>" + abnIdx.datas.map(function(iso){
+      var n = abnIdx.porData[iso].length; return '<option value="' + iso + '">' + escapeHtml(abnSemana(iso) + " " + fmtDateBR(iso) + " · " + n + " colaborador" + (n === 1 ? "" : "es")) + "</option>";
+    }).join("");
+    if(abnIdx.datas.indexOf(dAtual) >= 0) $("abnFiltroData").value = dAtual; else abnModoData = false;
+    $("abnDataInfo").textContent = abnIdx.datas.length ? abnIdx.datas.length + " data" + (abnIdx.datas.length === 1 ? "" : "s") + " com ocorrência" : "";
     abnRenderOcorr();
   }
   function abrirNovoAbono(){
     if(!state.db || !state.obraId) return;
-    $("abnFuncBusca").value = "";
+    abnModoData = false; abnSel = {}; $("abnFunc").value = ""; $("abnFiltroData").value = "";
     abnPreencherFuncs();
     $("abnObraSub").textContent = (state.obras[state.obraId] || {}).nome || "";
     $("abnTipo").value = "falta"; $("abnData").value = todayIso(); $("abnMin").value = ""; $("abnMotivo").value = "";
@@ -3195,20 +3292,8 @@
     abnRenderOcorr();
     $("modalAbono").classList.add("show");
   }
-  async function salvarAbono(){
-    var erro = $("abnErro"); erro.classList.remove("show");
-    var fid = $("abnFunc").value, tipo = $("abnTipo").value, data = $("abnData").value, motivo = $("abnMotivo").value.trim();
-    var min = tipo === "falta" ? null : parseInt($("abnMin").value, 10);
-    var falha = function(t){ erro.textContent = t; erro.classList.add("show"); };
-    if(!fid) return falha(abnVeTudo() ? "Escolha o colaborador." : "Nenhum colaborador sob a sua liderança — peça ao DP para vincular em Cadastro > Liderança.");
-    if(!abnVeTudo() && !abnMeusFuncIds()[fid]) return falha("Este colaborador não está sob a sua liderança.");
-    if(!data) return falha("Informe a data.");
-    if(abnLimitado() && data < abnPrazo().ini) return falha("Fora do prazo: só é possível solicitar abonos de ocorrências a partir de " + fmtDateBR(abnPrazo().ini) + " (as solicitações de cada período vão até o dia 21). Fale com o DP.");
-    if(tipo !== "falta" && !(min > 0)) return falha("Informe os minutos de " + (tipo === "atraso" ? "atraso" : "saída antecipada") + ".");
-    if(!motivo){ $("abnMotivo").focus(); return falha("O motivo é obrigatório."); }
-    if(motivo.length < 5){ $("abnMotivo").focus(); return falha("Explique melhor o motivo (pelo menos algumas palavras)."); }
-    var dup = abnJaSolicitado(fid, data, tipo);
-    if(dup) return falha("Já existe a solicitação " + dup.id + " (" + ABN_STATUS[abnStatusDe(dup)].toLowerCase() + ") para este colaborador neste dia.");
+  // Monta o documento do pedido (inclui os aprovadores definidos no cadastro de quem solicita).
+  function abnMontarDoc(fid, data, tipo, min, motivo){
     var f = state.funcionarios[fid] || {};
     var doc = {funcId:fid, funcNome:funcName(fid), funcFuncao:f.funcao || "", tipo:tipo, data:data, minutos:min, motivo:motivo, status:"pendente_eng",
                solicitadoPor:state.email, solicitadoPorNome:abnNomeUsuario(), solicitadoEm:new Date().toISOString()};
@@ -3217,10 +3302,58 @@
       doc.aprov1 = apr[0].id; doc.aprov1Nome = apr[0].nome || "";
       if(apr[1]){ doc.aprov2 = apr[1].id; doc.aprov2Nome = apr[1].nome || ""; }
     }
-    var id = abnCodigo();
+    return doc;
+  }
+  async function salvarAbono(){
+    var erro = $("abnErro"); erro.classList.remove("show");
+    var motivo = $("abnMotivo").value.trim(), selecionadas = Object.keys(abnSel).map(function(k){ return abnSel[k]; });
+    var falha = function(t){ erro.textContent = t; erro.classList.add("show"); };
+    var col = state.db.collection("obras/" + state.obraId + "/abonos");
+    if(selecionadas.length){
+      // ---- várias ocorrências de uma vez (cada uma vira uma solicitação, com o mesmo motivo) ----
+      if(!motivo){ $("abnMotivo").focus(); return falha("O motivo é obrigatório."); }
+      if(motivo.length < 5){ $("abnMotivo").focus(); return falha("Explique melhor o motivo (pelo menos algumas palavras)."); }
+      var validas = [], ignoradas = 0;
+      selecionadas.forEach(function(o){
+        var ok = (abnVeTudo() || abnMeusFuncIds()[o.fid]) && !(abnLimitado() && o.iso < abnPrazo().ini) && !abnJaSolicitado(o.fid, o.iso, o.tipo) && (o.tipo === "falta" || o.min > 0);
+        if(ok) validas.push(o); else ignoradas++;
+      });
+      if(!validas.length) return falha("Nenhuma das ocorrências marcadas pode ser solicitada (já solicitadas ou fora do prazo).");
+      var usados = {}, novoId = function(){ var id; do{ id = abnCodigo(); }while(usados[id] || state.abonos[id]); usados[id] = true; return id; };
+      $("abnSalvar").disabled = true;
+      var feitos = 0, falhas = 0, fila = validas.slice(), total = validas.length, primeiroDoc = null;
+      var trabalhador = async function(){
+        while(fila.length){
+          var o = fila.shift(), doc = abnMontarDoc(o.fid, o.iso, o.tipo, o.tipo === "falta" ? null : o.min, motivo); primeiroDoc = primeiroDoc || doc;
+          try{ await col.doc(novoId()).set(doc); feitos++; }catch(e){ falhas++; }
+          $("abnSalvar").textContent = "Enviando… " + (feitos + falhas) + "/" + total;
+        }
+      };
+      await Promise.all([trabalhador(), trabalhador(), trabalhador(), trabalhador()]);
+      $("abnSalvar").disabled = false;
+      if(feitos){
+        $("modalAbono").classList.remove("show");
+        abnMsg(feitos + " solicitaç" + (feitos === 1 ? "ão enviada" : "ões enviadas") + " para aprovação" + (primeiroDoc && primeiroDoc.aprov1 ? " de " + abnAprovadoresTxt(primeiroDoc) : "") + "." +
+          (ignoradas ? " " + ignoradas + " ocorrência(s) ignorada(s) (já solicitadas ou fora do prazo)." : "") + (falhas ? " " + falhas + " não foram salvas — tente de novo com as que faltam." : ""), falhas ? "warn" : "ok");
+      } else { falha("Não consegui salvar as solicitações. Tente de novo."); abnAtualizarSelecao(); }
+      return;
+    }
+    // ---- uma solicitação digitada à mão (colaborador + tipo + data) ----
+    var fid = $("abnFunc").value, tipo = $("abnTipo").value, data = $("abnData").value;
+    var min = tipo === "falta" ? null : parseInt($("abnMin").value, 10);
+    if(!fid) return falha(abnVeTudo() ? "Escolha o colaborador (ou marque ocorrências na lista)." : "Nenhum colaborador sob a sua liderança — peça ao DP para vincular em Cadastro > Liderança.");
+    if(!abnVeTudo() && !abnMeusFuncIds()[fid]) return falha("Este colaborador não está sob a sua liderança.");
+    if(!data) return falha("Informe a data.");
+    if(abnLimitado() && data < abnPrazo().ini) return falha("Fora do prazo: só é possível solicitar abonos de ocorrências a partir de " + fmtDateBR(abnPrazo().ini) + " (as solicitações de cada período vão até o dia 21). Fale com o DP.");
+    if(tipo !== "falta" && !(min > 0)) return falha("Informe os minutos de " + (tipo === "atraso" ? "atraso" : "saída antecipada") + ".");
+    if(!motivo){ $("abnMotivo").focus(); return falha("O motivo é obrigatório."); }
+    if(motivo.length < 5){ $("abnMotivo").focus(); return falha("Explique melhor o motivo (pelo menos algumas palavras)."); }
+    var dup = abnJaSolicitado(fid, data, tipo);
+    if(dup) return falha("Já existe a solicitação " + dup.id + " (" + ABN_STATUS[abnStatusDe(dup)].toLowerCase() + ") para este colaborador neste dia.");
+    var doc = abnMontarDoc(fid, data, tipo, min, motivo), id = abnCodigo();
     $("abnSalvar").disabled = true;
     try{
-      await state.db.collection("obras/" + state.obraId + "/abonos").doc(id).set(doc);
+      await col.doc(id).set(doc);
       $("modalAbono").classList.remove("show");
       abnMsg("Solicitação " + id + " enviada para aprovação" + (doc.aprov1 ? " de " + abnAprovadoresTxt(doc) : "") + ".");
     }catch(e){ falha("Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo.")); }
@@ -3455,7 +3588,7 @@
     $("btnSyncPeriodo").textContent = "⟳ Sincronizar período";
     // sugestão inicial: o fechamento em andamento (16 até hoje); depois respeita o que a pessoa digitar
     if(!$("syncDe").value && !$("syncAte").value){ $("syncDe").value = b.ini; $("syncAte").value = hoje; }
-    $("syncHint").textContent = ro ? "" : "O robô do PC da DP atende o pedido em até uns 5 minutos e a tela se atualiza sozinha. Ele reimporta o ponto do Secullum: ajustes manuais feitos hoje são mantidos e, a partir da sincronização de amanhã, o ponto prevalece.";
+    $("syncHint").textContent = ro ? "" : "O robô do PC da DP atende o pedido em até uns 5 minutos e a tela se atualiza sozinha. Ele reimporta o ponto do Secullum: todos os ajustes são feitos no ponto e chegam ao painel pela sincronização.";
   }
   function pedirSync(tipo){
     if(!state.db || isReadOnly() || !state.obraId) return;
@@ -3611,7 +3744,6 @@
     var iso = $("diaSelecionado").value || todayIso();
     var readOnly = isReadOnly();
     $("importPontoPanel").style.display = readOnly ? "none" : "block";
-    $("btnAddAusenciaManual").style.display = readOnly ? "none" : "inline-block";
     var ativos = ativosPonto();
     var ausentesIds = [];
     ativos.forEach(function(id){
@@ -3640,29 +3772,22 @@
     diaAtualizarCabecalho();
 
     if(!rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">'+(rowsTodas.length ? "Nenhuma ausência com esses filtros." : 'Nenhuma ausência registrada para '+fmtDateBR(iso)+'.')+'</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="4">'+(rowsTodas.length ? "Nenhuma ausência com esses filtros." : 'Nenhuma ausência registrada para '+fmtDateBR(iso)+'.')+'</td></tr>';
     } else {
       tbody.innerHTML = rows.map(function(r){
         var f = state.funcionarios[r.id] || {};
         var codeHtml = codePill(r.a.codigo);
-        var origemHtml = r.a.origem==="manual" ? "Manual" : "Importado";
-        var acaoHtml = readOnly ? "" : '<button class="btn-ghost btn-sm" data-edit-func="'+r.id+'">Editar</button>';
+        var origemHtml = r.a.origem==="manual" ? "Manual (antigo)" : "Ponto";
         return "<tr>"+
           '<td class="nome"><a href="#" class="nome-link" data-ocorr="'+escapeHtml(r.id)+'" title="Abrir cadastro do funcionário">'+escapeHtml(r.nome)+"</a></td>"+
           "<td>"+escapeHtml(fmtFuncao(f.funcao)||"—")+"</td>"+
           "<td>"+codeHtml+"</td>"+
           "<td>"+origemHtml+"</td>"+
-          "<td>"+acaoHtml+"</td>"+
         "</tr>";
       }).join("");
     }
     Array.prototype.forEach.call(tbody.querySelectorAll("[data-ocorr]"), function(el){
       el.addEventListener("click", function(ev){ ev.preventDefault(); openOcorrencias(el.getAttribute("data-ocorr")); });
-    });
-    Array.prototype.forEach.call(tbody.querySelectorAll("[data-edit-func]"), function(el){
-      el.addEventListener("click", function(){
-        openAusenciaModal(iso, el.getAttribute("data-edit-func"));
-      });
     });
     if(!readOnly){ renderNaoEncontrados(); renderDesligamentos(); }
     else { $("naoEncontradosBox").innerHTML = ""; $("desligamentosBox").innerHTML = ""; }
@@ -3687,6 +3812,73 @@
     var d = new Date(iso+"T12:00:00"); d.setDate(d.getDate()-1);
     return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   }
+
+  // ===== PONTO DO FUNCIONÁRIO (Grade do Mês): todos os registros do período e os registros de um dia =====
+  // Os horários das batidas ficam em obras/<obra>/batidas/<dia> = {batidas:{<funcionário>:["07:00","12:00","13:00","19:00"]}} e só são lidos aqui.
+  function pontoCarregarDia(iso){
+    var k = state.obraId + "|" + iso;
+    if(pontoCache[k] !== undefined) return Promise.resolve(pontoCache[k]);
+    if(!state.db) return Promise.resolve(null);
+    return state.db.collection("obras/" + state.obraId + "/batidas").doc(iso).get().then(function(d){
+      var v = d && d.exists ? ((d.data() || {}).batidas || {}) : null; pontoCache[k] = v; return v;
+    }).catch(function(){ return null; });
+  }
+  async function pontoCarregarDias(isos){
+    var out = {}, fila = isos.slice();
+    var trab = async function(){ while(fila.length){ var i = fila.shift(); out[i] = await pontoCarregarDia(i); } };
+    await Promise.all([trab(), trab(), trab(), trab(), trab(), trab(), trab(), trab()]);
+    return out;
+  }
+  var PONTO_ROTULOS = ["Entrada 1", "Saída 1", "Entrada 2", "Saída 2"];
+  function pontoCabecalho(fid, sub){
+    var f = state.funcionarios[fid] || {};
+    $("pontoAvatar").textContent = String(f.nome || "?").trim().split(/\s+/).slice(0, 2).map(function(x){ return x.charAt(0); }).join("").toUpperCase();
+    $("pontoTitulo").textContent = funcName(fid);
+    $("pontoSub").innerHTML = '<div class="funcao">' + escapeHtml(fmtFuncao(f.funcao) || "Sem função") + "</div><div>" + sub + "</div>";
+  }
+  async function abrirPontoFunc(fid){
+    var p = state.gradePeriodo; if(!p || !state.funcionarios[fid]) return;
+    var hoje = todayIso(), isos = p.dias.filter(function(i){ return i <= hoje; });
+    pontoCabecalho(fid, "Registros de ponto de " + fmtDateBR(p.dias[0]) + " a " + fmtDateBR(p.dias[p.dias.length - 1]));
+    $("pontoCorpo").innerHTML = '<div class="abn-oc-vazio">Carregando os horários…</div>';
+    $("modalPonto").classList.add("show");
+    var bat = await pontoCarregarDias(isos), semHorario = 0, tot = {t:0, a:0, e:0, f:0};
+    var linhas = isos.map(function(iso){
+      var d = state.dias[iso], a = getAusenciaDoDia(iso, fid), h = horasDoFuncNoDia(iso, fid) || {t:0, e:0, a:0}, b = bat[iso] && bat[iso][fid];
+      var cls = ehNaoUtil(iso) ? "nao-util" : "";
+      if(!d) return '<tr class="sem-dado"><td>' + fmtDateBR(iso).slice(0, 5) + " " + escapeHtml(abnSemana(iso)) + '</td><td colspan="9">dia sem importação</td></tr>';
+      if(!b && !(a && a.codigo) && h.t) semHorario++;
+      tot.t += h.t || 0; tot.e += h.e || 0; if(a && a.codigo === "F") tot.f++; if(!(a && a.codigo) && h.a) tot.a += h.a;
+      return '<tr class="' + cls + '" data-ponto-dia="' + iso + '" style="cursor:pointer;" title="Abrir o dia"><td>' + fmtDateBR(iso).slice(0, 5) + " " + escapeHtml(abnSemana(iso)) + "</td><td>" + (a && a.codigo ? codePill(a.codigo) : "") + "</td>" +
+        [0, 1, 2, 3].map(function(i){ return '<td class="h">' + ((b && b[i]) ? escapeHtml(b[i]) : "") + "</td>"; }).join("") +
+        '<td class="h">' + (h.t ? fmtHM(h.t) : "") + '</td><td class="h">' + ((h.a && !(a && a.codigo)) ? "-" + fmtHM(h.a) : "") + '</td><td class="h">' + (h.e ? "+" + fmtHM(h.e) : "") + "</td></tr>";
+    });
+    $("pontoCorpo").innerHTML = '<div class="ponto-scroll"><table class="ponto-tbl"><thead><tr><th>Dia</th><th>Ocorrência</th>' + PONTO_ROTULOS.map(function(r){ return "<th>" + r + "</th>"; }).join("") + "<th>Trabalhadas</th><th>Atraso</th><th>Extras</th></tr></thead><tbody>" +
+      linhas.join("") + '<tr class="tot"><td colspan="2">Totais do período</td><td colspan="4">' + tot.f + " falta" + (tot.f === 1 ? "" : "s") + '</td><td class="h">' + fmtHM(tot.t) + '</td><td class="h">' + (tot.a ? "-" + fmtHM(tot.a) : "") + '</td><td class="h">' + (tot.e ? "+" + fmtHM(tot.e) : "") + "</td></tr></tbody></table></div>" +
+      (semHorario ? '<p class="abn-sub" style="margin-top:8px;">' + semHorario + " dia(s) sem os horários das batidas (importados antes dessa função). Sincronize o período de novo para trazê-los.</p>" : "") +
+      '<p class="abn-sub" style="margin-top:6px;">Clique em um dia para ver o registro dele.</p>';
+    Array.prototype.forEach.call($("pontoCorpo").querySelectorAll("[data-ponto-dia]"), function(tr){ tr.addEventListener("click", function(){ abrirPontoDia(fid, tr.getAttribute("data-ponto-dia")); }); });
+  }
+  async function abrirPontoDia(fid, iso){
+    if(!state.funcionarios[fid]) return;
+    pontoCabecalho(fid, "Registro de ponto de " + fmtDateBR(iso) + " (" + escapeHtml(abnSemana(iso)) + ")");
+    $("pontoCorpo").innerHTML = '<div class="abn-oc-vazio">Carregando os horários…</div>';
+    $("modalPonto").classList.add("show");
+    var mapa = await pontoCarregarDia(iso), b = mapa && mapa[fid], d = state.dias[iso], a = getAusenciaDoDia(iso, fid), h = horasDoFuncNoDia(iso, fid);
+    if(!d){ $("pontoCorpo").innerHTML = '<div class="abn-oc-vazio">Este dia ainda não foi importado do ponto.</div>'; return; }
+    var kp = function(rot, v){ return '<div class="kpi"><div class="kpi-label">' + rot + '</div><div class="kpi-value" style="font-size:20px;">' + v + "</div></div>"; };
+    $("pontoCorpo").innerHTML = '<div class="ponto-dia">' +
+      '<div class="ponto-bat">' + [0, 1, 2, 3].map(function(i){ var v = b && b[i]; return '<div><div class="l">' + PONTO_ROTULOS[i] + '</div><div class="v' + (v ? "" : " vazio") + '">' + (v ? escapeHtml(v) : "—") + "</div></div>"; }).join("") + "</div>" +
+      '<div class="kpis" style="margin:0;">' + kp("Ocorrência", a && a.codigo ? codePill(a.codigo) : "Presente") + kp("Trabalhadas", h && h.t ? fmtHM(h.t) : "—") + kp("Atraso", (h && h.a && !(a && a.codigo)) ? fmtHM(h.a) : "—") + kp("Horas extras", h && h.e ? fmtHM(h.e) : "—") + "</div>" +
+      (!b && !(a && a.codigo) ? '<p class="abn-sub">Sem horários das batidas para este dia (importado antes dessa função). Sincronize o período de novo para trazê-los.</p>' : "") +
+      '<p class="abn-sub">Origem: ' + escapeHtml(d.arquivoNome || "—") + (d.importadoEm ? " · importado em " + escapeHtml(fmtDataHora(d.importadoEm)) : "") + ".</p></div>";
+  }
+  document.addEventListener("click", function(ev){
+    var a = ev.target.closest && ev.target.closest("a[data-ponto-func]");
+    if(a){ ev.preventDefault(); abrirPontoFunc(a.getAttribute("data-ponto-func")); return; }
+    var td = ev.target.closest && ev.target.closest("#gradeTable td.dia-cell[data-dia][data-func]");
+    if(td) abrirPontoDia(td.getAttribute("data-func"), td.getAttribute("data-dia"));
+  });
 
   // ===== Alerta de ausência prolongada: 5+ FALTAS =====
   // O alerta aparece quando a pessoa soma 5 faltas (F) numa mesma ausência e fica na tela até ela REGISTRAR O PONTO de novo
@@ -4372,7 +4564,7 @@
       naoMapWarning = '<div class="status-msg show warn" style="margin-top:10px;">'+
         naoMap.length+' motivo(s) no arquivo que eu não reconheço (não estavam na lista confirmada com você): '+
         naoMap.map(function(n){ return escapeHtml(n.nome)+' — "'+escapeHtml(n.motivo)+'"'; }).join("; ")+
-        '. Esses funcionários ficam como presente por enquanto — confira e registre manualmente se for o caso.</div>';
+        '. Esses funcionários ficam como presente por enquanto — confira no ponto do Secullum e sincronize de novo.</div>';
     }
 
     // Ativos do cadastro que não apareceram em NENHUMA linha do relatório (nem presente, nem ausente)
@@ -4535,7 +4727,25 @@
       possiveisDesligamentos: possiveisDesligamentos
     };
     if(horas) docDia.horas = horas;
+    // horários das batidas por funcionário: gravados à parte (obras/<obra>/batidas/<dia>) para não pesar na leitura do histórico
+    var bat = {};
+    (pend.pessoas || []).forEach(function(p){
+      if(!p.batidas || !p.batidas.length) return;
+      var bfid = matchFuncionario(p.nome, p.matricula, p.homonimo, iso);
+      if(bfid && !bat[bfid] && batePonto(bfid)) bat[bfid] = p.batidas;
+    });
+    docDia._batidas = bat;
     return docDia;
+  }
+  // Grava o dia e, separado, os horários das batidas.
+  var pontoCache = {};
+  async function gravarDia(iso, payload){
+    var bat = payload._batidas; delete payload._batidas;
+    await state.db.collection("obras/" + state.obraId + "/dias").doc(iso).set(payload);
+    if(bat && Object.keys(bat).length){
+      await state.db.collection("obras/" + state.obraId + "/batidas").doc(iso).set({data:iso, batidas:bat, atualizadoEm:new Date().toISOString(), atualizadoPor:state.email});
+    }
+    delete pontoCache[state.obraId + "|" + iso];
   }
 
   function confirmarImport(){
@@ -4548,7 +4758,7 @@
     statusEl.className = "status-msg show info";
     statusEl.textContent = "Salvando...";
 
-    state.db.collection("obras/" + state.obraId + "/dias").doc(iso).set(payload).then(function(){
+    gravarDia(iso, payload).then(function(){
       statusEl.className = "status-msg show ok";
       statusEl.textContent = "Importação salva para " + fmtDateBR(iso) + ".";
       $("importPreview").style.display = "none";
@@ -4675,7 +4885,7 @@
       statusEl.className = "status-msg show info";
       statusEl.textContent = "Salvando dia " + (i+1) + " de " + alvo.length + " (" + fmtDateBR(it.iso) + ")...";
       try{
-        await state.db.collection("obras/" + state.obraId + "/dias").doc(it.iso).set(montarPayloadDia(it.pend, it.iso, {semInativos:true}));
+        await gravarDia(it.iso, montarPayloadDia(it.pend, it.iso, {semInativos:true}));
         salvos.push(it);
       }catch(err){
         falhas.push(fmtDateBR(it.iso) + " (" + ((err && err.code) || "erro") + ")");
@@ -4798,7 +5008,7 @@
 
     var tbody = "<tbody>";
     g.linhas.forEach(function(l){
-      tbody += '<tr><td class="col-nome">'+celNome(l.fid)+"</td>";
+      tbody += '<tr><td class="col-nome">'+celNome(l.fid, "", true)+"</td>";
       l.cel.forEach(function(min, i){
         var txt = "";
         var t3 = modo === "sab" && l.terc[i];
@@ -4875,7 +5085,7 @@
   }
 
   function renderGrade(){
-    var p = periodo("Grade");
+    var p = periodo("Grade"); state.gradePeriodo = p;
     avisoPeriodo("Grade", p);
     renderCalGrade(p);
     var modoG = $("modoGrade") ? $("modoGrade").value : "aus";
@@ -4931,13 +5141,13 @@
       var totExtP = 0, totAtrP = 0;
       var np = !batePonto(fid);
       var fe = np && foraEscopo(fid);
-      tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+celNome(fid, np ? (fe ? ' <span class="tag-np" title="Fora dos departamentos acompanhados nesta empresa: fora das contas de ausência, carga, % e horas extras">fora do escopo</span>' : ' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>') : "")+"</td>";
+      tbody += '<tr'+(np?' class="linha-np"':'')+'><td class="col-nome">'+celNome(fid, np ? (fe ? ' <span class="tag-np" title="Fora dos departamentos acompanhados nesta empresa: fora das contas de ausência, carga, % e horas extras">fora do escopo</span>' : ' <span class="tag-np" title="Não bate ponto: fora das contas de ausência, carga, % e horas extras">não bate ponto</span>') : "", true)+"</td>";
       p.dias.forEach(function(iso2, di){
         if(np){ tbody += '<td class="hcell np '+clsDia(iso2)+'"></td>'; return; }
         var a = getAusenciaDoDia(iso2, fid);
         var hx = horasDoFuncNoDia(iso2, fid);
         var ext = hx && hx.e > 0 ? hx.e : 0;
-        // Atraso/saída antecipada só aparece em dia SEM ausência: se há falta (ou ajuste manual no Diário), vale só a ausência.
+        // Atraso/saída antecipada só aparece em dia SEM ausência: se há falta , vale só a ausência.
         // O dia em andamento ainda está incompleto: sem atraso.
         var atr = (hx && hx.a > 0 && iso2 < hojeG && !(a && a.codigo)) ? hx.a : 0;
         somaExtDia[di] += ext; somaAtrDia[di] += atr; totExtP += ext; totAtrP += atr;
@@ -4969,16 +5179,7 @@
     var table = $("gradeTable");
     table.innerHTML = thead + tbody;
     table.classList.remove("modo-sab");
-    if(isReadOnly()){
-      table.classList.add("read-only");
-    } else {
-      table.classList.remove("read-only");
-      Array.prototype.forEach.call(table.querySelectorAll("td.dia-cell"), function(el){
-        el.addEventListener("click", function(){
-          openAusenciaModal(el.getAttribute("data-dia"), el.getAttribute("data-func"));
-        });
-      });
-    }
+    table.classList.remove("read-only");
   }
 
   // ================= TAB: RESUMO MENSAL =================
@@ -5979,61 +6180,6 @@
     });
   }
 
-  // ================= MODAL: editar ausência =================
-  function openAusenciaModal(iso, funcId){
-    state.modalDate = iso;
-    state.modalFuncId = funcId;
-    $("modalFuncSelectWrap").style.display = "none";
-    $("modalAusenciaTitulo").textContent = funcId ? funcName(funcId) : "Editar";
-    $("modalAusenciaSub").textContent = fmtDateBR(iso);
-    var a = getAusenciaDoDia(iso, funcId) || {};
-    $("modalCodigo").value = a.codigo || "";
-    $("modalAusencia").classList.add("show");
-  }
-
-  function openAusenciaModalNovo(){
-    var iso = $("diaSelecionado").value || todayIso();
-    state.modalDate = iso;
-    state.modalFuncId = null;
-    $("modalAusenciaTitulo").textContent = "Registrar ausência";
-    $("modalAusenciaSub").textContent = fmtDateBR(iso);
-    $("modalFuncSelectWrap").style.display = "block";
-    var ids = ativosPonto().sort(function(a,b){ return funcName(a).localeCompare(funcName(b)); });
-    $("modalFuncSelect").innerHTML = ids.map(function(id){ return '<option value="'+id+'">'+escapeHtml(funcName(id))+'</option>'; }).join("");
-    $("modalCodigo").value = "";
-    $("modalAusencia").classList.add("show");
-  }
-
-  function closeModal(){ $("modalAusencia").classList.remove("show"); }
-
-  function salvarModal(){
-    var fid = state.modalFuncId || $("modalFuncSelect").value;
-    var iso = state.modalDate;
-    if(!fid || !iso || !state.db || isReadOnly()) { closeModal(); return; }
-    var codigo = $("modalCodigo").value || null;
-
-    var doc = state.dias[iso] || {ausencias:{}, naoEncontrados:[]};
-    var ausencias = Object.assign({}, doc.ausencias||{});
-    if(!codigo){
-      delete ausencias[fid];
-    } else {
-      ausencias[fid] = {codigo:codigo, origem:"manual", atualizadoEm:new Date().toISOString(), atualizadoPor:state.email};
-    }
-    var payload = {
-      data: iso,
-      ausencias: ausencias,
-      naoEncontrados: doc.naoEncontrados || [],
-      possiveisDesligamentos: doc.possiveisDesligamentos || [],
-      arquivoNome: doc.arquivoNome || null,
-      origemImport: doc.origemImport || null,
-      importadoEm: doc.importadoEm || null
-    };
-    state.db.collection("obras/" + state.obraId + "/dias").doc(iso).set(payload).then(closeModal).catch(function(err){
-      alert("Erro: " + (err&&err.code||"erro"));
-      closeModal();
-    });
-  }
-
   // ================= TROCAR MINHA SENHA (self-service) =================
   // Primeiro acesso = quem ainda não tem senha pessoal (sem senhaHash no cadastro) e entrou com a senha padrão: abre a troca sozinha.
   var senhaDoLogin = null;       // senha digitada neste login (só na memória; serve para já preencher "senha atual")
@@ -6554,6 +6700,8 @@
   $("loginSenha").addEventListener("keydown", function(e){ if(e.key==="Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
   $("ocorrFechar").addEventListener("click", closeOcorrencias);
+  $("pontoFechar").addEventListener("click", function(){ $("modalPonto").classList.remove("show"); });
+  $("modalPonto").addEventListener("click", function(ev){ if(ev.target === this) this.classList.remove("show"); });
   $("novidadesOk").addEventListener("click", fecharNovidades);
   $("modalNovidades").addEventListener("click", function(ev){ if(ev.target === this) fecharNovidades(); });
   $("obsEnviar").addEventListener("click", obsEnviar);
@@ -6835,7 +6983,6 @@
       if(e.dataTransfer.files.length){ $("fileCadastro").files = e.dataTransfer.files; handleImportCadastroFile(); }
     });
   })();
-  $("btnAddAusenciaManual").addEventListener("click", openAusenciaModalNovo);
   $("btnNovoAbono").addEventListener("click", abrirNovoAbono);
   $("cadSelTodos").addEventListener("change", function(){
     var marcar = this.checked; (state.cadVisiveis || []).forEach(function(k){ state.cadSel[k] = marcar; }); renderCadastro();
@@ -6848,15 +6995,14 @@
   $("abnCancelar").addEventListener("click", function(){ $("modalAbono").classList.remove("show"); });
   $("abnSalvar").addEventListener("click", salvarAbono);
   $("abnTipo").addEventListener("change", function(){ $("abnMinWrap").style.display = this.value === "falta" ? "none" : ""; abnRenderOcorr(); });
-  $("abnFunc").addEventListener("change", abnRenderOcorr);
-  $("abnFuncBusca").addEventListener("input", abnPreencherFuncs);
+  // dois filtros que se excluem: escolher colaborador lista as datas dele; escolher data lista os colaboradores do dia
+  $("abnFunc").addEventListener("change", function(){ abnModoData = false; $("abnFiltroData").value = ""; abnRenderOcorr(); });
+  $("abnFiltroData").addEventListener("change", function(){ abnModoData = !!this.value; if(abnModoData) $("abnFunc").value = ""; abnRenderOcorr(); });
   $("abnData").addEventListener("change", abnRenderOcorr);
   $("abnDecVoltar").addEventListener("click", function(){ $("modalAbonoDecisao").classList.remove("show"); });
   $("abnDecConfirmar").addEventListener("click", confirmarDecisaoAbono);
   ["abnFiltroStatus", "abnFiltroTipo"].forEach(function(id){ $(id).addEventListener("change", renderAbonos); });
   $("abnBusca").addEventListener("input", renderAbonos);
-  $("modalCancelar").addEventListener("click", closeModal);
-  $("modalSalvar").addEventListener("click", salvarModal);
 
   Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function(btn){
     btn.addEventListener("click", function(){
