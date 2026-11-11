@@ -533,6 +533,9 @@
   .combo-opt.sel{ color:var(--accent); font-weight:600; }
   .combo-opt.off{ opacity:.4; cursor:not-allowed; }
   .combo-vazio{ padding:10px; font-size:12.5px; color:var(--text-faint); }
+  .usu-semaprov{ display:flex; gap:9px; align-items:flex-start; margin:10px 0 0; font-size:12.5px; color:var(--text-dim); cursor:pointer; text-transform:none; letter-spacing:0; }
+  .usu-semaprov input{ width:auto; flex:none; margin:3px 0 0; }
+  .abn-etapa.abn-auto{ color:var(--accent); }
   .multi-dd{ position:relative; }
   .multi-dd summary{ list-style:none; cursor:pointer; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:7px; color:var(--text); font-size:13px; padding:8px 32px 8px 10px; position:relative; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .multi-dd summary::-webkit-details-marker{ display:none; }
@@ -788,6 +791,7 @@
         <label for="buscaGrade" class="grade-toolbar-titulo">Funcionários</label>
         <input type="search" id="buscaGrade" placeholder="Buscar por nome ou função…" autocomplete="off">
         <span id="buscaGradeInfo"></span>
+        <button class="btn-ghost btn-sm" id="sabLimparFiltros" type="button" style="display:none;"></button>
       </div>
       <div class="grade-wrap"><table class="grade" id="gradeTable"></table></div>
     </div>
@@ -983,10 +987,12 @@
             <select id="usuNivel"><option value="solicitacao">Solicita e acompanha</option><option value="dp">Visualização total (DP)</option></select></div>
           <div class="field"><label for="usuVisao" title="Liderados = funcionários marcados em Cadastro › Liderança">Funcionários que enxerga</label>
             <select id="usuVisao"><option value="lideranca">Só os liderados dele(a)</option><option value="todos">Todos os funcionários</option></select></div>
-          <div class="field"><label for="usuAprov1">Quem aprova — 1ª etapa</label><select id="usuAprov1"></select></div>
-          <div class="field"><label for="usuAprov2">Quem aprova — 2ª etapa (opcional)</label><select id="usuAprov2"></select></div>
+          <div class="field" id="usuAprov1Field"><label id="usuAprov1Rot">Quem aprova — 1ª etapa (pode marcar mais de uma pessoa)</label>
+            <details class="multi-dd" id="ddAprov1"><summary id="usuAprov1Resumo">Escolher…</summary><div class="multi-painel"><input type="search" class="multi-busca" placeholder="Pesquisar…" autocomplete="off"><div id="usuAprov1"></div></div></details></div>
+          <div class="field" id="usuAprov2Field"><label for="usuAprov2">Quem aprova — 2ª etapa (opcional)</label><select id="usuAprov2"></select></div>
         </div>
-        <p class="panel-hint" id="usuAprovDica" style="margin:6px 0 0;">As solicitações desta pessoa são decididas só por quem for escolhido aqui. Informe pelo menos uma etapa; com as duas, a 2ª só decide depois da 1ª aprovar. Quem aprova precisa ter a aba Solicitações de abonos liberada.</p>
+        <label class="usu-semaprov"><input type="checkbox" id="usuSemAprov"> <span><b>Pode solicitar abonos sem aprovação</b> — a solicitação já nasce aprovada e vai direto para o DP lançar no ponto (não precisa escolher aprovadores).</span></label>
+        <p class="panel-hint" id="usuAprovDica" style="margin:6px 0 0;">As solicitações desta pessoa são decididas só por quem for escolhido aqui. Na 1ª etapa pode haver mais de um aprovador: basta um deles aprovar para seguir. Com 2ª etapa, ela só decide depois da 1ª aprovar. Quem aprova precisa ter a aba Solicitações de abonos liberada.</p>
         <div class="login-error" id="usuErro"></div>
         <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:flex-end;">
           <button class="btn-ghost" id="usuCancelar" type="button">Cancelar</button>
@@ -1012,7 +1018,7 @@
           <button class="btn btn-sm" id="usuLoteEnviar" type="button">Enviar e-mail de acesso</button>
           <button class="btn-ghost btn-sm" id="usuLoteLimpar" type="button">Limpar seleção</button></div>
         <div class="table-wrap"><table>
-          <thead><tr><th class="usu-th-sel"><input type="checkbox" id="usuSelTodos" title="Selecionar todos os listados"></th><th>Nome</th><th>E-mail / CPF</th><th>Setor</th><th>Empresas</th><th>Acesso</th><th></th></tr></thead>
+          <thead><tr><th class="usu-th-sel"><input type="checkbox" id="usuSelTodos" title="Selecionar todos os listados"></th><th>Nome</th><th>E-mail / CPF</th><th>Setor</th><th>Empresas</th><th></th></tr></thead>
           <tbody id="usuTbody"></tbody>
         </table></div>
       </div>
@@ -2675,7 +2681,7 @@
     state.funcionarios = {};
     state.dias = {}; pontoCache = {};
     state.abonos = {};
-    state.cadSel = {}; cadXl.filtros = {}; cadXl.ordem = null;
+    state.cadSel = {}; cadXl.filtros = {}; cadXl.ordem = null; sabXl.filtros = {}; sabXl.ordem = null;
     state.deptFiltro = "";
     if(state.unsubFuncionarios) state.unsubFuncionarios();
     if(state.unsubDias) state.unsubDias();
@@ -2997,11 +3003,19 @@
   // Pode decidir este pedido AGORA? (engenharia na 1ª etapa, gerência na 2ª; administração em ambas)
   // Pedidos novos guardam aprov1/aprov2 (escolhidos no cadastro de quem solicita): só essas pessoas decidem a etapa. Pedidos antigos
   // (sem aprov1) seguem a regra por nível. A administração decide qualquer etapa.
+  // Aprovadores no cadastro: [{id, nome, etapa}] — a 1ª etapa pode ter várias pessoas (basta uma aprovar). Cadastros antigos não têm
+  // "etapa": o 1º da lista é a 1ª etapa e o 2º a 2ª.
+  function aprovPorEtapa(lista){
+    var e1 = [], e2 = [];
+    (lista || []).forEach(function(p, i){ ((p.etapa || (i === 0 ? 1 : 2)) === 2 ? e2 : e1).push(p); });
+    return {e1:e1, e2:e2};
+  }
+  function abnAprov1Lista(a){ return (a.aprov1Lista && a.aprov1Lista.length) ? a.aprov1Lista : (a.aprov1 ? [{id:a.aprov1, nome:a.aprov1Nome}] : []); }
   function abnPodeDecidirEtapa(a){
     var n = abnNivel(), st = abnStatusDe(a);
     if(n === "admin") return st === "pendente_eng" || st === "pendente_ger";
     if(a.aprov1){
-      if(st === "pendente_eng") return normEmail(a.aprov1) === state.email;
+      if(st === "pendente_eng") return abnAprov1Lista(a).some(function(p){ return normEmail(p.id) === state.email; });
       if(st === "pendente_ger") return !!a.aprov2 && normEmail(a.aprov2) === state.email;
       return false;
     }
@@ -3009,10 +3023,10 @@
     if(st === "pendente_ger") return n === "gerencia";
     return false;
   }
-  function abnSouAprovador(a){ return !!state.email && (normEmail(a.aprov1) === state.email || normEmail(a.aprov2) === state.email); }
+  function abnSouAprovador(a){ return !!state.email && (abnAprov1Lista(a).some(function(p){ return normEmail(p.id) === state.email; }) || normEmail(a.aprov2) === state.email); }
   function abnAprovadoresTxt(a){
-    if(!a.aprov1) return "";
-    return (a.aprov1Nome || nomeBonito(a.aprov1)) + (a.aprov2 ? " → " + (a.aprov2Nome || nomeBonito(a.aprov2)) : "");
+    var l1 = abnAprov1Lista(a); if(!l1.length) return "";
+    return l1.map(function(p){ return p.nome || nomeBonito(p.id); }).join(" ou ") + (a.aprov2 ? " → " + (a.aprov2Nome || nomeBonito(a.aprov2)) : "");
   }
   // Notificações do menu: aprovadores veem quantos pedidos esperam a decisão deles; DP vê todos os pendentes;
   // quem só solicita vê quantas das suas solicitações foram decididas desde a última vez que abriu a aba.
@@ -3030,7 +3044,7 @@
       var ativa = document.querySelector(".tab-btn.active");
       if(ativa && ativa.getAttribute("data-tab") === "abonos") abnMarcarVisto();   // está olhando a aba: nada novo
       var visto = abnVistoEm();
-      var decididas = lista.filter(function(a){ var st = abnStatusDe(a); return normEmail(a.solicitadoPor) === state.email && (st === "aprovado" || st === "reprovado") && abnDecisaoEm(a) > visto; }).length;
+      var decididas = lista.filter(function(a){ var st = abnStatusDe(a); return normEmail(a.solicitadoPor) === state.email && !a.semAprovacao && (st === "aprovado" || st === "reprovado") && abnDecisaoEm(a) > visto; }).length;
       n = esperam + decididas;
       tit = (esperam ? esperam + " solicitação(ões) aguardando a sua aprovação" : "") + (esperam && decididas ? " · " : "") + (decididas ? decididas + " das suas solicitações foram decididas" : "");
     }
@@ -3066,7 +3080,7 @@
     return normName([
       a.id, a.funcNome, a.funcFuncao, fmtFuncao(a.funcFuncao), ABN_TIPOS[a.tipo] || a.tipo, a.data, fmtDateBR(a.data), a.minutos ? a.minutos + " min" : "", a.motivo,
       ABN_STATUS[st] || st, a.solicitadoPorNome || nm(a.solicitadoPor), a.solicitadoPor, fmtDataHora(a.solicitadoEm),
-      a.aprov1Nome || nm(a.aprov1), a.aprov2Nome || nm(a.aprov2),
+      abnAprov1Lista(a).map(function(p){ return p.nome || nm(p.id); }).join(" "), a.aprov2Nome || nm(a.aprov2), a.semAprovacao ? "sem aprovação" : "",
       a.engPorNome || nm(a.engPor), a.engObs, a.gerPorNome || nm(a.gerPor), a.gerObs, nm(a.decididoPor), a.obsDecisao
     ].filter(function(x){ return x; }).join(" "));
   }
@@ -3107,14 +3121,14 @@
     $("abnKpis").innerHTML = [kpiCard("Aguardando 1ª aprovação", n("pendente_eng"), n("pendente_eng") ? "bad" : ""), kpiCard("Aguardando 2ª aprovação", n("pendente_ger"), n("pendente_ger") ? "bad" : ""), kpiCard("Aprovadas", n("aprovado"), "good"), kpiCard("Reprovadas", n("reprovado"), "")].concat(abnEhDP() ? [kpiCard("Aprovadas a lançar no ponto", todos.filter(function(a){ return abnStatusDe(a) === "aprovado" && !a.lancadoPonto; }).length, todos.some(function(a){ return abnStatusDe(a) === "aprovado" && !a.lancadoPonto; }) ? "bad" : "")] : []).join("");
     var vinc = abnVeTudo() ? -1 : Object.keys(abnMeusFuncIds()).length;
     $("abnNivelInfo").textContent = "Seu nível: " + (abnNivel() === "admin" ? "Administração (todas as etapas)" : ABN_NIVEL_ROTULO[abnNivel()]) +
-      (state.perfil && state.perfil.aprovadores && state.perfil.aprovadores.length && !isAdmin() ? " · suas solicitações são aprovadas por " + state.perfil.aprovadores.map(function(p){ return p.nome; }).join(" → ") : "") +
+      (state.perfil && !isAdmin() ? (state.perfil.abonoSemAprovacao ? " · suas solicitações não precisam de aprovação" : (state.perfil.aprovadores && state.perfil.aprovadores.length ? " · suas solicitações são aprovadas por " + (function(pe){ return pe.e1.map(function(p){ return p.nome; }).join(" ou ") + (pe.e2.length ? " → " + pe.e2.map(function(p){ return p.nome; }).join(" ou ") : ""); })(aprovPorEtapa(state.perfil.aprovadores)) : "")) : "") +
       (abnVeTudo() ? "" : vinc ? " — você vê " + vinc + " colaborador" + (vinc === 1 ? "" : "es") + " sob a sua liderança." : " — você ainda não está vinculado a nenhum colaborador (o DP faz isso em Cadastro > Liderança).");
     var lista = abnListaFiltrada(), dp = abnEhDP();
     var linhaAbono = function(a){
       var tipo = ABN_TIPOS[a.tipo] || a.tipo, min = a.minutos ? ' <span class="abn-sub">' + a.minutos + " min</span>" : "";
       var st = abnStatusDe(a);
       var etapa = function(rot, por, em, obs, ok){ return a[por] ? '<span class="abn-etapa">' + rot + ": " + (ok ? "✓ " : "✗ ") + escapeHtml(a[por + "Nome"] || nomeBonito(a[por])) + " · " + escapeHtml(fmtDataHora(a[em])) + (a[obs] ? " · " + escapeHtml(a[obs]) : "") + "</span>" : ""; };
-      var dec = (a.aprov1 && (st === "pendente_eng" || st === "pendente_ger") ? '<span class="abn-etapa">Aprovação: ' + escapeHtml(abnAprovadoresTxt(a)) + "</span>" : "") + etapa("1ª aprovação", "engPor", "engEm", "engObs", a.engResultado !== "reprovado") + etapa("2ª aprovação", "gerPor", "gerEm", "gerObs", a.gerResultado !== "reprovado") +
+      var dec = (a.semAprovacao ? '<span class="abn-etapa abn-auto">Sem necessidade de aprovação (autorizado no cadastro de quem solicitou)</span>' : "") + (a.aprov1 && (st === "pendente_eng" || st === "pendente_ger") ? '<span class="abn-etapa">Aprovação: ' + escapeHtml(abnAprovadoresTxt(a)) + "</span>" : "") + etapa("1ª aprovação", "engPor", "engEm", "engObs", a.engResultado !== "reprovado") + etapa("2ª aprovação", "gerPor", "gerEm", "gerObs", a.gerResultado !== "reprovado") +
         (a.status === "pendente" && a.decididoPor ? '<span class="abn-etapa">' + escapeHtml(nomeBonito(a.decididoPor)) + "</span>" : "") + (st === "cancelado" && a.obsDecisao ? '<span class="abn-etapa">' + escapeHtml(a.obsDecisao) + "</span>" : "") +
         (st === "aprovado" ? (a.lancadoPonto ? '<span class="abn-etapa abn-lanc">✓ Lançado no ponto · ' + escapeHtml(a.lancadoPorNome || nomeBonito(a.lancadoPor)) + " · " + escapeHtml(fmtDataHora(a.lancadoEm)) + "</span>" : '<span class="abn-etapa abn-nlanc">Falta lançar no ponto</span>') : "");
       var acoes = "";
@@ -3298,9 +3312,16 @@
     var doc = {funcId:fid, funcNome:funcName(fid), funcFuncao:f.funcao || "", tipo:tipo, data:data, minutos:min, motivo:motivo, status:"pendente_eng",
                solicitadoPor:state.email, solicitadoPorNome:abnNomeUsuario(), solicitadoEm:new Date().toISOString()};
     var apr = (state.perfil && state.perfil.aprovadores) || [];
-    if(!isAdmin() && apr.length){
-      doc.aprov1 = apr[0].id; doc.aprov1Nome = apr[0].nome || "";
-      if(apr[1]){ doc.aprov2 = apr[1].id; doc.aprov2Nome = apr[1].nome || ""; }
+    if(!isAdmin() && state.perfil && state.perfil.abonoSemAprovacao && abnNivelDe(state.perfil) !== "dp"){
+      // autorizado no cadastro: já nasce aprovado e segue para o DP lançar no ponto
+      doc.status = "aprovado"; doc.semAprovacao = true; doc.decididoPor = state.email; doc.decididoEm = doc.solicitadoEm;
+    } else if(!isAdmin() && apr.length){
+      var pe = aprovPorEtapa(apr);
+      if(pe.e1.length){
+        doc.aprov1 = pe.e1[0].id; doc.aprov1Nome = pe.e1[0].nome || "";
+        doc.aprov1Lista = pe.e1.map(function(p){ return {id:p.id, nome:p.nome || ""}; });
+      }
+      if(pe.e2[0]){ doc.aprov2 = pe.e2[0].id; doc.aprov2Nome = pe.e2[0].nome || ""; }
     }
     return doc;
   }
@@ -3333,7 +3354,7 @@
       $("abnSalvar").disabled = false;
       if(feitos){
         $("modalAbono").classList.remove("show");
-        abnMsg(feitos + " solicitaç" + (feitos === 1 ? "ão enviada" : "ões enviadas") + " para aprovação" + (primeiroDoc && primeiroDoc.aprov1 ? " de " + abnAprovadoresTxt(primeiroDoc) : "") + "." +
+        abnMsg(feitos + " solicitaç" + (feitos === 1 ? "ão enviada" : "ões enviadas") + (primeiroDoc && primeiroDoc.semAprovacao ? " — sem necessidade de aprovação (já aprovadas; o DP lança no ponto)" : " para aprovação" + (primeiroDoc && primeiroDoc.aprov1 ? " de " + abnAprovadoresTxt(primeiroDoc) : "")) + "." +
           (ignoradas ? " " + ignoradas + " ocorrência(s) ignorada(s) (já solicitadas ou fora do prazo)." : "") + (falhas ? " " + falhas + " não foram salvas — tente de novo com as que faltam." : ""), falhas ? "warn" : "ok");
       } else { falha("Não consegui salvar as solicitações. Tente de novo."); abnAtualizarSelecao(); }
       return;
@@ -3355,7 +3376,7 @@
     try{
       await col.doc(id).set(doc);
       $("modalAbono").classList.remove("show");
-      abnMsg("Solicitação " + id + " enviada para aprovação" + (doc.aprov1 ? " de " + abnAprovadoresTxt(doc) : "") + ".");
+      abnMsg("Solicitação " + id + (doc.semAprovacao ? " registrada — sem necessidade de aprovação (já aprovada; o DP lança no ponto)." : " enviada para aprovação" + (doc.aprov1 ? " de " + abnAprovadoresTxt(doc) : "") + "."));
     }catch(e){ falha("Não consegui salvar: " + ((e && (e.code || e.message)) || "tente de novo.")); }
     $("abnSalvar").disabled = false;
   }
@@ -3660,7 +3681,28 @@
     });
     var bl = $("cadLimparFiltros"); bl.style.display = (n || cadXl.ordem) ? "" : "none"; bl.textContent = "✕ Limpar filtros" + (n ? " (" + n + ")" : "");
   }
-  var xlCtxs = {dia:{est:dia, aplicar:diaAplicar, render:function(){ renderDiario(); }}, cad:{est:cadXl, aplicar:cadAplicar, render:function(){ renderCadastro(); }}};
+  // Grade do mês > Sábados trabalhados: mesma mecânica (linhas = funcionários; colunas = nome, cada sábado, totais, 3º em diante)
+  var sabXl = {rowsTodas:[], filtros:{}, ordem:null, col:null};
+  function sabAplicar(exceto){
+    var out = sabXl.rowsTodas.filter(function(r){
+      return Object.keys(sabXl.filtros).every(function(k){ return k === exceto || !sabXl.filtros[k] || !(k in r) || sabXl.filtros[k][r[k]]; });
+    });
+    var o = sabXl.ordem && !exceto ? sabXl.ordem : {col:"nome", dir:1};
+    if(!exceto) out = out.slice().sort(function(x, y){ return o.dir * xlCmp(o.col, x, y) || xlCmp("nome", x, y); });
+    return out;
+  }
+  function sabAtualizarCabecalho(){
+    var n = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('.xl-btn[data-xl-ctx="sab"]'), function(b){
+      var k = b.getAttribute("data-xl"), on = !!sabXl.filtros[k] || !!(sabXl.ordem && sabXl.ordem.col === k);
+      b.classList.toggle("on", on);
+      b.textContent = sabXl.ordem && sabXl.ordem.col === k ? (sabXl.ordem.dir > 0 ? "▲" : "▼") : (sabXl.filtros[k] ? "⧩" : "▾");
+      if(sabXl.filtros[k]) n++;
+    });
+    var bl = $("sabLimparFiltros"); bl.style.display = (n || sabXl.ordem) ? "" : "none"; bl.textContent = "✕ Limpar filtros" + (n ? " (" + n + ")" : "");
+  }
+  var xlCtxs = {dia:{est:dia, aplicar:diaAplicar, render:function(){ renderDiario(); }}, cad:{est:cadXl, aplicar:cadAplicar, render:function(){ renderCadastro(); }},
+                sab:{est:sabXl, aplicar:sabAplicar, render:function(){ renderGrade(); }}};
   var xlCtx = xlCtxs.dia;
   function xlMontar(){
     if(xl.pop) return;
@@ -4985,6 +5027,25 @@
 
   function renderGradeHoras(p, modo){
     var g = dadosGradeHoras(p, modo);
+    var dmF = function(iso){ return iso.slice(8)+"/"+iso.slice(5,7); };
+    if(modo === "sab"){
+      // linhas filtráveis (um valor de texto por coluna) -> aplica filtros/ordem do cabeçalho; totais passam a valer só para o que está visível
+      sabXl.rowsTodas = g.linhas.map(function(l){
+        var r = {nome:funcName(l.fid), l:l, sab:String(l.qtd || "—"), "_o_sab":l.qtd, horas:fmtHM(l.totMin) || "—", "_o_horas":l.totMin,
+                 terc:g.dias.map(function(iso, i){ return l.terc[i] ? dmF(iso)+" ("+l.ord[i]+"º)" : ""; }).filter(Boolean).join(", ") || "—"};
+        g.dias.forEach(function(iso, i){ r["d_"+iso] = l.cel[i] ? "✓ Trabalhou" : "Não trabalhou"; r["_o_d_"+iso] = l.cel[i]; });
+        return r;
+      });
+      var visiveis = sabAplicar();
+      g.linhas = visiveis.map(function(r){ return r.l; });
+      g.totDia = g.dias.map(function(iso, i){
+        var soma = 0, pess = 0, t3 = 0;
+        g.linhas.forEach(function(l){ if(l.cel[i]){ soma += l.cel[i]; pess++; if(l.terc[i]) t3++; } });
+        return {min:soma, pess:pess, terc:t3};
+      });
+      $("buscaGradeInfo").textContent = visiveis.length !== sabXl.rowsTodas.length ? visiveis.length + " de " + sabXl.rowsTodas.length + " funcionários" : "";
+    }
+    var xb = function(k, t){ return modo === "sab" ? '<button class="xl-btn" data-xl-ctx="sab" data-xl="'+k+'" type="button" title="Filtrar / ordenar'+(t?" — "+t:"")+'">▾</button>' : ""; };
     var clsDia = function(iso){ return (isWeekend(iso)?"weekend":"") + (feriadoDoDia(iso)?" feriado":""); };
     var tituloDia = function(iso){ return feriadoDoDia(iso) ? ' title="Feriado '+feriadoDoDia(iso)+'"' : ""; };
     var dm = function(iso){ return iso.slice(8)+"/"+iso.slice(5,7); };
@@ -4998,12 +5059,12 @@
 
     var colTot1 = modo === "sab" ? "Sáb." : "Extras";
     var colTot2 = modo === "sab" ? "Horas" : "Dias";
-    var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário</th>';
+    var thead = '<thead><tr><th class="col-nome" rowspan="2">Funcionário'+xb("nome")+'</th>';
     g.dias.forEach(function(iso){ thead += '<th class="weekday-row '+clsDia(iso)+'"'+tituloDia(iso)+'>'+weekdayLabel(iso)+"</th>"; });
-    thead += '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Sábados trabalhados no período":"Total de horas extras no período")+'">'+colTot1+'</th>'+
-             '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Horas trabalhadas nos sábados":"Dias com hora extra")+'">'+colTot2+'</th>'+
-             (modo==="sab" ? '<th class="col-total" rowspan="2" title="Datas do 3º sábado trabalhado por esta pessoa no fechamento e dos seguintes (4º, 5º…)">3º em diante</th>' : '')+'</tr><tr>';
-    g.dias.forEach(function(iso){ thead += '<th class="'+clsDia(iso)+'"'+tituloDia(iso)+'>'+rotuloDia(iso, p.multiMes)+"</th>"; });
+    thead += '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Sábados trabalhados no período":"Total de horas extras no período")+'">'+colTot1+xb("sab")+'</th>'+
+             '<th class="col-total" rowspan="2" title="'+(modo==="sab"?"Horas trabalhadas nos sábados":"Dias com hora extra")+'">'+colTot2+xb("horas")+'</th>'+
+             (modo==="sab" ? '<th class="col-total" rowspan="2" title="Datas do 3º sábado trabalhado por esta pessoa no fechamento e dos seguintes (4º, 5º…)">3º em diante'+xb("terc")+'</th>' : '')+'</tr><tr>';
+    g.dias.forEach(function(iso){ thead += '<th class="'+clsDia(iso)+'"'+tituloDia(iso)+'>'+rotuloDia(iso, p.multiMes)+xb("d_"+iso, "sábado "+dmF(iso))+"</th>"; });
     thead += "</tr></thead>";
 
     var tbody = "<tbody>";
@@ -5036,6 +5097,7 @@
     table.innerHTML = thead + tbody;
     table.classList.add("read-only");
     table.classList.toggle("modo-sab", modo === "sab");
+    if(modo === "sab") sabAtualizarCabecalho(); else $("sabLimparFiltros").style.display = "none";
   }
 
   // ---------- mini calendário (feriados) ----------
@@ -6492,12 +6554,12 @@
       if(deps.length) empTxt += '<br><span style="color:var(--text-faint);font-size:11.5px;">Departamentos: '+deps.map(escapeHtml).join(", ")+'</span>';
       var estado = u.ativo === false ? "desativado" : (cad ? "ativo" : "antiga");
       var dot = '<span class="usu-dot ' + estado + '" title="' + (estado === "ativo" ? "Ativo" : (estado === "desativado" ? "Desativado" : "Sem cadastro completo")) + ' · ' + (u.senhaHash ? "senha própria" : "senha padrão") + '"></span>';
-      return '<tr><td class="sel"><input type="checkbox" data-usu-sel="'+escapeHtml(email)+'"'+(usu.sel[email] && !motivo ? ' checked' : '')+(motivo ? ' disabled title="'+escapeHtml(motivo)+'"' : '')+'></td><td class="nome">'+dot+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(idLegivel(email))+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td><td>'+(abasDe(u).length === ABAS_TODAS.length ? "Todas as abas" : (abasDe(u).map(function(k){ return (ABAS_TODAS.filter(function(a){ return a[0] === k; })[0] || [0, k])[1]; }).join(", ") || "Nenhuma"))+(visaoDiarioDe(u) === "lideranca" ? '<span class="abn-nivel">Diário: só os liderados</span>' : "")+'<span class="abn-nivel">Abonos: '+escapeHtml(abnNivelDe(u) === "dp" ? "visualização total" : "solicita · vê " + (visaoDe(u) === "todos" ? "todos" : "só liderança"))+((u.aprovadores || []).length ? "<br>Aprovam: " + (u.aprovadores || []).map(function(p){ return escapeHtml(p.nome); }).join(" → ") : (abnNivelDe(u) === "dp" ? "" : '<br><b style="color:var(--warn);">sem aprovador definido</b>'))+'</span></td>'+
+      return '<tr><td class="sel"><input type="checkbox" data-usu-sel="'+escapeHtml(email)+'"'+(usu.sel[email] && !motivo ? ' checked' : '')+(motivo ? ' disabled title="'+escapeHtml(motivo)+'"' : '')+'></td><td class="nome">'+dot+escapeHtml(u.nome||"—")+'</td><td>'+escapeHtml(idLegivel(email))+'</td><td>'+escapeHtml(u.setor||"—")+'</td><td>'+empTxt+'</td>'+
         '<td style="white-space:nowrap;"><button class="btn-ghost btn-sm" data-usu-edit="'+escapeHtml(email)+'">Editar</button> '+
         (cad && !ehCpfId(email) ? '<button class="btn-ghost btn-sm" data-usu-mail="'+escapeHtml(email)+'" title="Enviar o e-mail de confirmação de cadastro e acesso">E-mail</button> ' : "")+
         (cad ? '<button class="btn-ghost btn-sm" data-usu-ativo="'+escapeHtml(email)+'">'+(u.ativo===false?"Ativar":"Desativar")+'</button> ' : "")+
         '<button class="btn-ghost btn-sm" data-usu-del="'+escapeHtml(email)+'">'+(usu.confirmaDel===email?"Confirmar exclusão":"Excluir")+'</button></td></tr>';
-    }).join("") : '<tr class="empty-row"><td colspan="7">'+(todos.length ? "Nenhum usuário encontrado com esses filtros." : "Nenhum usuário cadastrado ainda.")+'</td></tr>';
+    }).join("") : '<tr class="empty-row"><td colspan="6">'+(todos.length ? "Nenhum usuário encontrado com esses filtros." : "Nenhum usuário cadastrado ainda.")+'</td></tr>';
     Array.prototype.forEach.call($("usuTbody").querySelectorAll("[data-usu-sel]"), function(el){
       el.addEventListener("change", function(){ usu.sel[el.getAttribute("data-usu-sel")] = el.checked; renderLoteBar(); });
     });
@@ -6611,7 +6673,7 @@
   function limparFormUsuario(){
     usu.editando = null; usu.empresas = {}; usu.deptos = {};
     ["usuNome","usuEmail","usuSenha"].forEach(function(id){ $(id).value = ""; });
-    $("usuEmail").disabled = false; $("usuSetor").value = "Engenharia"; usu.abas = {}; ABAS_TODAS.forEach(function(a){ usu.abas[a[0]] = true; }); usu.aprov = ["", ""]; $("usuNivel").value = "solicitacao"; $("usuVisao").value = "lideranca"; $("usuVisaoDiario").value = "todos"; usuAtualizarVisao();
+    $("usuEmail").disabled = false; $("usuSetor").value = "Engenharia"; usu.abas = {}; ABAS_TODAS.forEach(function(a){ usu.abas[a[0]] = true; }); usu.aprov = {e1:[], e2:""}; $("usuSemAprov").checked = false; $("usuNivel").value = "solicitacao"; $("usuVisao").value = "lideranca"; $("usuVisaoDiario").value = "todos"; usuAtualizarVisao();
     $("usuTitulo").textContent = "Novo cadastro"; $("usuSalvar").textContent = "Salvar usuário";
     $("usuSenha").placeholder = "em branco = senha padrão";
     $("usuErro").classList.remove("show");
@@ -6630,7 +6692,7 @@
       usu.deptos[k] = {}; (u.departamentos[k] || []).forEach(function(d){ usu.deptos[k][deptKey(d)] = true; });
     });
     $("usuNome").value = u.nome || nomeBonito(email); $("usuEmail").value = idLegivel(email); $("usuEmail").disabled = true;
-    usu.abas = {}; abasDe(u).forEach(function(k){ usu.abas[k] = true; }); usu.aprov = [((u.aprovadores || [])[0] || {}).id || "", ((u.aprovadores || [])[1] || {}).id || ""]; $("usuNivel").value = abnNivelDe(u) === "dp" ? "dp" : "solicitacao"; $("usuVisao").value = visaoDe(u); $("usuVisaoDiario").value = visaoDiarioDe(u); usuAtualizarVisao();
+    usu.abas = {}; abasDe(u).forEach(function(k){ usu.abas[k] = true; }); var pe = aprovPorEtapa(u.aprovadores); usu.aprov = {e1:pe.e1.map(function(p){ return p.id; }), e2:(pe.e2[0] || {}).id || ""}; $("usuSemAprov").checked = !!u.abonoSemAprovacao; $("usuNivel").value = abnNivelDe(u) === "dp" ? "dp" : "solicitacao"; $("usuVisao").value = visaoDe(u); $("usuVisaoDiario").value = visaoDiarioDe(u); usuAtualizarVisao();
     $("usuSenha").value = ""; $("usuSenha").placeholder = "deixe em branco para manter a atual";
     $("usuSetor").value = u.setor === "DP" ? "DP" : "Engenharia";
     $("usuTitulo").textContent = "Editar usuário"; $("usuSalvar").textContent = "Salvar alterações";
@@ -6650,7 +6712,9 @@
     if(!isAdmin() || !state.db) return;
     var nome = $("usuNome").value.trim(), email = normId($("usuEmail").value), senha = $("usuSenha").value, setor = $("usuSetor").value;
     var abas = ABAS_TODAS.map(function(a){ return a[0]; }).filter(function(k){ return usu.abas[k]; }), nivel = $("usuNivel").value === "dp" ? "dp" : "solicitacao", visao = (nivel === "dp" || $("usuVisao").value === "todos") ? "todos" : "lideranca";
-    var ap = [$("usuAprov1").value, $("usuAprov2").value].filter(function(x){ return x; });
+    var semAprov = $("usuSemAprov").checked && nivel !== "dp";
+    var ap1 = semAprov ? [] : (usu.aprov && usu.aprov.e1 || []).slice(), ap2 = semAprov ? "" : (usu.aprov && usu.aprov.e2 || "");
+    var ap = ap1.concat(ap2 ? [ap2] : []);
     var acesso = (abas.length === 1 && abas[0] === "abonos") ? "abonos" : "completo";
     var empresas = opcoesEmpresas().filter(function(n){ return usu.empresas[normCompanyName(n)]; });
     if(!nome){ falha("Informe o nome."); return; }
@@ -6661,15 +6725,16 @@
     if(senha && senha.length < 6){ falha("A senha precisa ter pelo menos 6 caracteres."); return; }
     if(!abas.length){ falha("Marque ao menos uma aba no nível de acesso."); return; }
     if(!empresas.length){ falha("Marque ao menos uma empresa de acesso."); return; }
-    if(nivel !== "dp" && !ap.length){ falha("Escolha quem aprova as solicitações desta pessoa (pelo menos a 1ª etapa)."); return; }
-    if(ap.length === 2 && ap[0] === ap[1]){ falha("A 1ª e a 2ª etapa precisam ser pessoas diferentes."); return; }
+    if(nivel !== "dp" && !semAprov && !ap1.length){ falha("Escolha quem aprova as solicitações desta pessoa (pelo menos uma pessoa na 1ª etapa) ou marque \"Pode solicitar abonos sem aprovação\"."); return; }
+    if(ap2 && !ap1.length){ falha("A 2ª etapa só vale se houver pelo menos uma pessoa na 1ª."); return; }
+    if(ap2 && ap1.indexOf(ap2) >= 0){ falha("A 1ª e a 2ª etapa precisam ser pessoas diferentes."); return; }
     if(ap.indexOf(email) >= 0){ falha("A pessoa não pode aprovar as próprias solicitações."); return; }
     var aprovadores = [];
     for(var q = 0; q < ap.length; q++){
       var au = usu.map[ap[q]], isAd = ADMIN_EMAILS.map(normEmail).indexOf(ap[q]) >= 0;
       if(!isAd && (!au || au.ativo === false)){ falha("O aprovador escolhido não está ativo no cadastro."); return; }
       if(!isAd && abasDe(au).indexOf("abonos") < 0){ falha((au.nome || ap[q]) + " não tem a aba Solicitações de abonos liberada — ajuste o cadastro dessa pessoa antes."); return; }
-      aprovadores.push({id:ap[q], nome:isAd ? "Administração" : (au.nome || nomeBonito(ap[q]))});
+      aprovadores.push({id:ap[q], nome:isAd ? "Administração" : (au.nome || nomeBonito(ap[q])), etapa:(q < ap1.length ? 1 : 2)});
     }
     var agora = new Date().toISOString();
     var departamentos = {};
@@ -6679,7 +6744,7 @@
       var marc = e.deptos.filter(function(d){ return (usu.deptos[ek] || {})[deptKey(d)]; });
       if(marc.length && marc.length < e.deptos.length) departamentos[ek] = marc;   // todos marcados = sem restrição
     });
-    var campos = {nome:nome, email:(ehCpfId(email) ? "" : email), cpf:(ehCpfId(email) ? email : ""), acesso:acesso, abas:abas, visaoFunc:visao, visaoDiario:($("usuVisaoDiario").value === "lideranca" ? "lideranca" : "todos"), abonoNivel:nivel, aprovadores:aprovadores, setor:setor, empresas:empresas, departamentos:departamentos, ativo:(existente && existente.ativo === false) ? false : true, atualizadoEm:agora, atualizadoPor:state.email};
+    var campos = {nome:nome, email:(ehCpfId(email) ? "" : email), cpf:(ehCpfId(email) ? email : ""), acesso:acesso, abas:abas, visaoFunc:visao, visaoDiario:($("usuVisaoDiario").value === "lideranca" ? "lideranca" : "todos"), abonoNivel:nivel, abonoSemAprovacao:semAprov, aprovadores:aprovadores, setor:setor, empresas:empresas, departamentos:departamentos, ativo:(existente && existente.ativo === false) ? false : true, atualizadoEm:agora, atualizadoPor:state.email};
     if(!existente || !existente.criadoEm){ campos.criadoEm = agora; campos.criadoPor = state.email; }
     if(senha) campos.senhaHash = await sha256Hex(senha);
     try{
@@ -6722,12 +6787,15 @@
     $("usuVisao").disabled = dp;
     if(dp) $("usuVisao").value = "todos";
     $("usuVisao").title = dp ? "A visualização total (DP) enxerga todos os funcionários." : "";
-    $("usuAprov1").previousElementSibling.textContent = "Quem aprova — 1ª etapa" + (dp ? " (opcional)" : "");
+    $("usuAprov1Rot").textContent = "Quem aprova — 1ª etapa (pode marcar mais de uma pessoa)" + (dp ? " · opcional" : "");
+    var sem = $("usuSemAprov").checked && !dp;
+    $("usuSemAprov").disabled = dp;
+    $("usuAprov1Field").style.display = sem ? "none" : ""; $("usuAprov2Field").style.display = sem ? "none" : "";
     usuRenderAprovadores();
   }
   // Candidatos a aprovador: usuários ativos já cadastrados (menos a própria pessoa) e a administração.
   function usuRenderAprovadores(){
-    if(!usu.aprov) usu.aprov = ["", ""];
+    if(!usu.aprov) usu.aprov = {e1:[], e2:""};
     var eu = usu.editando, cand = [];
     Object.keys(usu.map).forEach(function(id){
       var u = usu.map[id]; if(id === eu || u.ativo === false || !(u.setor || u.empresas)) return;
@@ -6735,15 +6803,29 @@
     });
     ADMIN_EMAILS.forEach(function(e){ e = normEmail(e); if(e !== eu && !usu.map[e]) cand.push({id:e, nome:"Administração", setor:"", semAba:false}); });
     cand.sort(function(a, b){ return a.nome.localeCompare(b.nome); });
-    [1, 2].forEach(function(n){
-      var sel = $("usuAprov" + n), atual = usu.aprov[n - 1] || "";
-      var ops = '<option value="">' + (n === 1 ? "Escolher…" : "Sem 2ª etapa") + "</option>";
-      ops += cand.map(function(c){ return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.nome) + (c.setor ? " · " + escapeHtml(c.setor) : "") + (c.semAba ? " (sem aba de abonos)" : "") + "</option>"; }).join("");
-      if(atual && !cand.some(function(c){ return c.id === atual; })) ops += '<option value="' + escapeHtml(atual) + '">' + escapeHtml(nomeBonito(atual)) + " (indisponível)</option>";
-      sel.innerHTML = ops; sel.value = atual;
+    var rot = function(c){ return c.nome + (c.setor ? " · " + c.setor : "") + (c.semAba ? " (sem aba de abonos)" : ""); };
+    // 1ª etapa: várias pessoas (lista com caixas de marcação e pesquisa)
+    var box = $("usuAprov1"), e1 = usu.aprov.e1;
+    var extras = e1.filter(function(id){ return !cand.some(function(c){ return c.id === id; }); }).map(function(id){ return {id:id, nome:nomeBonito(id) + " (indisponível)", setor:"", semAba:false}; });
+    box.innerHTML = extras.concat(cand).map(function(c){ return '<label class="usu-emp"><input type="checkbox" data-usuap1="' + escapeHtml(c.id) + '"' + (e1.indexOf(c.id) >= 0 ? " checked" : "") + "> " + escapeHtml(rot(c)) + "</label>"; }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-usuap1]"), function(el){
+      el.addEventListener("change", function(){
+        var id = el.getAttribute("data-usuap1"), k = usu.aprov.e1.indexOf(id);
+        if(el.checked && k < 0) usu.aprov.e1.push(id); else if(!el.checked && k >= 0) usu.aprov.e1.splice(k, 1);
+        usuRenderAprovadores();
+      });
     });
+    multiFiltrarTodos();
+    var nomes = e1.map(function(id){ var c = extras.concat(cand).filter(function(x){ return x.id === id; })[0]; return c ? c.nome : nomeBonito(id); });
+    $("usuAprov1Resumo").textContent = !nomes.length ? "Escolher…" : nomes.join(" ou ");
+    // 2ª etapa: uma pessoa (opcional)
+    var sel = $("usuAprov2"), atual = usu.aprov.e2 || "";
+    var ops = '<option value="">Sem 2ª etapa</option>' + cand.map(function(c){ return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(rot(c)) + "</option>"; }).join("");
+    if(atual && !cand.some(function(c){ return c.id === atual; })) ops += '<option value="' + escapeHtml(atual) + '">' + escapeHtml(nomeBonito(atual)) + " (indisponível)</option>";
+    sel.innerHTML = ops; sel.value = atual;
   }
-  ["usuAprov1", "usuAprov2"].forEach(function(id, i){ $(id).addEventListener("change", function(){ if(!usu.aprov) usu.aprov = ["", ""]; usu.aprov[i] = this.value; }); });
+  $("usuAprov2").addEventListener("change", function(){ if(!usu.aprov) usu.aprov = {e1:[], e2:""}; usu.aprov.e2 = this.value; });
+  $("usuSemAprov").addEventListener("change", usuAtualizarVisao);
   $("usuNivel").addEventListener("change", usuAtualizarVisao);
   $("usuSetor").addEventListener("change", usuAtualizarVisao);
   // ===== Pesquisa nas listas de marcação (abas / empresas) =====
@@ -6921,6 +7003,7 @@
   $("btnMenu").addEventListener("click", function(){ document.body.classList.toggle("menu-open"); });
   $("sideBackdrop").addEventListener("click", function(){ document.body.classList.remove("menu-open"); });
   $("diaSelecionado").addEventListener("change", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderAll(); });
+  $("sabLimparFiltros").addEventListener("click", function(){ sabXl.filtros = {}; sabXl.ordem = null; xlFechar(); renderGrade(); });
   $("cadLimparFiltros").addEventListener("click", function(){ cadXl.filtros = {}; cadXl.ordem = null; xlFechar(); renderCadastro(); });
   $("diaLimparFiltros").addEventListener("click", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderDiario(); });
   $("deptFiltro").addEventListener("change", function(){ state.deptFiltro = this.value; renderAll(); });
