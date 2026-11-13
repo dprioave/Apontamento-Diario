@@ -3139,7 +3139,7 @@
       if(dp && st === "aprovado") acoes += '<label class="abn-flag" title="Marque depois de lançar o abono no sistema de ponto; ele passa para a lista de baixo"><input type="checkbox" data-abn-flag="' + escapeHtml(a.id) + '"' + (a.lancadoPonto ? " checked" : "") + "> Lançado no ponto</label>";
       if(isAdmin()) acoes += '<button class="btn-ghost btn-sm" data-abn="excluir" data-id="' + escapeHtml(a.id) + '" title="Apaga a solicitação definitivamente">Excluir</button>';
       return "<tr><td class=\"num\">" + escapeHtml(a.id) + "</td><td class=\"num\">" + escapeHtml(fmtDateBR(a.data)) + "</td>" +
-        "<td class=\"nome\">" + escapeHtml(a.funcNome || "—") + '<span class="abn-sub">' + escapeHtml(fmtFuncao(a.funcFuncao) || "") + "</span></td>" +
+        "<td class=\"nome\">" + (state.funcionarios[a.funcId] ? '<a href="#" class="nome-link" data-abn-func="' + escapeHtml(a.funcId) + '" title="Abrir o cadastro do funcionário">' + escapeHtml(a.funcNome || "—") + "</a>" : escapeHtml(a.funcNome || "—")) + '<span class="abn-sub">' + escapeHtml(fmtFuncao(a.funcFuncao) || "") + "</span></td>" +
         "<td>" + escapeHtml(tipo) + min + "</td><td class=\"abn-motivo\">" + escapeHtml(a.motivo || "") + "</td>" +
         '<td><span class="abn-status ' + escapeHtml(st) + '">' + escapeHtml(ABN_STATUS[st] || st) + "</span>" + dec + "</td>" +
         "<td>" + escapeHtml(a.solicitadoPorNome || nomeBonito(a.solicitadoPor)) + '<span class="abn-sub">' + escapeHtml(fmtDataHora(a.solicitadoEm)) + "</span></td>" +
@@ -3155,6 +3155,9 @@
     [corpo, $("abnTbodyLanc")].forEach(function(tb){
       Array.prototype.forEach.call(tb.querySelectorAll("[data-abn]"), function(b){
         b.addEventListener("click", function(){ abrirDecisaoAbono(b.getAttribute("data-id"), b.getAttribute("data-abn")); });
+      });
+      Array.prototype.forEach.call(tb.querySelectorAll("[data-abn-func]"), function(l){
+        l.addEventListener("click", function(ev){ ev.preventDefault(); openOcorrencias(l.getAttribute("data-abn-func")); });
       });
       Array.prototype.forEach.call(tb.querySelectorAll("[data-abn-flag]"), function(c){
         c.addEventListener("change", function(){ abnMarcarLancado(c.getAttribute("data-abn-flag"), c.checked); });
