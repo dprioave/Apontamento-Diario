@@ -886,7 +886,8 @@
         </div>
       </div>
 
-      <div class="search-box" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."><button class="btn-ghost btn-sm" id="cadLimparFiltros" type="button" style="display:none;"></button><label class="chk-fora" id="lblForaEscopo" style="display:none;" title="Pessoas dos departamentos que não são acompanhados: ficam escondidas de todas as telas, menos daqui"><input type="checkbox" id="chkForaEscopo"> <span id="txtForaEscopo"></span></label><label class="chk-fora" id="lblDesligAntigos" style="display:none;" title="Pessoas que saíram antes do mês atual ficam escondidas do Cadastro"><input type="checkbox" id="chkDesligAntigos"> <span id="txtDesligAntigos"></span></label></div>
+      <div class="search-box" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;"><input type="text" id="buscaFuncionario" placeholder="Buscar por nome ou matrícula..."><button class="btn-ghost btn-sm" id="btnExportCadastro" type="button" title="Baixa em Excel todos os funcionários desta obra que você pode ver (ativos e desligados)">⬇ Exportar Excel</button><button class="btn-ghost btn-sm" id="cadLimparFiltros" type="button" style="display:none;"></button><label class="chk-fora" id="lblForaEscopo" style="display:none;" title="Pessoas dos departamentos que não são acompanhados: ficam escondidas de todas as telas, menos daqui"><input type="checkbox" id="chkForaEscopo"> <span id="txtForaEscopo"></span></label><label class="chk-fora" id="lblDesligAntigos" style="display:none;" title="Pessoas que saíram antes do mês atual ficam escondidas do Cadastro"><input type="checkbox" id="chkDesligAntigos"> <span id="txtDesligAntigos"></span></label></div>
+      <div class="status-msg" id="cadExportMsg"></div>
       <div class="cad-lote" id="cadLote"><span id="cadLoteTxt"></span>
         <button class="btn btn-sm" id="cadLoteLider" type="button">Definir liderança</button>
         <button class="btn-ghost btn-sm" id="cadLoteLimpar" type="button">Limpar seleção</button></div>
@@ -5288,6 +5289,45 @@
   // "Usuários e acessos", visível só para a administração.)
   function renderAcessos(){ renderIgnorados(); }
 
+  // Extrai o cadastro completo da obra em Excel (ativos e desligados, sem os filtros/busca da tela). Vale para qualquer usuário, mas
+  // só traz quem ele pode ver (visão por liderança e departamentos liberados); "fora do escopo" só para quem não tem restrição.
+  async function exportarCadastroExcel(){
+    var msg = $("cadExportMsg");
+    if(!state.obraId){ return; }
+    var perm = deptsPermitidosDoUsuario(), restrito = diarioRestrito(), meus = restrito ? abnMeusFuncIds() : null;
+    var ids = Object.keys(state.funcionarios).filter(function(id){
+      var f = state.funcionarios[id];
+      if(restrito && !meus[id]) return false;
+      if(f.foraEscopo === true) return !perm && !restrito;
+      return !perm || perm.indexOf(deptKey(f.departamento)) >= 0;
+    }).sort(function(a, b){ return funcName(a).localeCompare(funcName(b)); });
+    if(!ids.length){ msg.className = "status-msg show error"; msg.textContent = "Não há funcionários para exportar."; return; }
+    var obraNome = (state.obras[state.obraId] || {}).nome || "obra", hoje = todayIso();
+    var wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Funcionários");
+    var cols = [["Matrícula", 12], ["Nome", 40], ["Função", 30], ["Departamento", 24], ["Admissão", 12], ["Demissão", 12], ["Tempo de empresa", 24], ["Situação", 12], ["Bate ponto", 12], ["Escopo", 14], ["Liderança", 44]];
+    ws.columns = cols.map(function(c){ return {header:c[0], width:c[1]}; });
+    var cab = ws.getRow(1); cab.font = {bold:true, color:{argb:"FFFFFFFF"}}; cab.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF2B3A55"}}; cab.height = 22; cab.alignment = {vertical:"middle"};
+    var dt = function(iso){ return iso ? new Date(iso + "T12:00:00") : null; };
+    ids.forEach(function(id){
+      var f = state.funcionarios[id], fim = f.inativo ? f.demissao : hoje, tmp = (f.admissao && fim) ? tempoEntre(f.admissao, fim) : null;
+      var lid = (f.liderancas || []).map(function(l){ return l.nome || idLegivel(l.id); }).join("; ");
+      var r = ws.addRow([String(f.matricula || ""), funcName(id), fmtFuncao(f.funcao) || "", f.departamento || "", dt(f.admissao), dt(f.demissao), tmp ? fmtTempo(tmp) : "",
+        f.inativo ? "Desligado" : "Ativo", foraEscopo(id) ? "Não" : (batePonto(id) ? "Sim" : "Não"), f.foraEscopo === true ? "Fora do escopo" : "Acompanhado", lid]);
+      if(f.admissao) r.getCell(5).numFmt = "dd/mm/yyyy";
+      if(f.demissao) r.getCell(6).numFmt = "dd/mm/yyyy";
+      r.getCell(1).numFmt = "@";
+      if(f.inativo) r.font = {color:{argb:"FF8A8F98"}};
+    });
+    ws.views = [{state:"frozen", xSplit:2, ySplit:1}];
+    ws.autoFilter = {from:{row:1, column:1}, to:{row:ids.length + 1, column:cols.length}};
+    try{
+      var buf = await wb.xlsx.writeBuffer();
+      await saveFile("Cadastro - " + obraNome + " - " + hoje + ".xlsx", new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+      var nDes = ids.filter(function(id){ return state.funcionarios[id].inativo; }).length;
+      msg.className = "status-msg show ok"; msg.textContent = "Planilha gerada com " + ids.length + " funcionário(s) (" + (ids.length - nDes) + " ativo(s) e " + nDes + " desligado(s)).";
+    }catch(e){ msg.className = "status-msg show error"; msg.textContent = "Não consegui gerar a planilha: " + ((e && e.message) || "tente de novo."); }
+  }
+
   function renderCadastro(){
     var readOnly = isReadOnly();
     $("importCadastroPanel").style.display = readOnly ? "none" : "block";
@@ -7007,6 +7047,7 @@
   $("sideBackdrop").addEventListener("click", function(){ document.body.classList.remove("menu-open"); });
   $("diaSelecionado").addEventListener("change", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderAll(); });
   $("sabLimparFiltros").addEventListener("click", function(){ sabXl.filtros = {}; sabXl.ordem = null; xlFechar(); renderGrade(); });
+  $("btnExportCadastro").addEventListener("click", exportarCadastroExcel);
   $("cadLimparFiltros").addEventListener("click", function(){ cadXl.filtros = {}; cadXl.ordem = null; xlFechar(); renderCadastro(); });
   $("diaLimparFiltros").addEventListener("click", function(){ dia.filtros = {}; dia.ordem = null; xlFechar(); renderDiario(); });
   $("deptFiltro").addEventListener("change", function(){ state.deptFiltro = this.value; renderAll(); });
